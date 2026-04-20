@@ -30,6 +30,14 @@ public class ChildProcess implements AutoCloseable {
         return process.pid();
     }
 
+    public java.io.OutputStream stdin() {
+        return process.getOutputStream();
+    }
+
+    public java.io.InputStream stdout() {
+        return process.getInputStream();
+    }
+
     @Override
     public void close() {
         if (process == null || !process.isAlive()) {

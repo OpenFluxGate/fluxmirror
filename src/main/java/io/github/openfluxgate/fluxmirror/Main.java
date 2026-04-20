@@ -1,6 +1,7 @@
 package io.github.openfluxgate.fluxmirror;
 
 import io.github.openfluxgate.fluxmirror.bridge.ChildProcess;
+import io.github.openfluxgate.fluxmirror.bridge.StdioBridge;
 import io.github.openfluxgate.fluxmirror.cli.CliArgs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,7 +20,7 @@ public class Main {
 
         log.info("spawned pid={}, server-name={}", child.pid(), cli.serverName());
 
-        // Placeholder — will be replaced by stdio relay in Step 3
-        Thread.sleep(2000);
+        StdioBridge bridge = new StdioBridge(System.in, System.out, child);
+        bridge.run();
     }
 }
