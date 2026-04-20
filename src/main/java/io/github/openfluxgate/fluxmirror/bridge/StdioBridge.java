@@ -1,5 +1,6 @@
 package io.github.openfluxgate.fluxmirror.bridge;
 
+import io.github.openfluxgate.fluxmirror.model.Event;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -8,6 +9,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
 
 public class StdioBridge {
 
@@ -20,14 +22,19 @@ public class StdioBridge {
     private final ChildProcess child;
     private final OutputStream captureC2s;
     private final OutputStream captureS2c;
+    private final BlockingQueue<Event> eventQueue;
+    private final String serverName;
 
     public StdioBridge(InputStream parentIn, OutputStream parentOut, ChildProcess child,
-                       OutputStream captureC2s, OutputStream captureS2c) {
+                       OutputStream captureC2s, OutputStream captureS2c,
+                       BlockingQueue<Event> eventQueue, String serverName) {
         this.parentIn = parentIn;
         this.parentOut = parentOut;
         this.child = child;
         this.captureC2s = captureC2s;
         this.captureS2c = captureS2c;
+        this.eventQueue = eventQueue;
+        this.serverName = serverName;
     }
 
     public void run() throws InterruptedException {
@@ -43,6 +50,7 @@ public class StdioBridge {
     private void relay(InputStream in, OutputStream out, String direction, OutputStream capture) {
         boolean captureFailed = false;
         boolean framerFailed = false;
+        boolean queueFull = false;
         MessageFramer framer = new MessageFramer();
         byte[] buf = new byte[BUFFER_SIZE];
         try {
@@ -63,7 +71,7 @@ public class StdioBridge {
                     }
                 }
 
-                // 3. Framer + logging: best-effort
+                // 3. Framer + logging + event queue: best-effort
                 if (!framerFailed) {
                     try {
                         List<byte[]> messages = framer.feed(buf, 0, n);
@@ -74,6 +82,12 @@ public class StdioBridge {
                                         + "... (" + msg.length + " bytes total)";
                             }
                             log.info("[{}] {}", direction, text);
+
+                            Event event = new Event(System.currentTimeMillis(), direction, serverName, msg);
+                            if (!eventQueue.offer(event) && !queueFull) {
+                                queueFull = true;
+                                log.warn("event queue full, dropping events for direction={}", direction);
+                            }
                         }
                     } catch (Exception e) {
                         framerFailed = true;
