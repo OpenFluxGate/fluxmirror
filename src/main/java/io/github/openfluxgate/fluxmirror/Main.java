@@ -1,14 +1,25 @@
 package io.github.openfluxgate.fluxmirror;
 
+import io.github.openfluxgate.fluxmirror.bridge.ChildProcess;
 import io.github.openfluxgate.fluxmirror.cli.CliArgs;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class Main {
 
-    public static void main(String[] args) {
+    private static final Logger log = LoggerFactory.getLogger(Main.class);
+
+    public static void main(String[] args) throws Exception {
         CliArgs cli = CliArgs.parse(args);
 
-        System.err.println("server-name : " + cli.serverName());
-        System.err.println("db          : " + cli.dbPath());
-        System.err.println("server-cmd  : " + cli.serverCommand());
+        ChildProcess child = new ChildProcess(cli.serverCommand());
+        child.start();
+
+        Runtime.getRuntime().addShutdownHook(new Thread(child::close, "child-shutdown"));
+
+        log.info("spawned pid={}, server-name={}", child.pid(), cli.serverName());
+
+        // Placeholder — will be replaced by stdio relay in Step 3
+        Thread.sleep(2000);
     }
 }
