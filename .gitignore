@@ -1,0 +1,18 @@
+# Gradle
+.gradle/
+build/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+
+# FluxMirror runtime
+*.db
+*.db-journal
