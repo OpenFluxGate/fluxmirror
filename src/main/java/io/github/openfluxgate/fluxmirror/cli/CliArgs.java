@@ -1,16 +1,19 @@
 package io.github.openfluxgate.fluxmirror.cli;
 
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 
-public record CliArgs(String serverName, String dbPath, List<String> serverCommand) {
+public record CliArgs(String serverName, String dbPath, Path captureC2s, Path captureS2c, List<String> serverCommand) {
 
     private static final String USAGE =
-            "Usage: fluxmirror --server-name <name> --db <path> -- <server command...>";
+            "Usage: fluxmirror --server-name <name> --db <path> [--capture-c2s <path>] [--capture-s2c <path>] -- <server command...>";
 
     public static CliArgs parse(String[] args) {
         String serverName = null;
         String dbPath = null;
+        Path captureC2s = null;
+        Path captureS2c = null;
         List<String> serverCommand = List.of();
 
         int i = 0;
@@ -23,6 +26,14 @@ public record CliArgs(String serverName, String dbPath, List<String> serverComma
                 case "--db" -> {
                     if (++i >= args.length) throw new IllegalArgumentException("--db requires a value");
                     dbPath = args[i];
+                }
+                case "--capture-c2s" -> {
+                    if (++i >= args.length) throw new IllegalArgumentException("--capture-c2s requires a value");
+                    captureC2s = Path.of(args[i]);
+                }
+                case "--capture-s2c" -> {
+                    if (++i >= args.length) throw new IllegalArgumentException("--capture-s2c requires a value");
+                    captureS2c = Path.of(args[i]);
                 }
                 case "--" -> {
                     serverCommand = Arrays.asList(Arrays.copyOfRange(args, i + 1, args.length));
@@ -37,6 +48,6 @@ public record CliArgs(String serverName, String dbPath, List<String> serverComma
         if (dbPath == null) throw new IllegalArgumentException("--db is required\n" + USAGE);
         if (serverCommand.isEmpty()) throw new IllegalArgumentException("Server command is required after --\n" + USAGE);
 
-        return new CliArgs(serverName, dbPath, serverCommand);
+        return new CliArgs(serverName, dbPath, captureC2s, captureS2c, serverCommand);
     }
 }
