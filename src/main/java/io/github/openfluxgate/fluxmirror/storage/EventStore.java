@@ -38,7 +38,7 @@ public class EventStore implements AutoCloseable {
                     CREATE TABLE IF NOT EXISTS events (
                       id INTEGER PRIMARY KEY AUTOINCREMENT,
                       ts_ms INTEGER NOT NULL,
-                      direction TEXT NOT NULL CHECK (direction IN ('client_to_server', 'server_to_client')),
+                      direction TEXT NOT NULL CHECK (direction IN ('c2s', 's2c')),
                       method TEXT,
                       message_json TEXT NOT NULL,
                       server_name TEXT NOT NULL
@@ -56,11 +56,7 @@ public class EventStore implements AutoCloseable {
             for (Event event : events) {
                 String messageJson = new String(event.rawBytes(), StandardCharsets.UTF_8);
                 String method = extractMethod(event.rawBytes());
-                String direction = switch (event.direction()) {
-                    case "c2s" -> "client_to_server";
-                    case "s2c" -> "server_to_client";
-                    default -> event.direction();
-                };
+                String direction = event.direction();
 
                 insertStmt.setLong(1, event.tsMs());
                 insertStmt.setString(2, direction);
