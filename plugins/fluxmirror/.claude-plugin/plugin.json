@@ -1,0 +1,7 @@
+{
+  "name": "fluxmirror",
+  "version": "0.1.0",
+  "description": "Logs every Claude Code tool call to ~/.claude/session-logs/YYYY-MM-DD.jsonl as a PostToolUse hook.",
+  "author": { "name": "rojae" },
+  "homepage": "https://github.com/OpenFluxGate/fluxmirror"
+}

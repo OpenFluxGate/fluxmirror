@@ -1,0 +1,14 @@
+{
+  "name": "fluxmirror",
+  "owner": { "name": "rojae", "url": "https://github.com/rojae" },
+  "plugins": [
+    {
+      "name": "fluxmirror",
+      "source": "./plugins/fluxmirror",
+      "version": "0.1.0",
+      "description": "Audit Claude Code activity by logging every tool call to a daily JSONL file.",
+      "category": "observability",
+      "keywords": ["audit", "logging", "observability", "fluxmirror"]
+    }
+  ]
+}
