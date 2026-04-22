@@ -47,6 +47,9 @@ instead of `~/.claude/session-logs/` so each agent's history stays
 separate. Both can be merged or queried together since they share the
 same JSON schema.
 
+Qwen Code users don't need this extension — the Claude plugin installs
+directly via `qwen extensions install OpenFluxGate/fluxmirror:fluxmirror`.
+
 ## License
 
 MIT

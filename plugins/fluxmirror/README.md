@@ -28,6 +28,18 @@ Each line contains:
 /plugin install fluxmirror@fluxmirror
 ```
 
+## Also works on Qwen Code
+
+Qwen Code accepts Claude marketplace plugins directly. The same plugin
+installs and runs without modification:
+
+```bash
+qwen extensions install OpenFluxGate/fluxmirror:fluxmirror
+```
+
+Logs land in `~/.qwen/session-logs/` (separate from `~/.claude/session-logs/`).
+The JSONL format is identical.
+
 ## Requirements
 
 - `jq` must be on your PATH (pre-installed on macOS with Homebrew)
