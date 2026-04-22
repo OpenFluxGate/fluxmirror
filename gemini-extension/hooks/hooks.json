@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "AfterTool": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/session-log.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
