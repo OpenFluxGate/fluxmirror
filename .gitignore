@@ -16,3 +16,6 @@ build/
 # FluxMirror runtime
 *.db
 *.db-journal
+
+# Gemini extension release archives
+fluxmirror-gemini-extension-*.tar.gz

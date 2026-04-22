@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build gemini-extension archive
+        run: |
+          tar czf fluxmirror-gemini-extension-${{ github.ref_name }}.tar.gz -C gemini-extension .
+
+      - name: Verify archive structure
+        run: |
+          tar tzf fluxmirror-gemini-extension-${{ github.ref_name }}.tar.gz | grep -q '^./gemini-extension.json$' || exit 1
+
+      - name: Create release with archive
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          make_latest: true
+          files: fluxmirror-gemini-extension-${{ github.ref_name }}.tar.gz
