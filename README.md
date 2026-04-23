@@ -47,17 +47,17 @@ Logs to `~/.gemini/session-logs/YYYY-MM-DD.jsonl`. Details:
 
 ### Claude Desktop (MCP audit)
 
-For auditing Claude Desktop's MCP traffic (separate from Claude Code),
-build the Java proxy:
+Download the latest jar:
 
 ```bash
-git clone https://github.com/OpenFluxGate/fluxmirror.git
-cd fluxmirror
-./gradlew shadowJar
+curl -L -o ~/fluxmirror-mcp-proxy.jar \
+  https://github.com/OpenFluxGate/fluxmirror/releases/latest/download/fluxmirror-mcp-proxy.jar
 ```
 
-See [plugins/fluxmirror/README.md](plugins/fluxmirror/README.md) for
-the Claude Desktop config snippet.
+See [plugins/fluxmirror/README.md](plugins/fluxmirror/README.md) for the
+Claude Desktop config snippet.
+
+Requires Java 21 (`sdk install java 21.0.10-zulu`).
 
 ## Verify
 
