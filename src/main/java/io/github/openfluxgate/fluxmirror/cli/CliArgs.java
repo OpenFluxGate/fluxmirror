@@ -10,6 +10,11 @@ public record CliArgs(String serverName, String dbPath, Path captureC2s, Path ca
             "Usage: fluxmirror --server-name <name> --db <path> [--capture-c2s <path>] [--capture-s2c <path>] -- <server command...>";
 
     public static CliArgs parse(String[] args) {
+        if (args.length == 0 || "--help".equals(args[0]) || "-h".equals(args[0])) {
+            System.out.println(USAGE);
+            System.exit(0);
+        }
+
         String serverName = null;
         String dbPath = null;
         Path captureC2s = null;
