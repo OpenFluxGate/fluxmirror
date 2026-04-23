@@ -12,6 +12,11 @@ queryable record per agent, with no cross-contamination — useful for
 daily journals, billing review, security audits, or just understanding
 how you actually work.
 
+## Requirements
+
+- `jq` on PATH (for verification script and hooks): `brew install jq`
+- Java 21 (only if using Claude Desktop MCP proxy): `sdk install java 21.0.10-zulu`
+
 ## Install
 
 Choose the agents you use:
