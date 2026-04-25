@@ -1,0 +1,51 @@
+description = "Configure fluxmirror language and timezone preferences"
+prompt = """
+User arguments: {{args}}
+
+Parse {{args}} for `language <value>` and/or `timezone <value>`. Either,
+both, or neither may be present.
+
+Language mapping (normalise to lowercase canonical):
+- korean / ko / kr / 한국어 → korean
+- english / en / 영어 → english
+- japanese / ja / 日本語 → japanese
+- chinese / zh / 中文 → chinese
+
+Timezone mapping (normalise to IANA):
+- KST / Korean / Korea → Asia/Seoul
+- JST / Tokyo / Japan → Asia/Tokyo
+- PST / Pacific / California → America/Los_Angeles
+- EST / Eastern / New York → America/New_York
+- UTC / GMT → UTC
+- Already-IANA values (Asia/Seoul, America/New_York, …) → use as-is
+
+If both are missing, just print the current config and stop:
+
+!{cat "$HOME/.fluxmirror/config.json" 2>/dev/null || echo 'No config yet. Usage: /fluxmirror:setup language korean timezone KST'}
+
+Otherwise, merge the new values into `~/.fluxmirror/config.json` while
+preserving any existing keys. Use this shell snippet (substitute the
+parsed values into NEW_LANG / NEW_TZ; leave empty for keys not given):
+
+```bash
+mkdir -p "$HOME/.fluxmirror"
+[ -f "$HOME/.fluxmirror/config.json" ] || echo '{}' > "$HOME/.fluxmirror/config.json"
+python3 - "$HOME/.fluxmirror/config.json" "<NEW_LANG>" "<NEW_TZ>" <<'PY'
+import json, sys
+p, lang, tz = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(p) as f:
+    cfg = json.load(f)
+if lang: cfg['language'] = lang
+if tz:   cfg['timezone'] = tz
+with open(p, 'w') as f:
+    json.dump(cfg, f, indent=2)
+print(json.dumps(cfg, indent=2))
+PY
+```
+
+Confirm in the saved language:
+- en: "Saved: language=<lang>, timezone=<tz>"
+- ko: "저장됨: 언어=<lang>, 시간대=<tz>"
+- ja: "保存しました: 言語=<lang>, タイムゾーン=<tz>"
+- zh: "已保存: 语言=<lang>, 时区=<tz>"
+"""

@@ -1,0 +1,37 @@
+description = "Set fluxmirror output language"
+prompt = """
+User argument: {{args}}
+
+If empty, print the current language and stop:
+
+!{python3 -c "import json,os; p=os.path.expanduser('~/.fluxmirror/config.json'); print('Current language:', json.load(open(p)).get('language','unset') if os.path.exists(p) else 'unset')"}
+
+Otherwise normalise the argument with this mapping:
+- korean / ko / kr / 한국어 → korean
+- english / en / 영어 → english
+- japanese / ja / 日本語 → japanese
+- chinese / zh / 中文 → chinese
+
+Then update only the `language` key in `~/.fluxmirror/config.json`,
+preserving any existing `timezone`. Run this shell with NEW_LANG set
+to the normalised value:
+
+```bash
+mkdir -p "$HOME/.fluxmirror"
+[ -f "$HOME/.fluxmirror/config.json" ] || echo '{}' > "$HOME/.fluxmirror/config.json"
+python3 - "$HOME/.fluxmirror/config.json" "<NEW_LANG>" <<'PY'
+import json, sys
+p, lang = sys.argv[1], sys.argv[2]
+with open(p) as f: cfg = json.load(f)
+cfg['language'] = lang
+with open(p, 'w') as f: json.dump(cfg, f, indent=2)
+print(json.dumps(cfg, indent=2))
+PY
+```
+
+Confirm in the new language:
+- en: "Language set to: <value>"
+- ko: "언어 설정됨: <값>"
+- ja: "言語を設定しました: <値>"
+- zh: "已设置语言: <值>"
+"""

@@ -1,0 +1,38 @@
+description = "Set fluxmirror timezone"
+prompt = """
+User argument: {{args}}
+
+If empty, print the current timezone and stop:
+
+!{python3 -c "import json,os; p=os.path.expanduser('~/.fluxmirror/config.json'); print('Current timezone:', json.load(open(p)).get('timezone','unset') if os.path.exists(p) else 'unset')"}
+
+Otherwise normalise to IANA:
+- KST / Korean / Korea → Asia/Seoul
+- JST / Tokyo / Japan → Asia/Tokyo
+- PST / Pacific / California → America/Los_Angeles
+- EST / Eastern / New York → America/New_York
+- UTC / GMT → UTC
+- Already-IANA (Asia/Seoul, America/New_York, …) → pass through
+
+Then update only the `timezone` key, preserving any existing
+`language`. Run this shell with NEW_TZ set to the normalised value:
+
+```bash
+mkdir -p "$HOME/.fluxmirror"
+[ -f "$HOME/.fluxmirror/config.json" ] || echo '{}' > "$HOME/.fluxmirror/config.json"
+python3 - "$HOME/.fluxmirror/config.json" "<NEW_TZ>" <<'PY'
+import json, sys
+p, tz = sys.argv[1], sys.argv[2]
+with open(p) as f: cfg = json.load(f)
+cfg['timezone'] = tz
+with open(p, 'w') as f: json.dump(cfg, f, indent=2)
+print(json.dumps(cfg, indent=2))
+PY
+```
+
+Confirm in the saved language:
+- en: "Timezone set to: <value>"
+- ko: "시간대 설정됨: <값>"
+- ja: "タイムゾーンを設定しました: <値>"
+- zh: "已设置时区: <值>"
+"""

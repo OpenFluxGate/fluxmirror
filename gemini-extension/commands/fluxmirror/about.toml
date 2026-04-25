@@ -1,0 +1,23 @@
+description = "Explain what fluxmirror is and list all available sub-commands"
+prompt = """
+You are summarizing the FluxMirror Gemini CLI extension for the user.
+
+Available sub-commands shipped with this extension:
+
+!{ls "$(dirname "$0")/commands/fluxmirror"/*.toml 2>/dev/null | xargs -n1 basename | sed 's/\\.toml$//' | sort | sed 's|^|  /fluxmirror:|'}
+
+Write a single flowing explanation under 200 words covering:
+
+- What fluxmirror is: a multi-agent activity audit for Claude Code,
+  Gemini CLI, Qwen Code, and (optionally) Claude Desktop's MCP traffic.
+- How it works: PostToolUse / AfterTool hooks write each tool call to
+  the `agent_events` SQLite table; the optional Rust MCP proxy writes
+  raw JSON-RPC lines to the `events` table.
+- Where data lives:
+  `$HOME/Library/Application Support/fluxmirror/events.db`.
+- That the sub-commands listed above are the full surface for this
+  Gemini install.
+
+Use the user's preferred language if it can be inferred (Korean,
+Japanese, Chinese, English).
+"""
