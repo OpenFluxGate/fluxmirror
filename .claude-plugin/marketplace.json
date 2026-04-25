@@ -8,7 +8,7 @@
     {
       "name": "fluxmirror",
       "source": "./plugins/fluxmirror",
-      "version": "0.5.2",
+      "version": "0.5.3",
       "description": "Multi-agent activity audit. Logs every Claude Code / Qwen Code tool call to JSONL + SQLite, with /fluxmirror:* commands for daily, weekly, and per-agent reports.",
       "category": "observability",
       "keywords": [
