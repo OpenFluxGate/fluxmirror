@@ -1,0 +1,11 @@
+[package]
+name = "fluxmirror-store"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+fluxmirror-core = { path = "../fluxmirror-core" }
+rusqlite        = { workspace = true }
+serde_json      = { workspace = true }

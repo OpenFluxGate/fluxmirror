@@ -1,24 +1,31 @@
-// fluxmirror-proxy — long-running stdio MCP proxy.
+// fluxmirror proxy — long-running stdio MCP relay entry.
+//
+// Thin runtime wrapper around the fluxmirror-proxy lib. Parses CLI
+// args, opens the SQLite event store, spawns the writer thread,
+// spawns the child MCP server, runs the bidirectional bridge until
+// EOF, then tears down the child + writer cleanly.
 //
 // Usage:
-//   fluxmirror-proxy --server-name <name> --db <path> \
-//     [--capture-c2s <path>] [--capture-s2c <path>] -- <server command...>
+//   fluxmirror proxy --server-name <name> --db <path> \
+//     [--capture-c2s <path>] [--capture-s2c <path>] \
+//     -- <real MCP server command and args...>
 
-mod bridge;
-mod child;
-mod cli;
-mod framer;
-mod store;
-mod writer;
-
-use std::env;
 use std::fs::OpenOptions;
 use std::process::ExitCode;
 use std::sync::mpsc;
 
-fn main() -> ExitCode {
-    let args: Vec<String> = env::args().collect();
-    let parsed = match cli::parse(args) {
+use fluxmirror_proxy::{bridge, child, cli, store, writer};
+
+pub fn run(argv: Vec<String>) -> ExitCode {
+    // The lib's CLI parser was authored for a binary entry point and so
+    // skips the program name (`args[0]`). We call it from a subcommand
+    // dispatcher where argv already excludes the program name; prepend
+    // a placeholder so the existing skip(1) lands on the right element.
+    let mut full = Vec::with_capacity(argv.len() + 1);
+    full.push("fluxmirror".to_string());
+    full.extend(argv);
+
+    let parsed = match cli::parse(full) {
         cli::CliResult::Ok(c) => c,
         cli::CliResult::HelpExit => return ExitCode::SUCCESS,
         cli::CliResult::Err(msg) => {

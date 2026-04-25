@@ -1,0 +1,19 @@
+[package]
+name = "fluxmirror-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "fluxmirror"
+path = "src/main.rs"
+
+[dependencies]
+fluxmirror-core  = { path = "../fluxmirror-core" }
+fluxmirror-store = { path = "../fluxmirror-store" }
+fluxmirror-proxy = { path = "../fluxmirror-proxy" }
+rusqlite         = { workspace = true }
+serde_json       = { workspace = true }
+chrono           = { version = "0.4", default-features = false, features = ["clock", "std"] }
+gethostname      = "0.4"

@@ -1,3 +1,4 @@
+# STEP 1 of Phase 1 broke this workflow; STEP 11 rewrites. See .omc/autopilot/plan.md
 name: Tests
 
 on:

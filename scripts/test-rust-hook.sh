@@ -1,10 +1,10 @@
 #!/bin/bash
-# Parity tests for the Rust binary (rust-hook/target/release/fluxmirror-hook).
+# Parity tests for the Rust binary (target/release/fluxmirror).
 # Mirrors scripts/test-hooks.sh case-by-case against the Rust impl so that
 # any divergence between the bash hook and the Rust hook is caught early.
 #
-# Build the binary first:
-#   (cd rust-hook && cargo build --release)
+# Build the binary first (from repo root):
+#   cargo build --release --workspace
 #
 # Then:
 #   ./scripts/test-rust-hook.sh
@@ -12,11 +12,11 @@
 set -u
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-BIN="$REPO_ROOT/rust-hook/target/release/fluxmirror-hook"
+BIN="$REPO_ROOT/target/release/fluxmirror"
 
 if [ ! -x "$BIN" ]; then
   echo "Binary not found at $BIN"
-  echo "Build with: (cd rust-hook && cargo build --release)"
+  echo "Build with: cargo build --release --workspace"
   exit 1
 fi
 
@@ -28,7 +28,7 @@ run_test() {
   shift 5
   local db
   db=$(mktemp -t fmrt.XXXX.db)
-  echo "$input" | FLUXMIRROR_DB="$db" "$@" "$BIN" --kind "$kind" >/dev/null 2>&1
+  echo "$input" | FLUXMIRROR_DB="$db" "$@" "$BIN" hook --kind "$kind" >/dev/null 2>&1
   local actual
   actual=$(sqlite3 "$db" "SELECT $expect_field FROM agent_events ORDER BY id DESC LIMIT 1" 2>/dev/null)
   if [ "$actual" = "$expect_value" ]; then
@@ -126,28 +126,28 @@ ADJ_TMPROOT=$(mktemp -d -t fluxmirror-rust-test-adj.XXXX)
 # In-repo + sqlite query, SKIP_SELF=1 → skipped
 db=$(mktemp -t skip1.XXXX.db)
 echo '{"tool_name":"Bash","tool_input":{"command":"sqlite3 events.db SELECT 1"},"session_id":"s1","cwd":"'"$REPO_TMPROOT"'"}' \
-  | FLUXMIRROR_DB="$db" FLUXMIRROR_SKIP_SELF=1 FLUXMIRROR_SELF_REPO="$REPO_TMPROOT" "$BIN" --kind claude >/dev/null 2>&1
+  | FLUXMIRROR_DB="$db" FLUXMIRROR_SKIP_SELF=1 FLUXMIRROR_SELF_REPO="$REPO_TMPROOT" "$BIN" hook --kind claude >/dev/null 2>&1
 assert_count "in-repo+sqlite → skipped" "$db" 0
 rm -f "$db"
 
 # In-repo + sqlite, SKIP_SELF unset → recorded
 db=$(mktemp -t skip2.XXXX.db)
 echo '{"tool_name":"Bash","tool_input":{"command":"sqlite3 events.db SELECT 1"},"session_id":"s2","cwd":"'"$REPO_TMPROOT"'"}' \
-  | FLUXMIRROR_DB="$db" FLUXMIRROR_SELF_REPO="$REPO_TMPROOT" "$BIN" --kind claude >/dev/null 2>&1
+  | FLUXMIRROR_DB="$db" FLUXMIRROR_SELF_REPO="$REPO_TMPROOT" "$BIN" hook --kind claude >/dev/null 2>&1
 assert_count "default OFF → recorded" "$db" 1
 rm -f "$db"
 
 # Adjacent dir (similar prefix) — must NOT be falsely skipped
 db=$(mktemp -t skip3.XXXX.db)
 echo '{"tool_name":"Bash","tool_input":{"command":"sqlite3 events.db SELECT 1"},"session_id":"s3","cwd":"'"$ADJ_TMPROOT"'"}' \
-  | FLUXMIRROR_DB="$db" FLUXMIRROR_SKIP_SELF=1 FLUXMIRROR_SELF_REPO="$REPO_TMPROOT" "$BIN" --kind claude >/dev/null 2>&1
+  | FLUXMIRROR_DB="$db" FLUXMIRROR_SKIP_SELF=1 FLUXMIRROR_SELF_REPO="$REPO_TMPROOT" "$BIN" hook --kind claude >/dev/null 2>&1
 assert_count "adjacent dir not falsely skipped" "$db" 1
 rm -f "$db"
 
 # In-repo but Edit (not shell) → recorded
 db=$(mktemp -t skip4.XXXX.db)
 echo '{"tool_name":"Edit","tool_input":{"file_path":"/x"},"session_id":"s4","cwd":"'"$REPO_TMPROOT"'"}' \
-  | FLUXMIRROR_DB="$db" FLUXMIRROR_SKIP_SELF=1 FLUXMIRROR_SELF_REPO="$REPO_TMPROOT" "$BIN" --kind claude >/dev/null 2>&1
+  | FLUXMIRROR_DB="$db" FLUXMIRROR_SKIP_SELF=1 FLUXMIRROR_SELF_REPO="$REPO_TMPROOT" "$BIN" hook --kind claude >/dev/null 2>&1
 assert_count "in-repo + Edit → recorded" "$db" 1
 rm -f "$db"
 
@@ -157,7 +157,7 @@ echo ""
 echo "=== Round-trip (raw_json byte preservation) ==="
 db=$(mktemp -t roundtrip.XXXX.db)
 INPUT='{"tool_name":"Bash","tool_input":{"command":"echo hi"},"session_id":"rt1","cwd":"/tmp"}'
-echo "$INPUT" | FLUXMIRROR_DB="$db" "$BIN" --kind claude >/dev/null 2>&1
+echo "$INPUT" | FLUXMIRROR_DB="$db" "$BIN" hook --kind claude >/dev/null 2>&1
 ACTUAL=$(sqlite3 "$db" "SELECT raw_json FROM agent_events WHERE session='rt1'")
 if [ "$ACTUAL" = "$INPUT" ]; then
   echo "  PASS  raw_json simple round-trip"
@@ -172,7 +172,7 @@ rm -f "$db"
 
 db=$(mktemp -t roundtrip2.XXXX.db)
 INPUT="{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"x\"},\"session_id\":\"rt2\",\"cwd\":\"/path/with'quote\"}"
-echo "$INPUT" | FLUXMIRROR_DB="$db" "$BIN" --kind claude >/dev/null 2>&1
+echo "$INPUT" | FLUXMIRROR_DB="$db" "$BIN" hook --kind claude >/dev/null 2>&1
 CWD_ACTUAL=$(sqlite3 "$db" "SELECT cwd FROM agent_events WHERE session='rt2'")
 if [ "$CWD_ACTUAL" = "/path/with'quote" ]; then
   echo "  PASS  single-quote in cwd preserved"
