@@ -1,4 +1,4 @@
-description = "Set fluxmirror output language"
+description = "Set fluxmirror output language. Usage: <korean|english|japanese|chinese>"
 prompt = """
 User argument: {{args}}
 

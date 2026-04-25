@@ -1,4 +1,4 @@
-description = "Configure fluxmirror language and timezone preferences"
+description = "Configure fluxmirror. Usage: language <korean|english|japanese|chinese> timezone <KST|JST|PST|EST|UTC|Asia/Seoul|...>"
 prompt = """
 User arguments: {{args}}
 

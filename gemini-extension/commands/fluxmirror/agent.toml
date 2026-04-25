@@ -1,4 +1,4 @@
-description = "Single-agent filtered report. Usage: /fluxmirror:agent <name> [today|yesterday|week]"
+description = "Single-agent filtered report. Usage: <agent-name> [today|yesterday|week]"
 prompt = """
 User arguments: {{args}}
 

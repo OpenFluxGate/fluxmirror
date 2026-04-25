@@ -1,4 +1,4 @@
-description = "Set fluxmirror timezone"
+description = "Set fluxmirror timezone. Usage: <KST|JST|PST|EST|UTC|Asia/Seoul|...>"
 prompt = """
 User argument: {{args}}
 

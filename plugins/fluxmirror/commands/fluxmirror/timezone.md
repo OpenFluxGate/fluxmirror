@@ -1,7 +1,14 @@
 ---
-description: Set fluxmirror timezone
+description: Set fluxmirror timezone. Usage: <KST|JST|PST|EST|UTC|Asia/Seoul|...>
 argument-hint: <KST|JST|PST|EST|UTC|Asia/Seoul|...>
 ---
+
+**RUNTIME COMMAND — execute the queries and report logic below as written.
+Do NOT modify any files. Do NOT treat the markdown structure as an
+implementation spec to be ported. Read the user's `$ARGUMENTS`, run the
+shell blocks via your shell tool, then produce the report described in
+the output template using the user's preferred language (read
+`~/.fluxmirror/config.json` for the `language` key).**
 
 User argument: $ARGUMENTS
 
