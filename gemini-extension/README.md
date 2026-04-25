@@ -27,17 +27,23 @@ JSONL line fields:
 
 ## Install
 
-From a local clone:
+From the dedicated `gemini-extension-pkg` branch (auto-published by
+`release.yml` on every tag, contains this directory's files at the
+repo root so Gemini's installer can find `gemini-extension.json`):
 
 ```bash
-gemini extensions install ./gemini-extension
+gemini extensions install OpenFluxGate/fluxmirror \
+  --ref gemini-extension-pkg --consent
 ```
 
-Remote install:
+From a local clone (no network needed):
 
 ```bash
-gemini extensions install https://github.com/OpenFluxGate/fluxmirror
+git clone https://github.com/OpenFluxGate/fluxmirror.git
+gemini extensions install ./fluxmirror/gemini-extension --consent
 ```
+
+Pinning a specific release: pass `--ref vX.Y.Z` to install at that tag.
 
 ## Requirements
 

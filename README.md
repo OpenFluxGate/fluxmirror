@@ -88,11 +88,23 @@ qwen extensions install OpenFluxGate/fluxmirror:fluxmirror
 The same plugin handles both. The hook auto-labels rows `qwen-code`
 when running under Qwen.
 
+> Note: Qwen's installer prompts `Do you want to continue? [Y/n]:` and
+> has no `--yes` flag. For non-interactive installs:
+> ```bash
+> echo y | qwen extensions install OpenFluxGate/fluxmirror:fluxmirror
+> ```
+
 ### Gemini CLI
 
 ```bash
-gemini extensions install https://github.com/OpenFluxGate/fluxmirror
+gemini extensions install OpenFluxGate/fluxmirror \
+  --ref gemini-extension-pkg --consent
 ```
+
+The `gemini-extension-pkg` branch is auto-published by `release.yml`
+on every tag and contains `gemini-extension/*` at the repo root —
+Gemini's installer requires the manifest at the root of the URL it
+clones from. The `--consent` flag skips the interactive confirmation.
 
 Details: [gemini-extension/README.md](gemini-extension/README.md).
 
@@ -291,26 +303,36 @@ See [rust-hook/README.md](rust-hook/README.md) and
 ## Releasing (maintainers)
 
 ```bash
-git tag vX.Y.Z
-git push origin vX.Y.Z
+./scripts/bump-version.sh 0.5.1     # bumps all 3 manifests + commits + tags
+git push origin main v0.5.1
 ```
 
-A tag push triggers two workflows in parallel:
+`scripts/bump-version.sh` updates **all three repo manifests** in one
+commit (`gemini-extension/gemini-extension.json`,
+`plugins/fluxmirror/.claude-plugin/plugin.json`, and the nested
+`.plugins[].version` in `.claude-plugin/marketplace.json`) and creates
+the matching annotated tag. It refuses to run if the working tree is
+dirty, you're not on `main`, or the tag already exists. Pass
+`--dry-run` to preview the diff without changing anything.
 
-- **`release.yml`** — auto-syncs the version (`X.Y.Z`) into all three
-  manifests (`gemini-extension/gemini-extension.json`,
-  `plugins/fluxmirror/.claude-plugin/plugin.json`, and the nested
-  `.plugins[].version` in `.claude-plugin/marketplace.json`), strips
-  AppleDouble metadata, packages the gemini-extension tarball, and
-  publishes a GitHub release with the archive attached.
+The tag push then triggers three workflows in parallel:
+
+- **`release.yml`** — re-syncs versions (defensive, idempotent), strips
+  AppleDouble metadata, packages the gemini-extension tarball,
+  publishes a GitHub release with the archive attached, **and
+  force-pushes a `gemini-extension-pkg` branch** that contains
+  `gemini-extension/*` at the repo root (so Gemini CLI's installer
+  works against this repo via `--ref gemini-extension-pkg`).
 - **`rust-release.yml`** — matrix-builds **two binaries**
   (`fluxmirror-hook`, `fluxmirror-proxy`) for **five targets** (linux
   x64/arm64, darwin x64/arm64, windows x64) and uploads all 10 assets
   to the same release.
+- **`test.yml`** — re-runs the bash + Rust + integration test suites
+  on the new tag commit.
 
-No manual version bumps are required — the workflow rewrites the
-manifests from the tag name. If you want a dry run first, trigger
-either workflow via GitHub's **Run workflow** button (workflow_dispatch).
+To trigger a dry run of the matrix builds without tagging, use
+GitHub's **Run workflow** button on `rust-release.yml`
+(workflow_dispatch).
 
 ## License
 

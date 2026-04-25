@@ -83,6 +83,28 @@ jobs:
           files: |
             fluxmirror-gemini-extension-${{ github.ref_name }}.tar.gz
 
+      # Republish gemini-extension/* at the root of a dedicated branch so
+      # Gemini CLI's `extensions install` (which expects gemini-extension.json
+      # at the repo root, not in a subdirectory) works against THIS repo.
+      # Users install with:
+      #   gemini extensions install OpenFluxGate/fluxmirror --ref gemini-extension-pkg
+      - name: Publish gemini-extension-pkg branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          v="${{ steps.ver.outputs.version }}"
+          stage=$(mktemp -d)
+          cp -R gemini-extension/. "$stage/"
+          cd "$stage"
+          git init -q -b gemini-extension-pkg
+          git -c user.name=release-bot -c user.email=release-bot@users.noreply.github.com \
+              add -A
+          git -c user.name=release-bot -c user.email=release-bot@users.noreply.github.com \
+              commit -q -m "publish gemini-extension v${v}"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin gemini-extension-pkg
+
       # The per-arch Rust binaries (fluxmirror-hook + fluxmirror-proxy)
       # are uploaded to the same release by .github/workflows/rust-release.yml
       # which runs in parallel on tag pushes.
