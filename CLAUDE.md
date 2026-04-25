@@ -19,11 +19,14 @@ If unsure whether a message mentions AI, err on the side of removing the mention
 
 ## What this is
 
-FluxMirror is a local proxy that sits between AI agents (Claude Desktop, Cursor, etc.)
-and their MCP servers, so I can **read, control, and remember** what my AI did on my computer.
+FluxMirror is a local observability layer for AI coding agents. It captures every
+tool call from Claude Code, Gemini CLI, and Qwen Code, and (optionally) every
+JSON-RPC message between Claude Desktop and its MCP servers — all into a single
+local SQLite database I can query, summarize, and audit.
 
-Part of the **Flux family** (companion to FluxGate, which handles distributed rate limiting).
-FluxMirror will integrate FluxGate in a later phase for per-agent call rate control.
+Part of the **Flux family** (companion to FluxGate, which handles distributed rate
+limiting). FluxMirror will integrate FluxGate in a later phase for per-agent call
+rate control.
 
 Think: *"a digital ledger + security camera + diary for my AI agent."*
 
@@ -45,166 +48,243 @@ Four concrete outputs — nothing fuzzy, nothing aspirational:
 
 ## Why it matters (three values)
 
-- **Transparency** — translate opaque JSON-RPC into human-readable history
+- **Transparency** — translate opaque tool calls and JSON-RPC into human-readable history
 - **Control** — intercept and gate agent actions with user-defined policies
 - **Memory** — build a personal archive of agent behavior that accumulates value over time
 
 ---
 
-## Current phase: Week 1 PoC
+## Current phase
 
-**Goal**: prove that a Java-based MCP proxy can sit between Claude Desktop and a real
-MCP server, relay stdio traffic transparently, and log every JSON-RPC message to SQLite.
+The original Week 1 PoC (a Java MCP proxy for Claude Desktop) is **DONE**. The
+project has since grown a hook layer for the modern agent CLIs and the Java
+proxy has been ported to Rust. Today FluxMirror is two single-binary Rust
+programs plus a slash command surface:
 
-**Scope is STRICTLY limited to:**
+| Component | Role |
+|---|---|
+| `fluxmirror-hook` (Rust binary) | PostToolUse / AfterTool hook for Claude Code, Qwen Code, Gemini CLI. Writes one row per tool call to `agent_events`. |
+| `fluxmirror-proxy` (Rust binary) | Long-running stdio MCP proxy used by Claude Desktop. Spawns the real MCP server, relays stdio transparently, writes one row per JSON-RPC line to `events`. |
+| `plugins/fluxmirror/commands/*.md` | `/fluxmirror:*` slash commands that turn the SQLite data into reports. |
+| Bash + jq + python3 fallback | Always-works alternative the wrapper falls back to when the per-arch Rust binary is absent in an install. |
 
-- stdio transport only (no HTTP/SSE yet)
-- single MCP server at a time
-- raw logging to SQLite (no redaction yet)
-- no UI, no cloud, no mobile app, no rate limiting
+Both Rust binaries have **zero runtime dependencies** (SQLite is statically linked
+via rusqlite's `bundled` feature).
 
-**Do not expand scope.** Suggestions for future phases are welcome as comments
-but must not be implemented in this phase.
+## Tech stack
 
-## Tech stack (non-negotiable for this phase)
+- **Rust** (stable, edition 2021) for both binaries — `rusqlite` (bundled SQLite),
+  `serde_json`. Released as ~1.2 MB statically-linked artifacts.
+- **Bash + jq + python3** for the hook fallback path (`hooks/run-hook.sh`,
+  `hooks/session-log.sh`, `hooks/_dual_write.py`). Always present in install
+  packages so the hook works even if no Rust binary is installed.
+- **GitHub Actions** for CI (3 workflows): unit + parity + integration tests on
+  every PR; cross-arch matrix release on tag push.
 
-- Java 21
-- Gradle with Kotlin DSL
-- Jackson (`jackson-databind`) for JSON
-- `sqlite-jdbc` for storage
-- `slf4j-simple` for logging (to stderr only)
-- Shadow plugin for fat jar
-- **No Spring Boot** in this phase — keep the jar small and startup fast
-- Target artifact: single executable jar `fluxmirror.jar`
+No JVM, no Gradle, no Java toolchain anywhere.
 
 ## Architecture
 
 ```
-Claude Desktop  ←stdio→  [fluxmirror.jar]  ←stdio→  real-mcp-server
-                                 ↓
-                              SQLite
+Claude Code   ─┐
+Qwen Code     ─┼── PostToolUse / AfterTool hook ──▶ fluxmirror-hook ──▶ agent_events
+Gemini CLI    ─┘                                                        │
+                                                                        │
+Claude Desktop ◀── stdio ──▶ fluxmirror-proxy ◀── stdio ──▶ MCP server  │
+                                  │                                     │
+                                  └── ndjson framer ──▶ events ─────────┤
+                                                                        ▼
+                                              ~/Library/Application Support/
+                                                  fluxmirror/events.db
+                                                          │
+                                                          ▼
+                                              /fluxmirror:* slash commands
 ```
 
-The proxy spawns the real MCP server as a child process (via `ProcessBuilder`) and bridges:
+Both write paths share one SQLite file. Two tables, one per source style:
 
-- Claude Desktop's stdout → child's stdin (requests from client to server)
-- child's stdout → Claude Desktop's stdin (responses from server to client)
-- child's stderr → proxy's stderr (**must** be forwarded, or Claude Desktop thinks the server crashed)
+- `agent_events` — one row per agent tool call (hook source)
+- `events` — one row per MCP JSON-RPC line (proxy source)
 
-Both directions are tapped: each JSON-RPC message is parsed and written to SQLite
-**before** being forwarded downstream.
+The slash command surface queries both.
 
 ## JSON-RPC framing
 
-MCP uses **Content-Length-prefixed JSON-RPC** (LSP-style), not line-delimited:
+MCP's two transports use different framing:
 
-```
-Content-Length: <n>\r\n
-\r\n
-<n bytes of JSON>
-```
+- **stdio transport** (what `fluxmirror-proxy` audits): newline-delimited JSON
+  (NDJSON). The framer reads bytes until `\n`, optionally strips a trailing
+  `\r`, and emits one JSON object per line. Messages exceeding 10 MiB are
+  silently dropped until the next newline (resync-on-overflow).
+- **HTTP+SSE transport**: Content-Length-prefixed (LSP-style). FluxMirror
+  does not currently audit this transport; the proxy is stdio-only.
 
-The parser must handle this framing explicitly. Do not assume newline-delimited messages.
-
-## SQLite schema (initial)
+## SQLite schema
 
 ```sql
-CREATE TABLE events (
+-- written by fluxmirror-hook (one row per agent tool call)
+CREATE TABLE IF NOT EXISTS agent_events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  ts_ms INTEGER NOT NULL,
-  direction TEXT NOT NULL CHECK (direction IN ('client_to_server', 'server_to_client')),
-  method TEXT,
+  ts TEXT NOT NULL,                    -- ISO 8601 UTC
+  agent TEXT NOT NULL,                 -- 'claude-code' | 'qwen-code' | 'gemini-cli'
+  session TEXT,
+  tool TEXT,                           -- raw tool name as emitted by the CLI
+  detail TEXT,                         -- per-tool primary field, truncated to 200 bytes
+  cwd TEXT,
+  raw_json TEXT
+);
+CREATE INDEX idx_agent_events_ts    ON agent_events(ts);
+CREATE INDEX idx_agent_events_agent ON agent_events(agent);
+
+-- written by fluxmirror-proxy (one row per JSON-RPC line, both directions)
+CREATE TABLE IF NOT EXISTS events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts_ms INTEGER NOT NULL,              -- epoch milliseconds
+  direction TEXT NOT NULL CHECK (direction IN ('c2s', 's2c')),
+  method TEXT,                         -- extracted via serde_json (best-effort)
   message_json TEXT NOT NULL,
   server_name TEXT NOT NULL
 );
 CREATE INDEX idx_events_ts ON events(ts_ms);
 ```
 
-Schema will evolve. Use simple hand-rolled migrations — no heavyweight ORM.
+Schema evolves via simple hand-rolled `CREATE TABLE IF NOT EXISTS` migrations
+inside each binary — no heavyweight ORM.
 
-## CLI contract for Week 1
+## CLI contracts
 
-```
-java -jar fluxmirror.jar \
-  --server-name <name> \
-  --db <path> \
-  -- <real mcp server command and args...>
-```
-
-Example:
+### `fluxmirror-hook`
 
 ```
-java -jar fluxmirror.jar \
-  --server-name fs \
-  --db ~/.fluxmirror/events.db \
-  -- npx -y @modelcontextprotocol/server-filesystem /tmp
+fluxmirror-hook                   # auto-detect kind from env
+fluxmirror-hook --kind claude     # claude or qwen (resolved via env at runtime)
+fluxmirror-hook --kind gemini     # always gemini-cli
 ```
 
-## Acceptance criteria for Week 1
+Reads a tool-call JSON payload on stdin, writes one JSONL line and one
+parameter-bound SQLite row.
 
-1. The command above launches successfully
-2. Claude Desktop configured with this proxy as its filesystem MCP server works
-   indistinguishably from using the server directly
-3. After asking Claude "list files in /tmp", the SQLite DB contains at least one
-   `tools/call` request and its response, both timestamped
-4. Child's stderr is visible in proxy's stderr
-5. When Claude Desktop quits, the child process is cleanly terminated (no zombies)
+### `fluxmirror-proxy`
+
+```
+fluxmirror-proxy --server-name <name> --db <path> \
+  [--capture-c2s <path>] [--capture-s2c <path>] \
+  -- <real MCP server command and args...>
+```
+
+Example (Claude Desktop's `~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "fluxmirror-fs": {
+      "command": "/Users/me/fluxmirror-proxy",
+      "args": [
+        "--server-name", "fs",
+        "--db", "/Users/me/Library/Application Support/fluxmirror/events.db",
+        "--",
+        "/opt/homebrew/bin/npx", "-y", "@modelcontextprotocol/server-filesystem", "/tmp"
+      ]
+    }
+  }
+}
+```
+
+## Acceptance criteria (current state — all met)
+
+1. Each of Claude Code, Qwen Code, and Gemini CLI invokes `fluxmirror-hook`
+   on every tool call, and rows land in `agent_events` with the correct
+   `agent` label and an accurate `detail` field (the actual command for shell
+   tools, the file path for read/edit, the URL for web fetch, etc.).
+2. `fluxmirror-proxy`, when wrapped around any stdio MCP server, makes
+   Claude Desktop work indistinguishably from using the server directly.
+3. After a `tools/call` in Claude Desktop, `events` contains both the
+   `c2s` request and the `s2c` response, both timestamped in `ts_ms`.
+4. Child stderr is forwarded to the proxy's stderr.
+5. When Claude Desktop quits, the proxy sends SIGTERM (then SIGKILL after 2s)
+   to the child — no zombies.
+6. The slash command surface (`/fluxmirror:today`, `:week`, `:agent`, etc.)
+   surfaces all three agents in a single report, with tool-name normalization
+   across PascalCase (Claude) and snake_case (Gemini/Qwen).
+7. Both Rust binaries pass their unit suites and the bash-vs-Rust parity
+   tests in CI.
 
 ## Code style & principles
 
 - **Small, focused commits.** One commit per logical step.
-- **No speculative abstractions.** No interfaces for single implementations.
-  No factories unless there are multiple things to create.
-- **Prefer composition over inheritance.**
-- **Logs to stderr, never stdout.** stdout is reserved for the MCP protocol relay.
-  Any accidental stdout write will corrupt the protocol and break the client.
-- **Fail loud.** If something is wrong, throw. Do not swallow exceptions.
-- **Small jar.** Resist adding dependencies. Every dependency is a maintenance cost.
+- **No speculative abstractions.** No traits/interfaces for single
+  implementations. No factories unless there are multiple things to create.
+- **Logs to stderr, never stdout.** stdout is reserved for the MCP protocol
+  relay (proxy) and for slash command output. Any accidental stdout write
+  in the proxy will corrupt the protocol and break the client.
+- **Fail loud at boundaries; never break the agent.** In the hook layer,
+  any IO error is appended to `~/.fluxmirror/hook-errors.log` (auto-rotated
+  at 5 MiB) and swallowed — exit code is always 0 so a logging failure
+  never kills the calling agent's tool call.
+- **Small binaries.** Resist adding dependencies. Every dependency is a
+  maintenance cost.
+- **No backwards-compat hacks.** This is a single-user project; rename freely.
 
-## Out of scope for Week 1 — do NOT implement
+## Out of scope (still)
 
 - Redaction of sensitive data
-- HTTP/SSE transport
-- Nightly summary generation (that's Week 2)
-- Any web UI, mobile app, or backend server
-- Rate limiting (that's Week 4, via FluxGate integration)
+- HTTP/SSE MCP transport
+- Web UI, mobile app, backend server
+- Rate limiting (planned via FluxGate integration, not yet started)
 - Encryption, authentication, multi-device sync
-- Multi-server simultaneous proxying
-- Policy language / anomaly detection
+- Policy language / anomaly detection (the *Anomaly alerts* output is still
+  todo; the data is captured, the analysis layer is not built)
 - CRDT-based syncing
 
-## Project layout (target)
+## Project layout (current)
 
 ```
 fluxmirror/
-├── CLAUDE.md              (this file)
+├── CLAUDE.md                         (this file)
 ├── README.md
-├── LICENSE                (MIT — match FluxGate)
-├── build.gradle.kts
-├── settings.gradle.kts
-├── gradle/
-└── src/
-    └── main/
-        └── java/
-            └── io/github/openfluxgate/fluxmirror/
-                ├── Main.java
-                ├── cli/
-                ├── bridge/
-                └── storage/
+├── LICENSE                           (MIT — match FluxGate)
+├── Makefile                          sync-helpers / verify-helpers (DRY gate)
+├── rust-hook/                        single-binary tool-call hook (Rust)
+│   ├── Cargo.toml
+│   └── src/main.rs
+├── rust-proxy/                       long-running MCP proxy (Rust)
+│   ├── Cargo.toml
+│   └── src/                          {cli, framer, store, writer, child, bridge, main}.rs
+├── plugins/fluxmirror/               Claude Code plugin (also used by Qwen)
+│   ├── .claude-plugin/plugin.json
+│   ├── hooks/                        run-hook.sh wrapper + bash fallback + helper
+│   └── commands/                     /fluxmirror:* slash command surface
+├── gemini-extension/                 Gemini CLI extension
+│   ├── gemini-extension.json
+│   └── hooks/                        run-hook.sh wrapper + bash fallback + helper
+├── scripts/
+│   ├── _dual_write.py                canonical safe SQLite writer (bash fallback)
+│   ├── verify-isolation.sh           JSONL + SQLite isolation verification
+│   ├── test-hooks.sh                 bash hook synthetic regression suite
+│   └── test-rust-hook.sh             Rust hook parity tests vs bash hook
+├── .github/workflows/
+│   ├── test.yml                      CI on push/PR (3 jobs: bash + 2 Rust)
+│   ├── release.yml                   CI on tag: gemini-extension archive
+│   └── rust-release.yml              CI on tag: per-arch Rust binaries (5 × 2)
+└── .claude-plugin/
+    └── marketplace.json              Claude marketplace listing
 ```
 
 ## Working with me (Claude Code)
 
 When given a task:
 
-1. **Plan first.** Before writing code, propose a 5–8 bullet plan of what files
-   you'll create or modify and why. Wait for my explicit "go" before implementing.
+1. **Plan first.** Before writing code, propose a short bullet plan of what
+   files you'll create or modify and why. Wait for my explicit "go" before
+   implementing larger work.
 2. **Small diffs.** Keep each change reviewable. One concern per commit.
-3. **Don't stage or commit.** I will review and commit myself.
+3. **Don't stage or commit unless I ask.** I review and commit myself; if
+   I ask for a checkpoint commit, write the message in my voice (no AI
+   attribution per the policy at the top).
 4. **Ask when unsure.** If the task is ambiguous or requires a design decision
    not covered here, ask rather than guessing.
-5. **When stuck, split.** If something isn't working, prefer breaking the task into
-   smaller pieces rather than adding complexity.
+5. **When stuck, split.** If something isn't working, prefer breaking the task
+   into smaller pieces rather than adding complexity.
 
 ## Flux family context
 
@@ -212,9 +292,10 @@ When given a task:
   https://github.com/OpenFluxGate/fluxgate
 - **fluxgate-studio** — admin dashboard for FluxGate rules.
   https://github.com/OpenFluxGate/fluxgate-studio
-- **FluxMirror** (this project) — MCP proxy for AI agent observability.
+- **FluxMirror** (this project) — multi-agent observability for local AI tooling.
 - **Documentation portal** — https://openfluxgate.github.io/
 
-FluxMirror will eventually depend on FluxGate for per-agent call rate control (Week 4+).
-Design decisions should be compatible with eventual FluxGate integration but must not
-introduce FluxGate as a dependency in Week 1.
+FluxMirror will eventually depend on FluxGate for per-agent call rate control
+(planned, not implemented). Design decisions should remain compatible with
+eventual FluxGate integration but must not introduce FluxGate as a runtime
+dependency today.
