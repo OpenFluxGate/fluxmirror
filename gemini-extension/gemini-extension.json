@@ -1,5 +1,5 @@
 {
   "name": "fluxmirror",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "description": "Audit Gemini CLI tool calls by logging to a daily JSONL file."
 }

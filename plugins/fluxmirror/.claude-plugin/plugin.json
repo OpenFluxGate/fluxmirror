@@ -1,6 +1,6 @@
 {
   "name": "fluxmirror",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "description": "Multi-agent activity audit. Logs every Claude Code/Gemini/Qwen tool call to JSONL + SQLite, with /fluxmirror:* commands for daily summaries and configuration.",
   "author": {
     "name": "rojae"
