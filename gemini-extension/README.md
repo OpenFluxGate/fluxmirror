@@ -32,9 +32,12 @@ From the dedicated `gemini-extension-pkg` branch (auto-published by
 repo root so Gemini's installer can find `gemini-extension.json`):
 
 ```bash
-gemini extensions install OpenFluxGate/fluxmirror \
+gemini extensions install https://github.com/OpenFluxGate/fluxmirror \
   --ref gemini-extension-pkg --consent
 ```
+
+(Gemini's installer requires a full `https://` URL — the `owner/repo`
+shorthand is not accepted.)
 
 From a local clone (no network needed):
 

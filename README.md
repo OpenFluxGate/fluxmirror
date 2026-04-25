@@ -97,14 +97,20 @@ when running under Qwen.
 ### Gemini CLI
 
 ```bash
-gemini extensions install OpenFluxGate/fluxmirror \
+gemini extensions install https://github.com/OpenFluxGate/fluxmirror \
   --ref gemini-extension-pkg --consent
 ```
 
-The `gemini-extension-pkg` branch is auto-published by `release.yml`
-on every tag and contains `gemini-extension/*` at the repo root —
 Gemini's installer requires the manifest at the root of the URL it
-clones from. The `--consent` flag skips the interactive confirmation.
+clones from, and only accepts a full `https://` URL (the `owner/repo`
+shorthand is not supported). The `gemini-extension-pkg` branch is
+auto-published by `release.yml` on every tag and contains
+`gemini-extension/*` at the repo root. The `--consent` flag skips the
+interactive confirmation.
+
+Headless / sandboxed runs may also need
+`GEMINI_CLI_TRUST_WORKSPACE=true` (or `--skip-trust`) when the cwd
+is not in Gemini's trusted-folders list.
 
 Details: [gemini-extension/README.md](gemini-extension/README.md).
 
