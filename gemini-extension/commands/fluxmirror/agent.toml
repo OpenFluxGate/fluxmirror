@@ -1,4 +1,4 @@
-description = "Single-agent filtered report. Usage: <agent-name> [today|yesterday|week]"
+description = "Single-agent filtered report. Usage: <claude-code|qwen-code|gemini-cli> [today|yesterday|week]"
 prompt = """
 User arguments: {{args}}
 

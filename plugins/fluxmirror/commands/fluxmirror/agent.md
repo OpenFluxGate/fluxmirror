@@ -1,6 +1,6 @@
 ---
-description: Single-agent filtered report. Usage: <agent-name> [today|yesterday|week]
-argument-hint: <agent-name> [today|yesterday|week]
+description: Single-agent filtered report. Usage: <claude-code|qwen-code|gemini-cli> [today|yesterday|week]
+argument-hint: <claude-code|qwen-code|gemini-cli> [today|yesterday|week]
 ---
 
 **RUNTIME COMMAND — execute the queries and report logic below as written.
