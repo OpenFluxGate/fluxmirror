@@ -2,7 +2,8 @@
 
 Audit every Gemini CLI tool call by logging it to a daily JSONL file
 **and** the same SQLite database used by the Claude Code plugin and the
-Java MCP proxy — so all your agents share one queryable history.
+Rust MCP proxy (`fluxmirror-proxy`) — so all your agents share one
+queryable history.
 
 ## What it does
 

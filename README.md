@@ -3,10 +3,16 @@
 Multi-agent activity audit. Logs every tool call from Claude Code, Gemini
 CLI, and Qwen Code to a daily JSONL file **and** a shared SQLite database
 — separated by agent. Optionally audits Claude Desktop's MCP traffic via
-a Java proxy that writes to the same DB.
+a Rust proxy that writes to the same DB.
 
 A set of `/fluxmirror:*` slash commands (installed by the Claude/Qwen
 plugin) turns the SQLite data into daily, weekly, or per-agent reports.
+
+Both the per-tool-call hook (`fluxmirror-hook`) and the long-running
+MCP proxy (`fluxmirror-proxy`) are single-binary Rust programs with
+zero runtime dependencies — SQLite is statically linked. The bash +
+jq + python implementation remains as a fallback so installs work even
+when no Rust binary is present.
 
 ## Why
 
@@ -32,10 +38,10 @@ graph LR
 
 All four sources flow into a single SQLite database at
 `~/Library/Application Support/fluxmirror/events.db`. The hook-based
-agents write to the `agent_events` table; the Java MCP proxy for Claude
-Desktop writes to the `events` table. The slash command surface
-(`/fluxmirror:today`, `/fluxmirror:week`, `/fluxmirror:agent <name>`,
-etc.) queries both.
+agents write to the `agent_events` table; `fluxmirror-proxy` (the Rust
+stdio proxy used by Claude Desktop) writes to the `events` table. The
+slash command surface (`/fluxmirror:today`, `/fluxmirror:week`,
+`/fluxmirror:agent <name>`, etc.) queries both.
 
 The agent label per row is determined automatically:
 
@@ -202,11 +208,13 @@ qwen extensions update fluxmirror
 
 ### Claude Desktop (MCP proxy)
 
-Re-download the latest jar:
+Re-download the per-arch binary (replace `darwin-arm64` with your
+machine's asset suffix from the install table above):
 
 ```bash
-curl -L -o ~/fluxmirror-mcp-proxy.jar \
-  https://github.com/OpenFluxGate/fluxmirror/releases/latest/download/fluxmirror-mcp-proxy.jar
+curl -L -o ~/fluxmirror-proxy \
+  https://github.com/OpenFluxGate/fluxmirror/releases/latest/download/fluxmirror-proxy-darwin-arm64
+chmod +x ~/fluxmirror-proxy
 ```
 
 ## Repository layout
@@ -243,40 +251,66 @@ fluxmirror/
 
 ## Contributing
 
-The shared SQLite writer lives at `scripts/_dual_write.py` (canonical).
-Each install package (`plugins/fluxmirror/hooks/`, `gemini-extension/hooks/`)
-ships its own copy so installs are self-contained. To keep them in sync
-after editing the canonical:
+### Bash hook fallback
+
+The shared SQLite writer (used by the bash fallback) lives at
+`scripts/_dual_write.py` (canonical). Each install package
+(`plugins/fluxmirror/hooks/`, `gemini-extension/hooks/`) ships its own
+copy so installs are self-contained. To keep them in sync after editing
+the canonical:
 
 ```bash
 make sync-helpers     # copy canonical into both packages
 make verify-helpers   # CI uses this — fails if any copy diverged
 ```
 
-The CI workflow at `.github/workflows/test.yml` runs `verify-helpers`
-plus `scripts/test-hooks.sh` (20 synthetic test cases covering tool
-detection, agent labeling, self-noise filter, round-trip raw_json) on
-every push to `main` and every pull request.
-
-To run the same tests locally:
+### Rust binaries
 
 ```bash
-./scripts/test-hooks.sh
+cd rust-hook && cargo build --release    # → target/release/fluxmirror-hook  (~1.2 MB)
+cd rust-proxy && cargo build --release   # → target/release/fluxmirror-proxy (~1.2 MB)
 ```
+
+See [rust-hook/README.md](rust-hook/README.md) and
+[rust-proxy/README.md](rust-proxy/README.md) for design notes.
+
+### Tests
+
+| Suite | What it covers | How to run |
+|---|---|---|
+| Bash hook regression | tool detection, agent labeling, self-noise, round-trip raw_json | `./scripts/test-hooks.sh` (20 cases) |
+| Rust hook parity | same 20 cases against the Rust binary | `./scripts/test-rust-hook.sh` |
+| Rust hook unit | per-tool detail extraction, time formatting | `cd rust-hook && cargo test --release` (14 cases) |
+| Rust proxy unit | CLI parsing, NDJSON framer, SQLite store | `cd rust-proxy && cargo test --release` (15 cases) |
+| Rust proxy integration | `fluxmirror-proxy` + `cat` child end-to-end | runs in CI; see `.github/workflows/test.yml` |
+| JSONL+SQLite isolation | session IDs do not leak across agents | `./scripts/verify-isolation.sh` |
+
+`.github/workflows/test.yml` runs all of the above on every push to
+`main` and every pull request, in three parallel jobs.
 
 ## Releasing (maintainers)
 
 ```bash
-# 1. Bump version in gemini-extension/gemini-extension.json and
-#    plugins/fluxmirror/.claude-plugin/plugin.json
-# 2. Push a matching tag
 git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-Pushing the tag triggers `.github/workflows/release.yml`, which builds
-the gemini-extension archive and publishes a GitHub release with the
-archive attached.
+A tag push triggers two workflows in parallel:
+
+- **`release.yml`** — auto-syncs the version (`X.Y.Z`) into all three
+  manifests (`gemini-extension/gemini-extension.json`,
+  `plugins/fluxmirror/.claude-plugin/plugin.json`, and the nested
+  `.plugins[].version` in `.claude-plugin/marketplace.json`), strips
+  AppleDouble metadata, packages the gemini-extension tarball, and
+  publishes a GitHub release with the archive attached.
+- **`rust-release.yml`** — matrix-builds **two binaries**
+  (`fluxmirror-hook`, `fluxmirror-proxy`) for **five targets** (linux
+  x64/arm64, darwin x64/arm64, windows x64) and uploads all 10 assets
+  to the same release.
+
+No manual version bumps are required — the workflow rewrites the
+manifests from the tag name. If you want a dry run first, trigger
+either workflow via GitHub's **Run workflow** button (workflow_dispatch).
 
 ## License
 
