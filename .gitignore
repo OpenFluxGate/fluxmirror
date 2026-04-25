@@ -12,6 +12,8 @@ build/
 
 # OS
 .DS_Store
+._*
+__MACOSX/
 
 # FluxMirror runtime
 *.db

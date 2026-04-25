@@ -121,6 +121,54 @@ for label in "Claude:$CLAUDE_LOG" "Gemini:$GEMINI_LOG" "Qwen:$QWEN_LOG"; do
 done
 echo ""
 
+# --- 5. SQLite agent_events isolation (DB layer) ---
+echo "## SQLite agent_events isolation (DB layer)"
+DB_PATH="${FLUXMIRROR_DB:-$HOME/Library/Application Support/fluxmirror/events.db}"
+if ! command -v sqlite3 &>/dev/null; then
+  echo "  SKIP — sqlite3 not on PATH"
+elif [ ! -f "$DB_PATH" ]; then
+  echo "  SKIP — DB not found at $DB_PATH"
+else
+  # Range filter: same date as JSONL check, in UTC
+  RANGE_START="${DATE}T00:00:00Z"
+  RANGE_END=$(python3 -c "
+from datetime import datetime, timedelta
+d = datetime.strptime('$DATE', '%Y-%m-%d') + timedelta(days=1)
+print(d.strftime('%Y-%m-%dT%H:%M:%SZ'))
+")
+  echo "  Window: $RANGE_START to $RANGE_END"
+
+  # Per-agent session ID counts
+  echo "  Sessions per agent:"
+  sqlite3 "$DB_PATH" "
+    SELECT '    ' || agent || ': ' || COUNT(DISTINCT session) || ' unique sessions, ' || COUNT(*) || ' rows'
+    FROM agent_events
+    WHERE ts >= '$RANGE_START' AND ts < '$RANGE_END'
+    GROUP BY agent
+    ORDER BY agent" 2>/dev/null
+
+  # Cross-agent session leak check
+  LEAKS=$(sqlite3 "$DB_PATH" "
+    SELECT session, GROUP_CONCAT(DISTINCT agent) AS agents, COUNT(DISTINCT agent) AS n
+    FROM agent_events
+    WHERE ts >= '$RANGE_START' AND ts < '$RANGE_END' AND session IS NOT NULL AND session != 'unknown'
+    GROUP BY session
+    HAVING n >= 2" 2>/dev/null)
+
+  if [ -n "$LEAKS" ]; then
+    echo "$LEAKS" | while IFS='|' read -r sid agents n; do
+      echo "  ⚠️  DB LEAK: session $sid shared by $n agents ($agents)"
+      TOTAL_LEAKS=$((TOTAL_LEAKS + 1))
+    done
+    # Re-count for accurate total since the subshell pipe doesn't propagate
+    DB_LEAK_COUNT=$(echo "$LEAKS" | grep -c .)
+    TOTAL_LEAKS=$((TOTAL_LEAKS + DB_LEAK_COUNT))
+  else
+    echo "  ✓  DB layer: clean (no session_id shared across agents)"
+  fi
+fi
+echo ""
+
 echo "==============================================="
 if [ "$TOTAL_LEAKS" -gt 0 ]; then
   echo "FAIL: $TOTAL_LEAKS session ID leak(s) detected."

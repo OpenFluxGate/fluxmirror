@@ -1,0 +1,32 @@
+name: Test hooks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  hooks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install jq + sqlite3
+        run: sudo apt-get update -qq && sudo apt-get install -y jq sqlite3
+
+      - name: Verify shared helper is in sync (no DRY drift)
+        run: make verify-helpers
+
+      - name: bash -n on hook scripts
+        run: |
+          bash -n plugins/fluxmirror/hooks/session-log.sh
+          bash -n gemini-extension/hooks/session-log.sh
+          bash -n scripts/verify-isolation.sh
+          bash -n scripts/test-hooks.sh
+
+      - name: Python parses _dual_write.py
+        run: python3 -c "import ast; ast.parse(open('scripts/_dual_write.py').read())"
+
+      - name: Run synthetic hook regression tests
+        run: ./scripts/test-hooks.sh

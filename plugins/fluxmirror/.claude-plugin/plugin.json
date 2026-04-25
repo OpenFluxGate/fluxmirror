@@ -1,7 +1,7 @@
 {
   "name": "fluxmirror",
   "version": "0.4.1",
-  "description": "Logs every Claude Code tool call to ~/.claude/session-logs/YYYY-MM-DD.jsonl as a PostToolUse hook.",
+  "description": "Multi-agent activity audit. Logs every Claude Code/Gemini/Qwen tool call to JSONL + SQLite, with /fluxmirror:* commands for daily summaries and configuration.",
   "author": {
     "name": "rojae"
   },
