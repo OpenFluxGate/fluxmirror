@@ -96,21 +96,49 @@ when running under Qwen.
 
 ### Gemini CLI
 
+> **Use this exact command — all three parts are required:**
+>
+> ```bash
+> gemini extensions install https://github.com/OpenFluxGate/fluxmirror \
+>   --ref gemini-extension-pkg \
+>   --consent
+> ```
+
+Why each part matters:
+
+| Part | Reason |
+|---|---|
+| `https://github.com/OpenFluxGate/fluxmirror` | Gemini's installer only accepts a **full `https://` URL** — the `owner/repo` shorthand fails with `Install source not found.` |
+| `--ref gemini-extension-pkg` | Our default branch is a monorepo; the manifest lives at `gemini-extension/gemini-extension.json` (subdir). Gemini looks for `gemini-extension.json` at the **root** of the cloned tree. The `gemini-extension-pkg` branch is auto-published by `release.yml` on every tag and contains `gemini-extension/*` at the root. Omitting this flag fails with `Configuration file not found at …/gemini-extension.json`. |
+| `--consent` | Skips the interactive `Do you want to continue?` prompt so the install runs to completion in one shot (and works under automation). |
+
+Headless / sandboxed runs (e.g. running `gemini --yolo` from `/tmp` or
+a CI runner) may additionally need:
+
 ```bash
-gemini extensions install https://github.com/OpenFluxGate/fluxmirror \
-  --ref gemini-extension-pkg --consent
+GEMINI_CLI_TRUST_WORKSPACE=true gemini …    # or pass --skip-trust
 ```
 
-Gemini's installer requires the manifest at the root of the URL it
-clones from, and only accepts a full `https://` URL (the `owner/repo`
-shorthand is not supported). The `gemini-extension-pkg` branch is
-auto-published by `release.yml` on every tag and contains
-`gemini-extension/*` at the repo root. The `--consent` flag skips the
-interactive confirmation.
+without which Gemini refuses to use YOLO mode and prints
+`Gemini CLI is not running in a trusted directory`.
 
-Headless / sandboxed runs may also need
-`GEMINI_CLI_TRUST_WORKSPACE=true` (or `--skip-trust`) when the cwd
-is not in Gemini's trusted-folders list.
+Optional shell alias if you reinstall often:
+
+```bash
+alias fminstall-gemini='gemini extensions install \
+  https://github.com/OpenFluxGate/fluxmirror \
+  --ref gemini-extension-pkg --consent'
+```
+
+#### Troubleshooting (gemini install errors → fix)
+
+| Error message | Fix |
+|---|---|
+| `Install source not found.` | You used the `owner/repo` shorthand. Switch to the full `https://github.com/OpenFluxGate/fluxmirror` URL. |
+| `Configuration file not found at …/gemini-extension.json` | You omitted `--ref gemini-extension-pkg`. Add it. |
+| `Extension "fluxmirror" is already installed.` | Run `gemini extensions uninstall fluxmirror` first, then re-install. |
+| `--ref and --auto-update are not applicable for local extensions.` | You passed a relative/local path; pass the full `https://` URL instead. |
+| `Gemini CLI is not running in a trusted directory.` | Set `GEMINI_CLI_TRUST_WORKSPACE=true` or pass `--skip-trust` (only when invoking `gemini`, not `gemini extensions install`). |
 
 Details: [gemini-extension/README.md](gemini-extension/README.md).
 
