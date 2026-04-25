@@ -1,0 +1,23 @@
+[package]
+name = "fluxmirror-hook"
+version = "0.1.0"
+edition = "2021"
+description = "Single-binary tool-call hook for Claude Code, Qwen Code, and Gemini CLI. Writes JSONL + parameter-bound SQLite into the FluxMirror database."
+license = "MIT"
+
+[[bin]]
+name = "fluxmirror-hook"
+path = "src/main.rs"
+
+[dependencies]
+# rusqlite with bundled SQLite — no system sqlite3 needed at runtime
+rusqlite = { version = "0.34", features = ["bundled"] }
+# JSON parsing (replaces jq)
+serde_json = "1"
+
+[profile.release]
+strip = true
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"

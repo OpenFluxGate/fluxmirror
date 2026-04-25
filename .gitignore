@@ -15,6 +15,9 @@ build/
 ._*
 __MACOSX/
 
+# Rust
+rust-hook/target/
+
 # FluxMirror runtime
 *.db
 *.db-journal
