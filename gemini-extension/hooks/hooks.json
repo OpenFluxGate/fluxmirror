@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${extensionPath}/bin/fluxmirror-hook --kind gemini"
+            "command": "${extensionPath}/hooks/run-hook.sh"
           }
         ]
       }
