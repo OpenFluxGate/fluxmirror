@@ -1,35 +1,37 @@
 #!/bin/bash
 # FluxMirror PostToolUse entrypoint (Claude Code / Qwen Code).
 #
-# Prefers the per-arch Rust binary (bin/fluxmirror-hook-<os>-<arch>),
-# then a generic local-dev binary (bin/fluxmirror-hook), and finally
-# falls back to the pure-bash session-log.sh — so the hook always works
-# regardless of whether the Rust binary is installed.
+# Auto-downloads the per-arch fluxmirror-hook binary from the latest
+# GitHub release on first invocation (one-time ~1.2 MB), then execs it.
+# Subsequent calls skip the download and exec the cached binary.
 #
-# Stdin (the JSON tool-call payload) is forwarded unchanged.
+# Required: bash + curl (both universal).
+# stdin (the JSON tool-call payload) is forwarded unchanged.
 
 PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+mkdir -p "$PLUGIN_ROOT/bin" 2>/dev/null
 
 case "$(uname -s)-$(uname -m)" in
-  Darwin-arm64)   ARCH=darwin-arm64  ;;
-  Darwin-x86_64)  ARCH=darwin-x64    ;;
-  Linux-x86_64)   ARCH=linux-x64     ;;
-  Linux-aarch64)  ARCH=linux-arm64   ;;
-  *)              ARCH=              ;;
+  Darwin-arm64)   ASSET=fluxmirror-hook-darwin-arm64 ;;
+  Darwin-x86_64)  ASSET=fluxmirror-hook-darwin-x64 ;;
+  Linux-x86_64)   ASSET=fluxmirror-hook-linux-x64 ;;
+  Linux-aarch64)  ASSET=fluxmirror-hook-linux-arm64 ;;
+  *)
+    # Unsupported OS/arch — silent no-op (never break the agent).
+    exit 0
+    ;;
 esac
 
-# Try (in order):
-#   1. arch-specific binary as shipped by GitHub release
-#   2. generic name (used by `make install-bin` and local builds)
-candidates=()
-[ -n "$ARCH" ] && candidates+=("$PLUGIN_ROOT/bin/fluxmirror-hook-$ARCH")
-candidates+=("$PLUGIN_ROOT/bin/fluxmirror-hook")
+BIN="$PLUGIN_ROOT/bin/$ASSET"
 
-for candidate in "${candidates[@]}"; do
-  if [ -x "$candidate" ]; then
-    exec "$candidate" --kind claude
+if [ ! -x "$BIN" ]; then
+  url="https://github.com/OpenFluxGate/fluxmirror/releases/latest/download/$ASSET"
+  if ! curl -fsSL --max-time 15 -o "$BIN.tmp" "$url" 2>/dev/null; then
+    rm -f "$BIN.tmp"
+    exit 0   # download failed (offline, transient outage) — silent skip
   fi
-done
+  mv "$BIN.tmp" "$BIN"
+  chmod +x "$BIN"
+fi
 
-# Fallback: pure-bash + jq + python3 implementation
-exec "$PLUGIN_ROOT/hooks/session-log.sh"
+exec "$BIN" --kind claude

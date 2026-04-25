@@ -66,7 +66,7 @@ programs plus a slash command surface:
 | `fluxmirror-hook` (Rust binary) | PostToolUse / AfterTool hook for Claude Code, Qwen Code, Gemini CLI. Writes one row per tool call to `agent_events`. |
 | `fluxmirror-proxy` (Rust binary) | Long-running stdio MCP proxy used by Claude Desktop. Spawns the real MCP server, relays stdio transparently, writes one row per JSON-RPC line to `events`. |
 | `plugins/fluxmirror/commands/*.md` | `/fluxmirror:*` slash commands that turn the SQLite data into reports. |
-| Bash + jq + python3 fallback | Always-works alternative the wrapper falls back to when the per-arch Rust binary is absent in an install. |
+| `hooks/run-hook.sh` (~25-line bash) | Auto-downloads the per-arch Rust binary from the latest GitHub release on first invocation, caches it under `<plugin>/bin/`, then execs it on every call. |
 
 Both Rust binaries have **zero runtime dependencies** (SQLite is statically linked
 via rusqlite's `bundled` feature).
@@ -75,13 +75,15 @@ via rusqlite's `bundled` feature).
 
 - **Rust** (stable, edition 2021) for both binaries — `rusqlite` (bundled SQLite),
   `serde_json`. Released as ~1.2 MB statically-linked artifacts.
-- **Bash + jq + python3** for the hook fallback path (`hooks/run-hook.sh`,
-  `hooks/session-log.sh`, `hooks/_dual_write.py`). Always present in install
-  packages so the hook works even if no Rust binary is installed.
-- **GitHub Actions** for CI (3 workflows): unit + parity + integration tests on
-  every PR; cross-arch matrix release on tag push.
+- **Bash + curl** for the ~25-line install wrapper (`hooks/run-hook.sh`) that
+  downloads the per-arch Rust binary on first invocation. Both `bash` and
+  `curl` are universal on macOS / Linux / WSL.
+- **GitHub Actions** for CI (3 workflows): unit + regression + integration tests
+  on every PR; cross-arch matrix release on tag push.
 
-No JVM, no Gradle, no Java toolchain anywhere.
+No JVM, no Gradle, no Java toolchain. No Python or jq at runtime — they were
+removed when the bash fallback path was retired in favour of the auto-download
+wrapper.
 
 ## Architecture
 
@@ -243,7 +245,6 @@ fluxmirror/
 ├── CLAUDE.md                         (this file)
 ├── README.md
 ├── LICENSE                           (MIT — match FluxGate)
-├── Makefile                          sync-helpers / verify-helpers (DRY gate)
 ├── rust-hook/                        single-binary tool-call hook (Rust)
 │   ├── Cargo.toml
 │   └── src/main.rs
@@ -252,19 +253,18 @@ fluxmirror/
 │   └── src/                          {cli, framer, store, writer, child, bridge, main}.rs
 ├── plugins/fluxmirror/               Claude Code plugin (also used by Qwen)
 │   ├── .claude-plugin/plugin.json
-│   ├── hooks/                        run-hook.sh wrapper + bash fallback + helper
+│   ├── hooks/                        run-hook.sh (auto-downloads + execs Rust binary)
 │   └── commands/                     /fluxmirror:* slash command surface
 ├── gemini-extension/                 Gemini CLI extension
 │   ├── gemini-extension.json
-│   └── hooks/                        run-hook.sh wrapper + bash fallback + helper
+│   └── hooks/                        run-hook.sh (same wrapper)
 ├── scripts/
-│   ├── _dual_write.py                canonical safe SQLite writer (bash fallback)
 │   ├── verify-isolation.sh           JSONL + SQLite isolation verification
-│   ├── test-hooks.sh                 bash hook synthetic regression suite
-│   └── test-rust-hook.sh             Rust hook parity tests vs bash hook
+│   ├── test-rust-hook.sh             Rust hook regression suite
+│   └── bump-version.sh               release helper (sync 3 manifests + tag)
 ├── .github/workflows/
-│   ├── test.yml                      CI on push/PR (3 jobs: bash + 2 Rust)
-│   ├── release.yml                   CI on tag: gemini-extension archive
+│   ├── test.yml                      CI on push/PR (2 Rust jobs)
+│   ├── release.yml                   CI on tag: gemini-extension archive + branch
 │   └── rust-release.yml              CI on tag: per-arch Rust binaries (5 × 2)
 └── .claude-plugin/
     └── marketplace.json              Claude marketplace listing

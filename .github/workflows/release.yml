@@ -47,9 +47,6 @@ jobs:
 
           rm -f "$tmp" || true
 
-      - name: Sync shared _dual_write.py helper into both packages
-        run: make sync-helpers
-
       - name: Strip macOS metadata before packaging
         run: |
           find gemini-extension plugins/fluxmirror -name '._*' -delete 2>/dev/null || true

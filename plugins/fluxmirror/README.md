@@ -53,10 +53,11 @@ accordingly:
 
 ## Requirements
 
-- `jq` on PATH (`brew install jq`)
-- `python3` on PATH (ships with Xcode CLT on macOS; the hook uses
-  Python's `sqlite3` module for parameter-bound writes that are safe
-  against arbitrary input)
+- `bash` and `curl` on PATH (both universal on macOS / Linux / WSL)
+- Network access on the first hook fire after install — the wrapper
+  downloads the per-arch `fluxmirror-hook` Rust binary (~1.2 MB) from
+  the latest GitHub release into `<plugin>/bin/` and execs it.
+  Subsequent calls skip the download.
 
 ## Configuration (optional env vars)
 

@@ -47,9 +47,10 @@ Pinning a specific release: pass `--ref vX.Y.Z` to install at that tag.
 
 ## Requirements
 
-- `jq` on PATH (`brew install jq`)
-- `python3` on PATH (used by the shared `_dual_write.py` helper for
-  parameter-bound SQLite writes that survive arbitrary input)
+- `bash` and `curl` on PATH (both universal on macOS / Linux / WSL)
+- Network access on the first hook fire — the wrapper downloads the
+  per-arch `fluxmirror-hook` Rust binary (~1.2 MB) from the latest
+  GitHub release. Subsequent calls skip the download.
 
 ## Configuration (optional env vars)
 

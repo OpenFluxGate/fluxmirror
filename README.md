@@ -1,18 +1,19 @@
 # fluxmirror
 
 Multi-agent activity audit. Logs every tool call from Claude Code, Gemini
-CLI, and Qwen Code to a daily JSONL file **and** a shared SQLite database
-— separated by agent. Optionally audits Claude Desktop's MCP traffic via
-a Rust proxy that writes to the same DB.
+CLI, and Qwen Code to a SQLite database — separated by agent. Optionally
+audits Claude Desktop's MCP traffic via a Rust proxy that writes to the
+same DB.
 
 A set of `/fluxmirror:*` slash commands (installed by the Claude/Qwen
 plugin) turns the SQLite data into daily, weekly, or per-agent reports.
 
-Both the per-tool-call hook (`fluxmirror-hook`) and the long-running
-MCP proxy (`fluxmirror-proxy`) are single-binary Rust programs with
-zero runtime dependencies — SQLite is statically linked. The bash +
-jq + python implementation remains as a fallback so installs work even
-when no Rust binary is present.
+The per-tool-call hook (`fluxmirror-hook`) and the long-running MCP
+proxy (`fluxmirror-proxy`) are single-binary Rust programs with zero
+runtime dependencies (SQLite is statically linked). A tiny ~25-line
+bash wrapper (`hooks/run-hook.sh`) auto-downloads the per-arch binary
+from the latest GitHub release on first invocation and execs it on
+every call — first call is one-time ~1-2 s, every call after is ~30 ms.
 
 ## Why
 
@@ -56,13 +57,12 @@ The Claude/Qwen distinction is detected at hook time via Qwen's
 
 ## Requirements
 
-For the bash-fallback path (always works):
-- `jq` on PATH (`brew install jq`)
-- `python3` on PATH (ships with Xcode CLT on macOS)
+- `bash` and `curl` on PATH (both universal on macOS / Linux / WSL)
+- Network access on first hook invocation (one-time ~1-2 s download)
+  per machine, per major version)
 
-The Rust binaries (`fluxmirror-hook` and `fluxmirror-proxy`) have **zero
-runtime dependencies** — SQLite is statically linked. Just download the
-per-arch binary from the GitHub release and run it.
+The Rust binaries themselves have **zero runtime dependencies** — SQLite
+is statically linked into them.
 
 ## Install
 
@@ -240,43 +240,22 @@ fluxmirror/
 │   ├── src/                          {cli, framer, store, writer, child, bridge, main}.rs
 │   └── Cargo.toml
 ├── plugins/fluxmirror/               Claude Code plugin (also used by Qwen)
-│   ├── hooks/run-hook.sh             Wrapper: prefer Rust binary, fallback to bash
-│   ├── hooks/session-log.sh          Pure-bash fallback
-│   ├── hooks/_dual_write.py          Helper copy (synced from canonical)
+│   ├── hooks/run-hook.sh             ~25-line auto-download wrapper
 │   └── commands/                     /fluxmirror:* slash command surface
 ├── gemini-extension/                 Gemini CLI extension
-│   ├── hooks/run-hook.sh             Wrapper: prefer Rust binary, fallback to bash
-│   ├── hooks/session-log.sh          Pure-bash fallback
-│   └── hooks/_dual_write.py
+│   └── hooks/run-hook.sh             same auto-download wrapper
 ├── scripts/
-│   ├── _dual_write.py                Canonical safe SQLite writer
 │   ├── verify-isolation.sh           JSONL + SQLite isolation verification
-│   ├── test-hooks.sh                 Bash hook synthetic regression suite
-│   └── test-rust-hook.sh             Rust hook parity tests vs bash hook
-├── Makefile                          sync-helpers / verify-helpers targets
+│   ├── test-rust-hook.sh             Rust hook regression suite
+│   └── bump-version.sh               release helper (sync 3 manifests + tag)
 ├── .github/workflows/
-│   ├── test.yml                      CI: bash + Rust hook + Rust proxy tests
-│   ├── release.yml                   CI on tag: gemini-extension archive
-│   └── rust-release.yml              CI on tag: per-arch Rust binaries
+│   ├── test.yml                      CI: cargo test + Rust regression + integration
+│   ├── release.yml                   CI on tag: gemini-extension archive + branch
+│   └── rust-release.yml              CI on tag: per-arch Rust binaries (5 × 2)
 └── .claude-plugin/                   Claude marketplace manifest
 ```
 
 ## Contributing
-
-### Bash hook fallback
-
-The shared SQLite writer (used by the bash fallback) lives at
-`scripts/_dual_write.py` (canonical). Each install package
-(`plugins/fluxmirror/hooks/`, `gemini-extension/hooks/`) ships its own
-copy so installs are self-contained. To keep them in sync after editing
-the canonical:
-
-```bash
-make sync-helpers     # copy canonical into both packages
-make verify-helpers   # CI uses this — fails if any copy diverged
-```
-
-### Rust binaries
 
 ```bash
 cd rust-hook && cargo build --release    # → target/release/fluxmirror-hook  (~1.2 MB)
@@ -290,15 +269,15 @@ See [rust-hook/README.md](rust-hook/README.md) and
 
 | Suite | What it covers | How to run |
 |---|---|---|
-| Bash hook regression | tool detection, agent labeling, self-noise, round-trip raw_json | `./scripts/test-hooks.sh` (20 cases) |
-| Rust hook parity | same 20 cases against the Rust binary | `./scripts/test-rust-hook.sh` |
 | Rust hook unit | per-tool detail extraction, time formatting | `cd rust-hook && cargo test --release` (14 cases) |
+| Rust hook regression | full black-box test of the binary | `./scripts/test-rust-hook.sh` (20 cases) |
 | Rust proxy unit | CLI parsing, NDJSON framer, SQLite store | `cd rust-proxy && cargo test --release` (15 cases) |
 | Rust proxy integration | `fluxmirror-proxy` + `cat` child end-to-end | runs in CI; see `.github/workflows/test.yml` |
 | JSONL+SQLite isolation | session IDs do not leak across agents | `./scripts/verify-isolation.sh` |
 
 `.github/workflows/test.yml` runs all of the above on every push to
-`main` and every pull request, in three parallel jobs.
+`main` and every pull request, in two parallel jobs (rust-hook,
+rust-proxy).
 
 ## Releasing (maintainers)
 

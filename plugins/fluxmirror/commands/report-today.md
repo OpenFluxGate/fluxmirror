@@ -172,8 +172,8 @@ Look at the data and infer **"what work was done"**. Do NOT just list facts.
 
 - Lots of Read + Glob, few Edit → **research / exploration**
 - Many Edit on a small set of related files → **active implementation**
-- Edit + Bash with test/build commands (`./gradlew`, `mvn`, `npm test`,
-  `pytest`, `go test`) → **testing / iteration**
+- Edit + Bash with test/build commands (`cargo test`, `npm test`,
+  `pytest`, `go test`, `make`) → **testing / iteration**
 - `git tag` + `git push origin v...` + `curl .../releases/...` → **shipping**
 - New file `Write` followed by repeated `Edit`s on the same path →
   **stabilizing a new module**
@@ -192,10 +192,10 @@ Look at the data and infer **"what work was done"**. Do NOT just list facts.
 
 - Same file edited > 5 times in one day → **iterative refinement**;
   quote the count ("edited X 7 times")
-- Two files edited in alternation (e.g., `EventStore.java` ↔
-  `session-log.sh`) → **dual-write integration** or **paired refactor**
+- Two files edited in alternation (e.g., a header ↔ its impl, or
+  schema ↔ migration) → **paired refactor** or **dual-write integration**
 - Repeated Bash invocations of the same build / test command → quote
-  cycle count ("4 gradle cycles", "6 pytest runs")
+  cycle count ("4 cargo cycles", "6 pytest runs")
 
 ### Multi-agent signals (when ≥ 2 distinct agents in per-agent table)
 
@@ -210,10 +210,10 @@ Look at the data and infer **"what work was done"**. Do NOT just list facts.
 
 ### Common file-pair shortcuts
 
-- `EventStore.java` + `session-log.sh` together → SQLite integration
+- `Cargo.toml` + `src/**/*.rs` together → Rust module work
 - `marketplace.json` + `plugin.json` together → version sync
-- `*.gradle.kts` + `src/**/*.java` → Java module work
 - `commands/*.md` + `.claude-plugin/plugin.json` → plugin command surface change
+- `hooks/*.sh` + `bin/*` → install / wrapper change
 
 ### Time clustering
 
@@ -229,14 +229,14 @@ each Key Activities bullet — don't list them separately. A good bullet
 reads like:
 
 > **SQLite integration** — Deep focus session (90 min). Iteratively
-> refined `EventStore.java` (7 edits) and `session-log.sh` (5 edits)
-> until schema and dual-write logic stabilized. Built and tested via
-> 5 gradle cycles.
+> refined `store.rs` (7 edits) and `bridge.rs` (5 edits) until the
+> writer queue and framer interplay stabilized. Built and tested via
+> 5 cargo cycles.
 
 A weak bullet reads like:
 
-> **SQLite integration** — `EventStore.java` was modified, `session-log.sh`
-> was modified.
+> **SQLite integration** — `store.rs` was modified, `bridge.rs` was
+> modified.
 
 ### Insights generation rules
 
