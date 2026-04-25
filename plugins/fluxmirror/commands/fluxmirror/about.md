@@ -27,11 +27,13 @@ echo "Language: $USER_LANG"
 ## Step 1: Discover sub-commands dynamically
 
 To prevent the listing from going stale, enumerate the actual command
-files instead of hardcoding names:
+files instead of hardcoding names. Commands live under
+`commands/fluxmirror/` (sub-namespace so that Qwen / Gemini also
+register them as `/fluxmirror:<name>`):
 
 ```bash
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$0")/..}"
-CMD_DIR="$PLUGIN_ROOT/commands"
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$0")/../..}"
+CMD_DIR="$PLUGIN_ROOT/commands/fluxmirror"
 
 if [ -d "$CMD_DIR" ]; then
   echo ""
@@ -53,10 +55,10 @@ the dynamically-listed sub-commands from Step 1 verbatim.
 Cover briefly:
 
 - What fluxmirror is: a multi-agent activity audit for Claude Code,
-  Gemini CLI, Qwen Code, and Claude Desktop MCP traffic.
+  Qwen Code, Gemini CLI, and (optionally) Claude Desktop MCP traffic.
 - How it works: PostToolUse / AfterTool hooks write each tool call to
-  JSONL plus the `agent_events` SQLite table; a Java MCP proxy
-  separately captures Claude Desktop's JSON-RPC stream into the
+  the `agent_events` SQLite table; the optional Rust `fluxmirror-proxy`
+  binary captures Claude Desktop's stdio JSON-RPC traffic into the
   `events` table.
 - Where data lives:
   `$HOME/Library/Application Support/fluxmirror/events.db`.
