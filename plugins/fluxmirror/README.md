@@ -104,15 +104,18 @@ PascalCase (`Edit`/`Write`/`Read`/`Bash`) and Gemini/Qwen snake_case
 ## Extending to Claude Desktop (optional)
 
 Claude Desktop uses stdio-based MCP servers (filesystem, Gmail, etc.) that
-are not covered by this plugin. To audit Desktop's MCP traffic, build and
-install the fluxmirror Java proxy from the same repo:
+are not covered by this plugin. To audit Desktop's MCP traffic, install
+the fluxmirror Rust proxy. Download the per-arch binary from the latest
+GitHub release:
 
 ```bash
-git clone https://github.com/OpenFluxGate/fluxmirror.git
-cd fluxmirror
-./gradlew shadowJar
-# Output: build/libs/fluxmirror-all.jar
+curl -L -o ~/fluxmirror-proxy \
+  https://github.com/OpenFluxGate/fluxmirror/releases/latest/download/fluxmirror-proxy-darwin-arm64
+chmod +x ~/fluxmirror-proxy
 ```
+
+(Replace `darwin-arm64` with `darwin-x64`, `linux-x64`, `linux-arm64`, or
+`windows-x64.exe` to match your machine.)
 
 Then in Claude Desktop's configuration file
 (`~/Library/Application Support/Claude/claude_desktop_config.json`),
@@ -122,9 +125,8 @@ wrap an existing MCP server with fluxmirror. Example — auditing the filesystem
 {
   "mcpServers": {
     "fluxmirror-fs": {
-      "command": "/path/to/java",
+      "command": "/Users/YOURNAME/fluxmirror-proxy",
       "args": [
-        "-jar", "/absolute/path/to/fluxmirror-all.jar",
         "--server-name", "fs",
         "--db", "/Users/YOURNAME/Library/Application Support/fluxmirror/events.db",
         "--capture-c2s", "/tmp/fm-c2s.raw",
@@ -138,8 +140,9 @@ wrap an existing MCP server with fluxmirror. Example — auditing the filesystem
 ```
 
 Requires:
-- Java 21 (tested with Zulu 21.0.10)
+- Zero runtime dependencies (SQLite is statically linked into the binary)
 - `~/Library/Application Support/fluxmirror/` directory created manually
+  (or any other path you pass to `--db`)
 
 Events land in the same SQLite database, queryable via:
 

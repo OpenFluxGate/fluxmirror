@@ -50,8 +50,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             rust-hook/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('rust-hook/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
+          key: ${{ runner.os }}-rust-hook-${{ hashFiles('rust-hook/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-rust-hook-
 
       - name: cargo build
         working-directory: rust-hook
@@ -63,3 +63,47 @@ jobs:
 
       - name: Run Rust binary parity tests (20-case)
         run: ./scripts/test-rust-hook.sh
+
+  rust-proxy:
+    name: Rust proxy tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install sqlite3 (for integration assertions)
+        run: sudo apt-get update -qq && sudo apt-get install -y sqlite3
+
+      - name: Cache cargo registry + target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust-proxy/target
+          key: ${{ runner.os }}-rust-proxy-${{ hashFiles('rust-proxy/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-rust-proxy-
+
+      - name: cargo build
+        working-directory: rust-proxy
+        run: cargo build --release
+
+      - name: cargo test (unit)
+        working-directory: rust-proxy
+        run: cargo test --release
+
+      - name: Integration smoke test (proxy with `cat` as child)
+        run: |
+          PROXY=rust-proxy/target/release/fluxmirror-proxy
+          DB=$(mktemp)
+          { echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'; \
+            echo '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'; \
+          } | "$PROXY" --server-name testfs --db "$DB" -- cat 2>/dev/null
+          C2S=$(sqlite3 "$DB" "SELECT COUNT(*) FROM events WHERE direction='c2s'")
+          S2C=$(sqlite3 "$DB" "SELECT COUNT(*) FROM events WHERE direction='s2c'")
+          echo "c2s=$C2S s2c=$S2C"
+          [ "$C2S" = "2" ] && [ "$S2C" = "2" ] || { echo "FAIL: expected 2/2"; exit 1; }
+          METHODS=$(sqlite3 "$DB" "SELECT GROUP_CONCAT(DISTINCT method) FROM events")
+          echo "methods=$METHODS"
+          [ "$METHODS" = "initialize,tools/list" ] || { echo "FAIL: methods"; exit 1; }
+          rm -f "$DB"

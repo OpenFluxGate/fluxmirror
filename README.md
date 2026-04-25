@@ -50,11 +50,13 @@ The Claude/Qwen distinction is detected at hook time via Qwen's
 
 ## Requirements
 
+For the bash-fallback path (always works):
 - `jq` on PATH (`brew install jq`)
-- `python3` on PATH (used by the hook's safe parameter-bound SQLite
-  writer; ships with Xcode CLT on macOS)
-- Java 21 — **only** if using the Claude Desktop MCP proxy
-  (`sdk install java 21.0.10-zulu`)
+- `python3` on PATH (ships with Xcode CLT on macOS)
+
+The Rust binaries (`fluxmirror-hook` and `fluxmirror-proxy`) have **zero
+runtime dependencies** — SQLite is statically linked. Just download the
+per-arch binary from the GitHub release and run it.
 
 ## Install
 
@@ -90,11 +92,21 @@ Details: [gemini-extension/README.md](gemini-extension/README.md).
 
 ### Claude Desktop (MCP audit)
 
-Download the latest jar:
+Download the per-arch binary from the latest release. Pick the right
+asset for your machine:
+
+| OS / arch | Asset |
+|---|---|
+| macOS Apple Silicon | `fluxmirror-proxy-darwin-arm64` |
+| macOS Intel | `fluxmirror-proxy-darwin-x64` |
+| Linux x86_64 | `fluxmirror-proxy-linux-x64` |
+| Linux ARM64 | `fluxmirror-proxy-linux-arm64` |
+| Windows x86_64 | `fluxmirror-proxy-windows-x64.exe` |
 
 ```bash
-curl -L -o ~/fluxmirror-mcp-proxy.jar \
-  https://github.com/OpenFluxGate/fluxmirror/releases/latest/download/fluxmirror-mcp-proxy.jar
+curl -L -o ~/fluxmirror-proxy \
+  https://github.com/OpenFluxGate/fluxmirror/releases/latest/download/fluxmirror-proxy-darwin-arm64
+chmod +x ~/fluxmirror-proxy
 ```
 
 See [plugins/fluxmirror/README.md](plugins/fluxmirror/README.md) for the
@@ -201,21 +213,31 @@ curl -L -o ~/fluxmirror-mcp-proxy.jar \
 
 ```
 fluxmirror/
-├── src/                              Java MCP proxy (for Claude Desktop)
+├── rust-hook/                        Single-binary tool-call hook (Rust)
+│   ├── src/main.rs                   Logic for all 3 agent CLIs
+│   └── Cargo.toml
+├── rust-proxy/                       Long-running MCP proxy (Rust)
+│   ├── src/                          {cli, framer, store, writer, child, bridge, main}.rs
+│   └── Cargo.toml
 ├── plugins/fluxmirror/               Claude Code plugin (also used by Qwen)
-│   ├── hooks/session-log.sh          PostToolUse hook
+│   ├── hooks/run-hook.sh             Wrapper: prefer Rust binary, fallback to bash
+│   ├── hooks/session-log.sh          Pure-bash fallback
 │   ├── hooks/_dual_write.py          Helper copy (synced from canonical)
 │   └── commands/                     /fluxmirror:* slash command surface
 ├── gemini-extension/                 Gemini CLI extension
-│   ├── hooks/session-log.sh          AfterTool hook
-│   └── hooks/_dual_write.py          Helper copy (synced from canonical)
+│   ├── hooks/run-hook.sh             Wrapper: prefer Rust binary, fallback to bash
+│   ├── hooks/session-log.sh          Pure-bash fallback
+│   └── hooks/_dual_write.py
 ├── scripts/
 │   ├── _dual_write.py                Canonical safe SQLite writer
 │   ├── verify-isolation.sh           JSONL + SQLite isolation verification
-│   └── test-hooks.sh                 Synthetic hook regression suite
+│   ├── test-hooks.sh                 Bash hook synthetic regression suite
+│   └── test-rust-hook.sh             Rust hook parity tests vs bash hook
 ├── Makefile                          sync-helpers / verify-helpers targets
-├── .github/workflows/test.yml        CI: bash -n + verify-helpers + test-hooks
-├── .github/workflows/release.yml     CI: tag → packaged release
+├── .github/workflows/
+│   ├── test.yml                      CI: bash + Rust hook + Rust proxy tests
+│   ├── release.yml                   CI on tag: gemini-extension archive
+│   └── rust-release.yml              CI on tag: per-arch Rust binaries
 └── .claude-plugin/                   Claude marketplace manifest
 ```
 

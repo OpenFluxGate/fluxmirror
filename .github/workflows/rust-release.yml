@@ -19,26 +19,29 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-            artifact_name: fluxmirror-hook
             asset_suffix: linux-x64
+            ext: ""
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
-            artifact_name: fluxmirror-hook
             asset_suffix: linux-arm64
+            ext: ""
             cross_apt: gcc-aarch64-linux-gnu
             cross_linker: aarch64-linux-gnu-gcc
           - target: x86_64-apple-darwin
             os: macos-13
-            artifact_name: fluxmirror-hook
             asset_suffix: darwin-x64
+            ext: ""
           - target: aarch64-apple-darwin
             os: macos-latest
-            artifact_name: fluxmirror-hook
             asset_suffix: darwin-arm64
+            ext: ""
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-            artifact_name: fluxmirror-hook.exe
-            asset_suffix: windows-x64.exe
+            asset_suffix: windows-x64
+            ext: ".exe"
+
+    env:
+      CARGO_TERM_COLOR: always
 
     steps:
       - uses: actions/checkout@v4
@@ -52,32 +55,53 @@ jobs:
       - name: Add Rust target
         run: rustup target add ${{ matrix.target }}
 
-      - name: Cargo build (release, ${{ matrix.target }})
+      - name: Cache cargo registry + targets
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust-hook/target
+            rust-proxy/target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('rust-hook/Cargo.lock', 'rust-proxy/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-cargo-
+
+      - name: Build fluxmirror-hook (${{ matrix.target }})
         working-directory: rust-hook
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: ${{ matrix.cross_linker }}
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Stage artifact (POSIX)
+      - name: Build fluxmirror-proxy (${{ matrix.target }})
+        working-directory: rust-proxy
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: ${{ matrix.cross_linker }}
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Stage artifacts (POSIX)
         if: runner.os != 'Windows'
         run: |
           mkdir -p artifacts
-          cp rust-hook/target/${{ matrix.target }}/release/${{ matrix.artifact_name }} \
-             artifacts/fluxmirror-hook-${{ matrix.asset_suffix }}
+          cp "rust-hook/target/${{ matrix.target }}/release/fluxmirror-hook${{ matrix.ext }}"  \
+             "artifacts/fluxmirror-hook-${{ matrix.asset_suffix }}${{ matrix.ext }}"
+          cp "rust-proxy/target/${{ matrix.target }}/release/fluxmirror-proxy${{ matrix.ext }}" \
+             "artifacts/fluxmirror-proxy-${{ matrix.asset_suffix }}${{ matrix.ext }}"
           ls -la artifacts/
 
-      - name: Stage artifact (Windows)
+      - name: Stage artifacts (Windows)
         if: runner.os == 'Windows'
         shell: cmd
         run: |
           mkdir artifacts
-          copy rust-hook\target\${{ matrix.target }}\release\${{ matrix.artifact_name }} artifacts\fluxmirror-hook-${{ matrix.asset_suffix }}
+          copy rust-hook\target\${{ matrix.target }}\release\fluxmirror-hook${{ matrix.ext }} artifacts\fluxmirror-hook-${{ matrix.asset_suffix }}${{ matrix.ext }}
+          copy rust-proxy\target\${{ matrix.target }}\release\fluxmirror-proxy${{ matrix.ext }} artifacts\fluxmirror-proxy-${{ matrix.asset_suffix }}${{ matrix.ext }}
           dir artifacts
 
-      - name: Upload artifact (every run)
+      - name: Upload artifacts (every run)
         uses: actions/upload-artifact@v4
         with:
-          name: fluxmirror-hook-${{ matrix.asset_suffix }}
+          name: fluxmirror-${{ matrix.asset_suffix }}
           path: artifacts/*
 
       - name: Attach to GitHub release (tag pushes only)
