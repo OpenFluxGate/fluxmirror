@@ -12,6 +12,26 @@ queryable record per agent, with no cross-contamination — useful for
 daily journals, billing review, security audits, or just understanding
 how you actually work.
 
+## Architecture
+
+```mermaid
+graph LR
+    CC[Claude Code] -->|hook| AE[agent_events]
+    GC[Gemini CLI] -->|hook| AE
+    QC[Qwen Code] -->|hook| AE
+    CD[Claude Desktop MCP] -->|proxy| EV[events]
+    AE --> DB[(events.db)]
+    EV --> DB
+    DB --> TR[today-report.sh]
+    TR --> OUT[text or TOML]
+```
+
+All four sources flow into a single SQLite database at
+`~/Library/Application Support/fluxmirror/events.db`. The hook-based agents
+(Claude Code, Gemini CLI, Qwen Code) write to the `agent_events` table; the
+Java MCP proxy for Claude Desktop writes to the `events` table. The
+`today-report` command queries both and produces a unified daily summary.
+
 ## Requirements
 
 - `jq` on PATH (for verification script and hooks): `brew install jq`
@@ -75,6 +95,44 @@ After installing on a new machine, confirm logs are isolated per agent:
 Expected output: `clean (0 session IDs cross over)` for all 6 directional
 checks (Claude→Gemini, Claude→Qwen, Gemini→Claude, Gemini→Qwen,
 Qwen→Claude, Qwen→Gemini).
+
+## Updating
+
+### Claude Code
+
+Third-party marketplaces don't auto-update by default. To enable automatic
+updates for fluxmirror:
+
+1. Run `/plugin` inside Claude Code
+2. Select fluxmirror marketplace, then click Enable auto-update
+
+For manual updates without auto-update enabled, run `claude`, then inside
+Claude Code:
+
+```bash
+/plugin marketplace update fluxmirror
+/reload-plugins
+```
+
+### Gemini CLI
+
+```bash
+gemini extensions update fluxmirror
+```
+
+### Qwen Code
+
+```bash
+qwen extensions update fluxmirror
+```
+
+### Claude Desktop (MCP proxy)
+
+Re-download the latest jar:
+
+```bash
+curl -L -o ~/fluxmirror-mcp-proxy.jar https://github.com/OpenFluxGate/fluxmirror/releases/latest/download/fluxmirror-mcp-proxy.jar
+```
 
 ## Requirements
 
