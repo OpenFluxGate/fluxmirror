@@ -37,15 +37,25 @@ fi
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo_root"
 
-if [ -n "$(git status --porcelain)" ] && [ "$dry" -eq 0 ]; then
-  echo "Refusing: working tree has uncommitted changes" >&2
-  git status --short >&2
-  exit 2
-fi
+# Only the manifests we will actually touch matter. Don't block on
+# untracked local-state files (.omc/, .bkit/, build outputs, etc.).
+manifest_files=(
+  gemini-extension/gemini-extension.json
+  plugins/fluxmirror/.claude-plugin/plugin.json
+  .claude-plugin/marketplace.json
+)
 
-if [ "$(git symbolic-ref --short HEAD)" != "main" ] && [ "$dry" -eq 0 ]; then
-  echo "Refusing: not on main (current: $(git symbolic-ref --short HEAD))" >&2
-  exit 2
+if [ "$dry" -eq 0 ]; then
+  if [ -n "$(git status --porcelain -- "${manifest_files[@]}" 2>/dev/null)" ]; then
+    echo "Refusing: one of the version manifests has uncommitted changes" >&2
+    git status --short -- "${manifest_files[@]}" >&2
+    exit 2
+  fi
+
+  if [ "$(git symbolic-ref --short HEAD)" != "main" ]; then
+    echo "Refusing: not on main (current: $(git symbolic-ref --short HEAD))" >&2
+    exit 2
+  fi
 fi
 
 tmp=$(mktemp)
