@@ -44,6 +44,20 @@ public class EventStore implements AutoCloseable {
                       server_name TEXT NOT NULL
                     )""");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts_ms)");
+
+            stmt.execute("""
+                    CREATE TABLE IF NOT EXISTS agent_events (
+                      id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      ts TEXT NOT NULL,
+                      agent TEXT NOT NULL,
+                      session TEXT,
+                      tool TEXT,
+                      detail TEXT,
+                      cwd TEXT,
+                      raw_json TEXT
+                    )""");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_agent_events_ts ON agent_events(ts)");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_agent_events_agent ON agent_events(agent)");
         }
         insertStmt = conn.prepareStatement(
                 "INSERT INTO events (ts_ms, direction, method, message_json, server_name) VALUES (?,?,?,?,?)");
