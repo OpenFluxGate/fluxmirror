@@ -18,6 +18,10 @@ __MACOSX/
 # Rust
 rust-hook/target/
 
+# Per-arch hook binaries (built locally or downloaded from GitHub release)
+plugins/fluxmirror/bin/
+gemini-extension/bin/
+
 # FluxMirror runtime
 *.db
 *.db-journal

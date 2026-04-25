@@ -1,0 +1,89 @@
+name: Rust release builds
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact_name: fluxmirror-hook
+            asset_suffix: linux-x64
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact_name: fluxmirror-hook
+            asset_suffix: linux-arm64
+            cross_apt: gcc-aarch64-linux-gnu
+            cross_linker: aarch64-linux-gnu-gcc
+          - target: x86_64-apple-darwin
+            os: macos-13
+            artifact_name: fluxmirror-hook
+            asset_suffix: darwin-x64
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            artifact_name: fluxmirror-hook
+            asset_suffix: darwin-arm64
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            artifact_name: fluxmirror-hook.exe
+            asset_suffix: windows-x64.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cross-compile linker (Linux ARM only)
+        if: matrix.cross_apt
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ${{ matrix.cross_apt }}
+
+      - name: Add Rust target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Cargo build (release, ${{ matrix.target }})
+        working-directory: rust-hook
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: ${{ matrix.cross_linker }}
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Stage artifact (POSIX)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p artifacts
+          cp rust-hook/target/${{ matrix.target }}/release/${{ matrix.artifact_name }} \
+             artifacts/fluxmirror-hook-${{ matrix.asset_suffix }}
+          ls -la artifacts/
+
+      - name: Stage artifact (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          mkdir artifacts
+          copy rust-hook\target\${{ matrix.target }}\release\${{ matrix.artifact_name }} artifacts\fluxmirror-hook-${{ matrix.asset_suffix }}
+          dir artifacts
+
+      - name: Upload artifact (every run)
+        uses: actions/upload-artifact@v4
+        with:
+          name: fluxmirror-hook-${{ matrix.asset_suffix }}
+          path: artifacts/*
+
+      - name: Attach to GitHub release (tag pushes only)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: artifacts/*
+          fail_on_unmatched_files: true

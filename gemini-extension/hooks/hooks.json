@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${extensionPath}/hooks/session-log.sh"
+            "command": "${extensionPath}/bin/fluxmirror-hook --kind gemini"
           }
         ]
       }

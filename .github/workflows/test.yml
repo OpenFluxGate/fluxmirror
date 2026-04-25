@@ -1,4 +1,4 @@
-name: Test hooks
+name: Tests
 
 on:
   push:
@@ -6,7 +6,8 @@ on:
   pull_request:
 
 jobs:
-  hooks:
+  bash-hooks:
+    name: Bash hook regression
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -24,9 +25,41 @@ jobs:
           bash -n gemini-extension/hooks/session-log.sh
           bash -n scripts/verify-isolation.sh
           bash -n scripts/test-hooks.sh
+          bash -n scripts/test-rust-hook.sh
 
       - name: Python parses _dual_write.py
         run: python3 -c "import ast; ast.parse(open('scripts/_dual_write.py').read())"
 
-      - name: Run synthetic hook regression tests
+      - name: Run synthetic bash hook regression tests
         run: ./scripts/test-hooks.sh
+
+  rust-hook:
+    name: Rust hook tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install sqlite3 (for parity test asserts)
+        run: sudo apt-get update -qq && sudo apt-get install -y sqlite3
+
+      - name: Cache cargo registry + target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust-hook/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('rust-hook/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: cargo build
+        working-directory: rust-hook
+        run: cargo build --release
+
+      - name: cargo test (unit)
+        working-directory: rust-hook
+        run: cargo test --release
+
+      - name: Run Rust binary parity tests (20-case)
+        run: ./scripts/test-rust-hook.sh
