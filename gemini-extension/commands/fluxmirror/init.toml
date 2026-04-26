@@ -24,6 +24,8 @@ command. The user has not yet given you the information you need.
 >   2. Timezone?         KST / JST / PST / EST / UTC
 >                        (or any IANA name, e.g. Asia/Seoul)
 >   3. Wrapper engine?   bash / node / auto-detect
+>                        (run `fluxmirror wrapper probe` first if you
+>                        want to see which engines this host actually has)
 >
 > Example reply:  `english  UTC  bash`
 

@@ -68,6 +68,10 @@ jobs:
         if: runner.os == 'Linux'
         run: bash scripts/check-report-commands.sh
 
+      - name: Extension-shape regression guard (Linux only)
+        if: runner.os == 'Linux'
+        run: bash scripts/check-extension-shape.sh
+
       - name: Rust binary regression suite (POSIX only)
         if: runner.os != 'Windows'
         run: bash scripts/test-rust-hook.sh
