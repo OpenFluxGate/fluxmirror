@@ -160,12 +160,14 @@ mod tests {
 
     #[test]
     fn default_db_path_honors_env_override() {
+        let _lock = crate::test_lock::env_lock();
         let _g = EnvGuard::set("FLUXMIRROR_DB", "/tmp/override.db");
         assert_eq!(default_db_path(), PathBuf::from("/tmp/override.db"));
     }
 
     #[test]
     fn home_dir_falls_back_to_userprofile() {
+        let _lock = crate::test_lock::env_lock();
         let _h = EnvGuard::unset("HOME");
         let _u = EnvGuard::set("USERPROFILE", "/tmp/winhome");
         assert_eq!(home_dir(), Some(PathBuf::from("/tmp/winhome")));
@@ -173,6 +175,7 @@ mod tests {
 
     #[test]
     fn home_dir_none_when_neither_set() {
+        let _lock = crate::test_lock::env_lock();
         let _h = EnvGuard::unset("HOME");
         let _u = EnvGuard::unset("USERPROFILE");
         assert_eq!(home_dir(), None);
@@ -181,6 +184,7 @@ mod tests {
     #[cfg(target_os = "macos")]
     #[test]
     fn config_dir_macos_stays_dot_fluxmirror() {
+        let _lock = crate::test_lock::env_lock();
         let _h = EnvGuard::set("HOME", "/tmp/somehome");
         let _u = EnvGuard::unset("USERPROFILE");
         assert_eq!(config_dir(), PathBuf::from("/tmp/somehome/.fluxmirror"));
@@ -189,6 +193,7 @@ mod tests {
     #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
     #[test]
     fn config_dir_linux_falls_back_to_dot_config() {
+        let _lock = crate::test_lock::env_lock();
         let _h = EnvGuard::set("HOME", "/tmp/linuxhome");
         let _u = EnvGuard::unset("USERPROFILE");
         let _x = EnvGuard::unset("XDG_CONFIG_HOME");
@@ -201,6 +206,7 @@ mod tests {
     #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
     #[test]
     fn config_dir_linux_honors_xdg_config_home() {
+        let _lock = crate::test_lock::env_lock();
         let _h = EnvGuard::set("HOME", "/tmp/linuxhome");
         let _u = EnvGuard::unset("USERPROFILE");
         let _x = EnvGuard::set("XDG_CONFIG_HOME", "/custom/config");
@@ -210,6 +216,7 @@ mod tests {
     #[cfg(target_os = "windows")]
     #[test]
     fn config_dir_windows_uses_appdata() {
+        let _lock = crate::test_lock::env_lock();
         let _a = EnvGuard::set("APPDATA", r"C:\Users\test\AppData\Roaming");
         assert_eq!(
             config_dir(),
@@ -219,6 +226,7 @@ mod tests {
 
     #[test]
     fn legacy_unix_config_dir_always_dot_fluxmirror() {
+        let _lock = crate::test_lock::env_lock();
         let _h = EnvGuard::set("HOME", "/tmp/anyhome");
         let _u = EnvGuard::unset("USERPROFILE");
         assert_eq!(
@@ -230,6 +238,7 @@ mod tests {
     #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
     #[test]
     fn cache_dir_linux_falls_back_to_dot_cache() {
+        let _lock = crate::test_lock::env_lock();
         let _h = EnvGuard::set("HOME", "/tmp/linuxhome");
         let _u = EnvGuard::unset("USERPROFILE");
         let _x = EnvGuard::unset("XDG_CACHE_HOME");
@@ -242,6 +251,7 @@ mod tests {
     #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
     #[test]
     fn cache_dir_linux_honors_xdg_cache_home() {
+        let _lock = crate::test_lock::env_lock();
         let _h = EnvGuard::set("HOME", "/tmp/linuxhome");
         let _u = EnvGuard::unset("USERPROFILE");
         let _x = EnvGuard::set("XDG_CACHE_HOME", "/custom/cache");
@@ -250,6 +260,7 @@ mod tests {
 
     #[test]
     fn legacy_macos_db_path_is_stable() {
+        let _lock = crate::test_lock::env_lock();
         let _h = EnvGuard::set("HOME", "/tmp/stablehome");
         let _u = EnvGuard::unset("USERPROFILE");
         assert_eq!(

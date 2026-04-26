@@ -29,3 +29,23 @@ pub use normalize::{extract_detail, normalize, ToolClass, ToolKind};
 // without re-listing the dependency.
 pub use chrono;
 pub use chrono_tz;
+
+// Crate-internal helpers used only from #[cfg(test)] code.
+//
+// `env_lock` serializes any test that touches process-global env vars
+// (HOME, USERPROFILE, XDG_*, FLUXMIRROR_*). Without it, parallel tests
+// in different modules race each other and intermittently fail under
+// `cargo test --workspace` on Linux + Windows runners.
+#[cfg(test)]
+pub(crate) mod test_lock {
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    /// Block until no other env-mutating test in this crate is running.
+    /// Poisoned-mutex recovery returns the inner guard so a panic in
+    /// one test never cascades into all other env tests.
+    pub fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+        ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+    }
+}

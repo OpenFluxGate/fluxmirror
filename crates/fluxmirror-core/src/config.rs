@@ -266,10 +266,6 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
-
-    /// Env-mutating tests must not race; serialize them with a mutex.
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     struct EnvGuard {
         key: &'static str,
@@ -317,7 +313,7 @@ mod tests {
 
     #[test]
     fn load_env_overrides_inferred_language_and_tz() {
-        let _lock = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _lock = crate::test_lock::env_lock();
         // Point HOME at a tempdir so the user-file branch is a no-op.
         let tmp = tempfile::tempdir().unwrap();
         let _h = EnvGuard::set("HOME", tmp.path().to_str().unwrap());
@@ -335,7 +331,7 @@ mod tests {
 
     #[test]
     fn load_storage_path_env_override() {
-        let _lock = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _lock = crate::test_lock::env_lock();
         let tmp = tempfile::tempdir().unwrap();
         let _h = EnvGuard::set("HOME", tmp.path().to_str().unwrap());
         let _u = EnvGuard::unset("USERPROFILE");
@@ -350,7 +346,7 @@ mod tests {
 
     #[test]
     fn save_then_load_round_trip() {
-        let _lock = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _lock = crate::test_lock::env_lock();
         let tmp = tempfile::tempdir().unwrap();
         let _h = EnvGuard::set("HOME", tmp.path().to_str().unwrap());
         let _u = EnvGuard::unset("USERPROFILE");
