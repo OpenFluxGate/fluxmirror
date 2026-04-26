@@ -69,6 +69,47 @@ pub fn err_exit2(msg: impl AsRef<str>) -> ExitCode {
 }
 
 #[cfg(test)]
+pub mod test_helpers {
+    //! Shared test plumbing: a single global mutex that every cmd test
+    //! module locks before mutating environment variables. Tests in
+    //! different modules run in the same process and on the same env
+    //! — without one shared lock, parallel tests can read each other's
+    //! HOME / FLUXMIRROR_DB / LANG / etc.
+    use std::sync::{Mutex, MutexGuard};
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    pub fn env_lock() -> MutexGuard<'static, ()> {
+        ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    pub struct EnvGuard {
+        key: &'static str,
+        prior: Option<std::ffi::OsString>,
+    }
+    impl EnvGuard {
+        pub fn set(key: &'static str, value: &str) -> Self {
+            let prior = std::env::var_os(key);
+            std::env::set_var(key, value);
+            Self { key, prior }
+        }
+        pub fn unset(key: &'static str) -> Self {
+            let prior = std::env::var_os(key);
+            std::env::remove_var(key);
+            Self { key, prior }
+        }
+    }
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            match self.prior.take() {
+                Some(v) => std::env::set_var(self.key, v),
+                None => std::env::remove_var(self.key),
+            }
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

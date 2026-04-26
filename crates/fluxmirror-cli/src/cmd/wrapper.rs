@@ -25,7 +25,7 @@ pub enum WrapperOp {
     Set { kind: String },
 }
 
-const VALID_KINDS: &[&str] = &["bash", "node", "cmd", "router"];
+pub const VALID_KINDS: &[&str] = &["bash", "node", "cmd", "router"];
 
 pub fn run(op: WrapperOp) -> ExitCode {
     match op {
@@ -33,6 +33,45 @@ pub fn run(op: WrapperOp) -> ExitCode {
         WrapperOp::Probe => probe(),
         WrapperOp::Set { kind } => set(&kind),
     }
+}
+
+/// Re-exposed for callers (e.g. `init`) that need to apply a wrapper
+/// choice without going through the full `WrapperOp::Set` dispatch.
+pub fn apply_set(kind: &str) -> ExitCode {
+    set(kind)
+}
+
+/// Snapshot of one engine's availability — used by `init` to pick a
+/// recommended wrapper without re-implementing detection.
+#[derive(Debug, Clone)]
+pub struct EngineInfo {
+    pub name: &'static str,
+    pub available: bool,
+    pub path: Option<String>,
+}
+
+/// Probe bash / node / pwsh / cmd availability. Pure: no stdout writes.
+pub fn probe_engines() -> Vec<EngineInfo> {
+    let mut out = Vec::new();
+    for engine in ["bash", "node", "pwsh"] {
+        let (avail, path) = which(engine);
+        out.push(EngineInfo {
+            name: engine,
+            available: avail,
+            path,
+        });
+    }
+    let cmd_avail = cfg!(target_os = "windows") && which("cmd").0;
+    out.push(EngineInfo {
+        name: "cmd",
+        available: cmd_avail,
+        path: if cmd_avail {
+            Some("%SystemRoot%\\System32\\cmd.exe".into())
+        } else {
+            None
+        },
+    });
+    out
 }
 
 // ---------------------------------------------------------------------------
@@ -345,39 +384,11 @@ fn rewrite_hooks_json(target: &PluginTarget, kind: &str) -> std::io::Result<bool
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
-
-    // env mutation in tests must be serialized.
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
-
-    struct EnvGuard {
-        key: &'static str,
-        prior: Option<std::ffi::OsString>,
-    }
-    impl EnvGuard {
-        fn set(key: &'static str, value: &str) -> Self {
-            let prior = env::var_os(key);
-            env::set_var(key, value);
-            Self { key, prior }
-        }
-        fn unset(key: &'static str) -> Self {
-            let prior = env::var_os(key);
-            env::remove_var(key);
-            Self { key, prior }
-        }
-    }
-    impl Drop for EnvGuard {
-        fn drop(&mut self) {
-            match self.prior.take() {
-                Some(v) => env::set_var(self.key, v),
-                None => env::remove_var(self.key),
-            }
-        }
-    }
+    use crate::cmd::util::test_helpers::{env_lock, EnvGuard};
 
     #[test]
     fn set_validates_kind() {
-        let _lock = ENV_LOCK.lock().unwrap();
+        let _lock = env_lock();
         let tmp = tempfile::tempdir().unwrap();
         let _h = EnvGuard::set("HOME", tmp.path().to_str().unwrap());
         let _u = EnvGuard::unset("USERPROFILE");
@@ -388,7 +399,7 @@ mod tests {
 
     #[test]
     fn set_updates_config_json() {
-        let _lock = ENV_LOCK.lock().unwrap();
+        let _lock = env_lock();
         let tmp = tempfile::tempdir().unwrap();
         let _h = EnvGuard::set("HOME", tmp.path().to_str().unwrap());
         let _u = EnvGuard::unset("USERPROFILE");
@@ -402,7 +413,7 @@ mod tests {
 
     #[test]
     fn set_preserves_other_config_keys() {
-        let _lock = ENV_LOCK.lock().unwrap();
+        let _lock = env_lock();
         let tmp = tempfile::tempdir().unwrap();
         let _h = EnvGuard::set("HOME", tmp.path().to_str().unwrap());
         let _u = EnvGuard::unset("USERPROFILE");

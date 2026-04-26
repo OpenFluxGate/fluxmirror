@@ -122,15 +122,20 @@ fn run_inner(argv: &[String]) -> Result<(), String> {
     // SQLite write (best-effort, with full error logging)
     let db_path = paths::default_db_path();
     match SqliteStore::open(&db_path) {
-        Ok(store) => {
-            if let Err(e) = store.write_agent_event(&event) {
+        Ok(store) => match store.write_agent_event(&event) {
+            Ok(()) => {
+                // First-fire onboarding: write a welcome.md + a marker
+                // file so subsequent fires no-op. Best-effort only.
+                write_welcome_once(&db_path);
+            }
+            Err(e) => {
                 log_error(&format!(
                     "sqlite write (agent={} tool={}): {e}",
                     event.agent.as_str(),
                     event.tool_raw,
                 ));
             }
-        }
+        },
         Err(e) => log_error(&format!(
             "sqlite open ({}): {e}",
             db_path.display()
@@ -138,6 +143,34 @@ fn run_inner(argv: &[String]) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+/// On the first successful event-write, drop a welcome.md alongside the
+/// `.first-fire-at` marker so the user has a friendly local landing page
+/// for the new tool. Idempotent: returns silently if the marker exists.
+/// Every IO error is swallowed — the hook must always exit 0.
+fn write_welcome_once(db_path: &Path) {
+    let dir = paths::config_dir();
+    let marker = dir.join(".first-fire-at");
+    if marker.exists() {
+        return;
+    }
+    let _ = fs::create_dir_all(&dir);
+    let ts = format_iso8601(&Utc::now());
+    let _ = fs::write(&marker, ts.as_bytes());
+
+    let welcome = dir.join("welcome.md");
+    let mut body = String::new();
+    body.push_str("# FluxMirror is recording\n\n");
+    body.push_str("Your AI agent activity now lands in:\n");
+    body.push_str(&format!("  {}\n\n", db_path.display()));
+    body.push_str("Try these from any Claude Code, Qwen Code, or Gemini CLI session:\n");
+    body.push_str("  /fluxmirror:today\n");
+    body.push_str("  /fluxmirror:week\n");
+    body.push_str("  /fluxmirror:doctor\n\n");
+    body.push_str("Configure language / timezone / wrapper:\n");
+    body.push_str("  fluxmirror init\n");
+    let _ = fs::write(&welcome, body.as_bytes());
 }
 
 fn parse_kind(args: &[String]) -> Kind {
@@ -299,5 +332,57 @@ mod tests {
         let (k, c) = normalize("Bash");
         assert_eq!(c.as_str(), "Shell");
         assert_eq!(k.as_str(), "Bash");
+    }
+
+    use crate::cmd::util::test_helpers::{env_lock, EnvGuard};
+
+    #[test]
+    fn first_fire_writes_marker_and_welcome() {
+        let _lock = env_lock();
+        let tmp = tempfile::tempdir().unwrap();
+        let _h = EnvGuard::set("HOME", tmp.path().to_str().unwrap());
+        let _u = EnvGuard::unset("USERPROFILE");
+
+        let db_path = tmp.path().join("events.db");
+        write_welcome_once(&db_path);
+
+        let cfg_dir = paths::config_dir();
+        assert!(cfg_dir.join(".first-fire-at").exists());
+        assert!(cfg_dir.join("welcome.md").exists());
+
+        let body = fs::read_to_string(cfg_dir.join("welcome.md")).unwrap();
+        assert!(body.contains("FluxMirror is recording"));
+        assert!(body.contains(&db_path.display().to_string()));
+    }
+
+    #[test]
+    fn second_fire_does_not_overwrite() {
+        let _lock = env_lock();
+        let tmp = tempfile::tempdir().unwrap();
+        let _h = EnvGuard::set("HOME", tmp.path().to_str().unwrap());
+        let _u = EnvGuard::unset("USERPROFILE");
+
+        let db_path = tmp.path().join("events.db");
+        write_welcome_once(&db_path);
+
+        let cfg_dir = paths::config_dir();
+        let marker = cfg_dir.join(".first-fire-at");
+        let m1 = fs::metadata(&marker).unwrap();
+        let mtime1 = m1.modified().unwrap();
+        let body1 = fs::read_to_string(cfg_dir.join("welcome.md")).unwrap();
+
+        // Sleep 1.1s to let the FS clock tick if it cared, then re-fire.
+        // (The check here is "marker.exists() short-circuits", so even
+        // sub-second precision is fine; this just makes the assertion
+        // robust on filesystems with low-resolution mtime.)
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        write_welcome_once(&db_path);
+
+        let m2 = fs::metadata(&marker).unwrap();
+        let mtime2 = m2.modified().unwrap();
+        let body2 = fs::read_to_string(cfg_dir.join("welcome.md")).unwrap();
+
+        assert_eq!(mtime1, mtime2, "marker mtime must not change");
+        assert_eq!(body1, body2, "welcome.md content must not change");
     }
 }
