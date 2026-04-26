@@ -102,6 +102,36 @@ td.item { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospac
   word-break: break-word;
 }
 .narrative li:first-child { border-top: none; }
+.week-summary ul, .highlights ul, .insights ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.week-summary li, .highlights li, .insights li {
+  position: relative;
+  padding: 4px 0 4px 18px;
+  font-size: 0.95rem;
+  color: #1f2937;
+}
+.week-summary li::before, .highlights li::before, .insights li::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 12px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3b82f6;
+}
+.highlights li strong { color: #111827; margin-right: 4px; }
+.daily-breakdown table { font-variant-numeric: tabular-nums; }
+.daily-breakdown td.theme-cell {
+  font-weight: 600;
+  color: #111827;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+  text-align: left;
+}
 </style>
 </head>
 <body>
@@ -110,6 +140,31 @@ td.item { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospac
 <h1>fluxmirror 주간 다이제스트</h1>
 <p class="sub">Apr 21 - Apr 27, 2026 &middot; UTC</p>
 </header>
+<section class="week-summary">
+<h2>주간 요약</h2>
+<ul>
+<li>총 호출: 활동 5일 동안 28회 (Mon-Fri)</li>
+<li>주요 프로젝트: fluxmirror (28/28회 = 100%)</li>
+<li><strong>주간 테마:</strong> Weekday focus - light tinkering</li>
+</ul>
+</section>
+<section class="daily-breakdown">
+<h2>일별 분석</h2>
+<table>
+<thead><tr>
+<th>날짜</th><th class="num">호출</th><th class="num">신규</th><th class="num">편집</th><th>테마</th>
+</tr></thead>
+<tbody>
+<tr><td>2026-04-21 (Mon)</td><td class="num">8</td><td class="num">2</td><td class="num">4</td><td class="theme-cell" style="background:#dbeafe;">가벼움</td></tr>
+<tr><td>2026-04-22 (Tue)</td><td class="num">7</td><td class="num">1</td><td class="num">3</td><td class="theme-cell" style="background:#dbeafe;">가벼움</td></tr>
+<tr><td>2026-04-23 (Wed)</td><td class="num">2</td><td class="num">0</td><td class="num">1</td><td class="theme-cell" style="background:#dbeafe;">가벼움</td></tr>
+<tr><td>2026-04-24 (Thu)</td><td class="num">10</td><td class="num">3</td><td class="num">5</td><td class="theme-cell" style="background:#dbeafe;">가벼움 (에이전트 2개)</td></tr>
+<tr><td>2026-04-25 (Fri)</td><td class="num">1</td><td class="num">0</td><td class="num">0</td><td class="theme-cell" style="background:#dbeafe;">가벼움</td></tr>
+<tr><td>2026-04-26 (Sat)</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="theme-cell" style="background:#f3f4f6;">휴식</td></tr>
+<tr><td>2026-04-27 (Sun)</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="theme-cell" style="background:#f3f4f6;">휴식</td></tr>
+</tbody>
+</table>
+</section>
 <section class="hm">
 <h2>활동 히트맵</h2>
 <p class="axis">시간대 (00 - 23)</p>
@@ -358,6 +413,24 @@ td.item { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospac
 <tr><td>gemini-cli</td><td class="num">10</td><td class="num">2</td><td class="num">3</td><td>read_file</td></tr>
 </tbody>
 </table>
+</section>
+<section class="highlights">
+<h2>주요 활동</h2>
+<ul>
+<li><strong>활동 패턴:</strong> Mon-Fri work pattern - 28 total calls in window</li>
+<li><strong>집중 영역:</strong> Ongoing focus: cmd/report - week.rs (7), README.md (5), Cargo.toml (3)</li>
+<li><strong>핵심 파일:</strong> week.rs (7), README.md (5), Cargo.toml (3)</li>
+<li><strong>에이전트 분포:</strong> claude-code dominance - 18 calls / 4 sessions vs gemini-cli 10</li>
+</ul>
+</section>
+<section class="insights">
+<h2>인사이트</h2>
+<ul>
+<li>가장 활발한 날: 금 2026-04-24 (호출 10회, 신규 3개, 편집 5개) - 가벼움 중심</li>
+<li>신규/편집 비율: 편집 13 vs 신규 6 (0.46x) - 정리 / 리팩터 단계</li>
+<li>단일 프로젝트 집중: 호출의 100%가 fluxmirror</li>
+<li>MCP 트래픽: none - proxy not active</li>
+</ul>
 </section>
 <section class="sm">
 <h2>요약</h2>

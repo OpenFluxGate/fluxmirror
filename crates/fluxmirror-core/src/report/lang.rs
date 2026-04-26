@@ -209,6 +209,97 @@ pub struct LangPack {
     /// string ships so future surface changes can use it without a
     /// new lang-pack release.
     pub html_narrative_empty: &'static str,
+
+    // ----- M5.3 business-grade weekly card sections ------------------
+    /// "Week Summary" section heading.
+    pub html_section_summary: &'static str,
+    /// "Daily Breakdown" section heading.
+    pub html_section_daily: &'static str,
+    /// "Highlights" section heading.
+    pub html_section_highlights: &'static str,
+    /// "Insights" section heading.
+    pub html_section_insights: &'static str,
+
+    /// Daily-breakdown table column: Date.
+    pub html_table_date: &'static str,
+    /// Daily-breakdown table column: Calls.
+    pub html_table_calls: &'static str,
+    /// Daily-breakdown table column: New (files).
+    pub html_table_new: &'static str,
+    /// Daily-breakdown table column: Edited (files).
+    pub html_table_edited: &'static str,
+    /// Daily-breakdown table column: Theme.
+    pub html_table_theme: &'static str,
+
+    /// Theme label cells in the daily breakdown.
+    pub html_theme_idle: &'static str,
+    pub html_theme_light: &'static str,
+    pub html_theme_building: &'static str,
+    pub html_theme_polishing: &'static str,
+    pub html_theme_shipping: &'static str,
+
+    /// "(N agents)" suffix when ≥2 agents were active that day.
+    pub html_theme_agents_suffix: &'static str,
+
+    /// Week-summary bullet templates. Placeholders documented per
+    /// template.
+    /// `{calls}` `{days}` `{label}` — total calls + active days +
+    /// label like "Sat-Sun".
+    pub html_summary_total_calls_template: &'static str,
+    /// `{name}` `{calls}` `{total}` `{pct}` — primary project share.
+    pub html_summary_primary_project_template: &'static str,
+    /// Lead-bold for the weekly-theme bullet.
+    pub html_summary_weekly_theme_label: &'static str,
+
+    /// Weekly-theme phrasing rules. Each carries `{theme}` for the
+    /// derived main-theme phrase; `_other` also carries `{n}` for the
+    /// active-day count.
+    pub html_pattern_idle_week: &'static str,
+    pub html_pattern_weekend_sprint: &'static str,
+    pub html_pattern_weekday_focus: &'static str,
+    pub html_pattern_steady_cadence: &'static str,
+    pub html_pattern_other: &'static str,
+    /// Optional "; main thread: {file}" suffix appended to the weekly
+    /// theme when one file dominates. Includes the leading separator
+    /// so the renderer just concatenates.
+    pub html_pattern_main_thread: &'static str,
+
+    /// Main-theme phrases plugged into the pattern templates.
+    pub html_main_theme_shipping: &'static str,
+    pub html_main_theme_feature_build: &'static str,
+    pub html_main_theme_polish_refactor: &'static str,
+    pub html_main_theme_light_tinkering: &'static str,
+
+    /// Highlights bullet templates.
+    pub html_highlight_work_pattern_template: &'static str,
+    pub html_highlight_active_area_template: &'static str,
+    pub html_highlight_hot_spine_template: &'static str,
+    pub html_highlight_agent_dominance_template: &'static str,
+    pub html_highlight_agent_solo_template: &'static str,
+    pub html_highlight_project_mix_template: &'static str,
+
+    /// Highlight lead-bold labels (rendered as `<strong>` in HTML).
+    pub html_highlight_lead_pattern: &'static str,
+    pub html_highlight_lead_area: &'static str,
+    pub html_highlight_lead_spine: &'static str,
+    pub html_highlight_lead_agents: &'static str,
+    pub html_highlight_lead_projects: &'static str,
+
+    /// Insights bullet templates.
+    pub html_insight_busiest_day_template: &'static str,
+    pub html_insight_edit_ratio_template: &'static str,
+    pub html_insight_focus_template: &'static str,
+    pub html_insight_mcp_template: &'static str,
+
+    /// Edit-ratio mode classifiers.
+    pub html_ratio_build_mode: &'static str,
+    pub html_ratio_refactor_mode: &'static str,
+    pub html_ratio_balanced: &'static str,
+
+    /// MCP traffic phrases. `{n}` is the message count.
+    pub html_mcp_none: &'static str,
+    pub html_mcp_light: &'static str,
+    pub html_mcp_active: &'static str,
 }
 
 const ENGLISH: LangPack = LangPack {
@@ -299,6 +390,55 @@ const ENGLISH: LangPack = LangPack {
     html_narrative_count_one: "1 commit",
     html_narrative_count_many: "{n} commits",
     html_narrative_empty: "No commits landed in any tracked working directory this week.",
+    html_section_summary: "Week Summary",
+    html_section_daily: "Daily Breakdown",
+    html_section_highlights: "Highlights",
+    html_section_insights: "Insights",
+    html_table_date: "Date",
+    html_table_calls: "Calls",
+    html_table_new: "New",
+    html_table_edited: "Edited",
+    html_table_theme: "Theme",
+    html_theme_idle: "idle",
+    html_theme_light: "light",
+    html_theme_building: "building",
+    html_theme_polishing: "polishing",
+    html_theme_shipping: "shipping",
+    html_theme_agents_suffix: " ({n} agents)",
+    html_summary_total_calls_template: "Total calls: {calls} across {days} active days ({label})",
+    html_summary_primary_project_template: "Primary project: {name} ({calls}/{total} calls = {pct}%)",
+    html_summary_weekly_theme_label: "Weekly theme:",
+    html_pattern_idle_week: "Idle week - no logged activity",
+    html_pattern_weekend_sprint: "Weekend sprint - {theme}",
+    html_pattern_weekday_focus: "Weekday focus - {theme}",
+    html_pattern_steady_cadence: "Steady cadence - {theme}",
+    html_pattern_other: "{theme} across {n} active days",
+    html_pattern_main_thread: "; main thread: {file}",
+    html_main_theme_shipping: "shipping focus",
+    html_main_theme_feature_build: "feature build",
+    html_main_theme_polish_refactor: "polish / refactor",
+    html_main_theme_light_tinkering: "light tinkering",
+    html_highlight_work_pattern_template: "{label} only - {calls} total calls in window",
+    html_highlight_active_area_template: "{area} - {files}",
+    html_highlight_hot_spine_template: "{files}",
+    html_highlight_agent_dominance_template: "{dominant} leads with {calls} calls / {sessions} sessions vs {others}",
+    html_highlight_agent_solo_template: "{agent} only - {calls} calls across {sessions} sessions",
+    html_highlight_project_mix_template: "{parts}",
+    html_highlight_lead_pattern: "Work pattern",
+    html_highlight_lead_area: "Active feature area",
+    html_highlight_lead_spine: "Hot spine",
+    html_highlight_lead_agents: "Agent breakdown",
+    html_highlight_lead_projects: "Project breakdown",
+    html_insight_busiest_day_template: "Busiest day: {dow} {date} ({calls} calls, {new} new files, {edited} edited) - clear {theme} day",
+    html_insight_edit_ratio_template: "Edit-to-new ratio: {edits} edits vs {news} new files ({ratio}x) - {mode}",
+    html_insight_focus_template: "Single-project focus: {pct}% of calls in {project}{minor}",
+    html_insight_mcp_template: "MCP traffic: {label}",
+    html_ratio_build_mode: "still in feature-build mode",
+    html_ratio_refactor_mode: "in refactor / polish mode",
+    html_ratio_balanced: "balanced build / refactor",
+    html_mcp_none: "none - proxy not active",
+    html_mcp_light: "light ({n} msgs)",
+    html_mcp_active: "active ({n} msgs)",
 };
 
 const KOREAN: LangPack = LangPack {
@@ -389,6 +529,55 @@ const KOREAN: LangPack = LangPack {
     html_narrative_count_one: "커밋 1개",
     html_narrative_count_many: "커밋 {n}개",
     html_narrative_empty: "이번 주에는 추적 중인 작업 디렉터리에 커밋이 없습니다.",
+    html_section_summary: "주간 요약",
+    html_section_daily: "일별 분석",
+    html_section_highlights: "주요 활동",
+    html_section_insights: "인사이트",
+    html_table_date: "날짜",
+    html_table_calls: "호출",
+    html_table_new: "신규",
+    html_table_edited: "편집",
+    html_table_theme: "테마",
+    html_theme_idle: "휴식",
+    html_theme_light: "가벼움",
+    html_theme_building: "빌드",
+    html_theme_polishing: "정리",
+    html_theme_shipping: "출하",
+    html_theme_agents_suffix: " (에이전트 {n}개)",
+    html_summary_total_calls_template: "총 호출: 활동 {days}일 동안 {calls}회 ({label})",
+    html_summary_primary_project_template: "주요 프로젝트: {name} ({calls}/{total}회 = {pct}%)",
+    html_summary_weekly_theme_label: "주간 테마:",
+    html_pattern_idle_week: "휴식 주간 - 기록된 활동 없음",
+    html_pattern_weekend_sprint: "주말 스프린트 - {theme}",
+    html_pattern_weekday_focus: "평일 집중 - {theme}",
+    html_pattern_steady_cadence: "꾸준한 페이스 - {theme}",
+    html_pattern_other: "{theme} ({n}일 활동)",
+    html_pattern_main_thread: "; 핵심 흐름: {file}",
+    html_main_theme_shipping: "출하 집중",
+    html_main_theme_feature_build: "기능 빌드",
+    html_main_theme_polish_refactor: "정리 / 리팩터",
+    html_main_theme_light_tinkering: "가벼운 손질",
+    html_highlight_work_pattern_template: "{label} 패턴 - 윈도우 내 총 호출 {calls}회",
+    html_highlight_active_area_template: "{area} - {files}",
+    html_highlight_hot_spine_template: "{files}",
+    html_highlight_agent_dominance_template: "{dominant} 우세 - 호출 {calls}회 / 세션 {sessions}개 vs {others}",
+    html_highlight_agent_solo_template: "{agent} 단독 - 호출 {calls}회, 세션 {sessions}개",
+    html_highlight_project_mix_template: "{parts}",
+    html_highlight_lead_pattern: "활동 패턴",
+    html_highlight_lead_area: "집중 영역",
+    html_highlight_lead_spine: "핵심 파일",
+    html_highlight_lead_agents: "에이전트 분포",
+    html_highlight_lead_projects: "프로젝트 분포",
+    html_insight_busiest_day_template: "가장 활발한 날: {dow} {date} (호출 {calls}회, 신규 {new}개, 편집 {edited}개) - {theme} 중심",
+    html_insight_edit_ratio_template: "신규/편집 비율: 편집 {edits} vs 신규 {news} ({ratio}x) - {mode}",
+    html_insight_focus_template: "단일 프로젝트 집중: 호출의 {pct}%가 {project}{minor}",
+    html_insight_mcp_template: "MCP 트래픽: {label}",
+    html_ratio_build_mode: "기능 빌드 단계",
+    html_ratio_refactor_mode: "정리 / 리팩터 단계",
+    html_ratio_balanced: "빌드/리팩터 균형",
+    html_mcp_none: "없음 - 프록시 비활성",
+    html_mcp_light: "가벼움 ({n}건)",
+    html_mcp_active: "활발 ({n}건)",
 };
 
 const JAPANESE: LangPack = LangPack {
@@ -479,6 +668,55 @@ const JAPANESE: LangPack = LangPack {
     html_narrative_count_one: "コミット 1 件",
     html_narrative_count_many: "コミット {n} 件",
     html_narrative_empty: "今週は追跡中の作業ディレクトリにコミットがありません。",
+    html_section_summary: "週間サマリ",
+    html_section_daily: "日別ブレークダウン",
+    html_section_highlights: "ハイライト",
+    html_section_insights: "インサイト",
+    html_table_date: "日付",
+    html_table_calls: "呼び出し",
+    html_table_new: "新規",
+    html_table_edited: "編集",
+    html_table_theme: "テーマ",
+    html_theme_idle: "アイドル",
+    html_theme_light: "軽量",
+    html_theme_building: "構築",
+    html_theme_polishing: "仕上げ",
+    html_theme_shipping: "出荷",
+    html_theme_agents_suffix: " (エージェント {n})",
+    html_summary_total_calls_template: "総呼び出し: 稼働 {days} 日間で {calls} 回 ({label})",
+    html_summary_primary_project_template: "主要プロジェクト: {name} ({calls}/{total} 回 = {pct}%)",
+    html_summary_weekly_theme_label: "今週のテーマ:",
+    html_pattern_idle_week: "アイドル週 - 記録された活動なし",
+    html_pattern_weekend_sprint: "週末スプリント - {theme}",
+    html_pattern_weekday_focus: "平日フォーカス - {theme}",
+    html_pattern_steady_cadence: "安定ペース - {theme}",
+    html_pattern_other: "{theme} (稼働 {n} 日)",
+    html_pattern_main_thread: "; 主要スレッド: {file}",
+    html_main_theme_shipping: "出荷フォーカス",
+    html_main_theme_feature_build: "機能構築",
+    html_main_theme_polish_refactor: "仕上げ / リファクタ",
+    html_main_theme_light_tinkering: "軽い手入れ",
+    html_highlight_work_pattern_template: "{label} - 期間中の総呼び出し {calls} 回",
+    html_highlight_active_area_template: "{area} - {files}",
+    html_highlight_hot_spine_template: "{files}",
+    html_highlight_agent_dominance_template: "{dominant} 優位 - 呼び出し {calls} 回 / セッション {sessions} 件 vs {others}",
+    html_highlight_agent_solo_template: "{agent} のみ - 呼び出し {calls} 回 / セッション {sessions} 件",
+    html_highlight_project_mix_template: "{parts}",
+    html_highlight_lead_pattern: "稼働パターン",
+    html_highlight_lead_area: "注力領域",
+    html_highlight_lead_spine: "主要ファイル",
+    html_highlight_lead_agents: "エージェント分布",
+    html_highlight_lead_projects: "プロジェクト構成",
+    html_insight_busiest_day_template: "最も活発な日: {dow} {date} (呼び出し {calls} 回 / 新規 {new} / 編集 {edited}) - {theme} の日",
+    html_insight_edit_ratio_template: "新規/編集 比率: 編集 {edits} vs 新規 {news} ({ratio}x) - {mode}",
+    html_insight_focus_template: "単一プロジェクト集中: 呼び出しの {pct}% が {project}{minor}",
+    html_insight_mcp_template: "MCP トラフィック: {label}",
+    html_ratio_build_mode: "機能構築モード",
+    html_ratio_refactor_mode: "リファクタ / 仕上げモード",
+    html_ratio_balanced: "構築 / リファクタ均衡",
+    html_mcp_none: "なし - プロキシ非稼働",
+    html_mcp_light: "軽い ({n} 件)",
+    html_mcp_active: "活発 ({n} 件)",
 };
 
 const CHINESE: LangPack = LangPack {
@@ -569,6 +807,55 @@ const CHINESE: LangPack = LangPack {
     html_narrative_count_one: "1 次提交",
     html_narrative_count_many: "{n} 次提交",
     html_narrative_empty: "本周追踪的工作目录没有任何提交。",
+    html_section_summary: "本周摘要",
+    html_section_daily: "每日详情",
+    html_section_highlights: "重点活动",
+    html_section_insights: "洞察",
+    html_table_date: "日期",
+    html_table_calls: "调用",
+    html_table_new: "新增",
+    html_table_edited: "编辑",
+    html_table_theme: "主题",
+    html_theme_idle: "空闲",
+    html_theme_light: "轻量",
+    html_theme_building: "构建",
+    html_theme_polishing: "打磨",
+    html_theme_shipping: "交付",
+    html_theme_agents_suffix: " ({n} 个代理)",
+    html_summary_total_calls_template: "总调用: {days} 个活动日内 {calls} 次 ({label})",
+    html_summary_primary_project_template: "主要项目: {name} ({calls}/{total} 次 = {pct}%)",
+    html_summary_weekly_theme_label: "本周主题:",
+    html_pattern_idle_week: "空闲周 - 未记录任何活动",
+    html_pattern_weekend_sprint: "周末冲刺 - {theme}",
+    html_pattern_weekday_focus: "工作日聚焦 - {theme}",
+    html_pattern_steady_cadence: "稳定节奏 - {theme}",
+    html_pattern_other: "{theme} ({n} 个活动日)",
+    html_pattern_main_thread: "; 主线: {file}",
+    html_main_theme_shipping: "交付重点",
+    html_main_theme_feature_build: "功能构建",
+    html_main_theme_polish_refactor: "打磨 / 重构",
+    html_main_theme_light_tinkering: "轻度调试",
+    html_highlight_work_pattern_template: "{label} - 区间内共 {calls} 次调用",
+    html_highlight_active_area_template: "{area} - {files}",
+    html_highlight_hot_spine_template: "{files}",
+    html_highlight_agent_dominance_template: "{dominant} 占主导 - 调用 {calls} 次 / 会话 {sessions} 个 vs {others}",
+    html_highlight_agent_solo_template: "仅 {agent} - 调用 {calls} 次 / 会话 {sessions} 个",
+    html_highlight_project_mix_template: "{parts}",
+    html_highlight_lead_pattern: "活动模式",
+    html_highlight_lead_area: "聚焦领域",
+    html_highlight_lead_spine: "核心文件",
+    html_highlight_lead_agents: "代理分布",
+    html_highlight_lead_projects: "项目分布",
+    html_insight_busiest_day_template: "最忙日: {dow} {date} (调用 {calls} 次, 新增 {new}, 编辑 {edited}) - {theme} 日",
+    html_insight_edit_ratio_template: "新增/编辑 比率: 编辑 {edits} vs 新增 {news} ({ratio}x) - {mode}",
+    html_insight_focus_template: "单项目聚焦: {pct}% 调用集中于 {project}{minor}",
+    html_insight_mcp_template: "MCP 流量: {label}",
+    html_ratio_build_mode: "功能构建阶段",
+    html_ratio_refactor_mode: "打磨 / 重构阶段",
+    html_ratio_balanced: "构建 / 重构均衡",
+    html_mcp_none: "无 - 代理未启用",
+    html_mcp_light: "轻量 ({n} 条)",
+    html_mcp_active: "活跃 ({n} 条)",
 };
 
 /// Resolve a language code (or canonical name) to a `LangPack`.

@@ -15,6 +15,9 @@ use chrono::NaiveDate;
 use fluxmirror_core::report::LangPack;
 
 use super::git_narrative::GitNarrative;
+use super::week_summary::{
+    ratio_mode_label, DailyRow, DayTheme, Highlights, Insights, WeekSummary,
+};
 
 /// One row in the per-agent summary table.
 #[derive(Debug, Clone)]
@@ -58,6 +61,16 @@ pub struct WeekHtmlStats {
     /// ran but no commits landed in any cwd's repo. The renderer omits
     /// the section in both cases.
     pub narrative: Option<GitNarrative>,
+
+    // ----- M5.3 business-grade sections ------------------------------
+    /// Top-of-card summary block (3 bullets).
+    pub summary: WeekSummary,
+    /// 7-row daily breakdown table.
+    pub daily_breakdown: Vec<DailyRow>,
+    /// 3-5 lead-bold bullets describing the human shape of the week.
+    pub highlights: Highlights,
+    /// 4 neutral bullets answering "what does this week say about me?".
+    pub insights: Insights,
 }
 
 /// Escape a string for safe HTML text/attribute interpolation.
@@ -150,7 +163,13 @@ pub fn render_card(stats: &WeekHtmlStats, lp: &LangPack) -> String {
     out.push_str(&format!("<p class=\"sub\">{}</p>\n", range_line));
     out.push_str("</header>\n");
 
-    // Heatmap section.
+    // Week Summary (M5.3) — top-of-card overview.
+    render_week_summary(&mut out, stats, lp);
+
+    // Daily Breakdown (M5.3) — 7-row table with theme cells.
+    render_daily_breakdown(&mut out, stats, lp);
+
+    // Heatmap section — kept as the visual hook.
     render_heatmap(&mut out, stats, lp);
 
     // Top files / top shells two-column block.
@@ -171,6 +190,12 @@ pub fn render_card(stats: &WeekHtmlStats, lp: &LangPack) -> String {
 
     // Per-agent summary.
     render_agent_table(&mut out, stats, lp);
+
+    // Highlights (M5.3) — human-readable bullets above the narrative.
+    render_highlights(&mut out, stats, lp);
+
+    // Insights (M5.3) — neutral bullets summarising the week's shape.
+    render_insights(&mut out, stats, lp);
 
     // "Shipped this week" git narrative — sits between the data-only
     // sections and the summary so the human signal lands close to the
@@ -294,6 +319,271 @@ fn render_agent_table(out: &mut String, stats: &WeekHtmlStats, lp: &LangPack) {
         ));
     }
     out.push_str("</tbody>\n</table>\n");
+    out.push_str("</section>\n");
+}
+
+/// Color cell for a `DayTheme`. Used inline so the daily-breakdown
+/// rendering doesn't need a JS hover or external stylesheet.
+fn theme_color(theme: DayTheme) -> &'static str {
+    match theme {
+        DayTheme::Idle => "#f3f4f6",
+        DayTheme::Light => "#dbeafe",
+        DayTheme::Building => "#3b82f6",
+        DayTheme::Polishing => "#f59e0b",
+        DayTheme::Shipping => "#10b981",
+    }
+}
+
+/// Theme label localised through the lang pack.
+fn theme_label(theme: DayTheme, lp: &LangPack) -> &'static str {
+    match theme {
+        DayTheme::Idle => lp.html_theme_idle,
+        DayTheme::Light => lp.html_theme_light,
+        DayTheme::Building => lp.html_theme_building,
+        DayTheme::Polishing => lp.html_theme_polishing,
+        DayTheme::Shipping => lp.html_theme_shipping,
+    }
+}
+
+/// Render the M5.3 "Week Summary" block at the top of the card.
+fn render_week_summary(out: &mut String, stats: &WeekHtmlStats, lp: &LangPack) {
+    out.push_str("<section class=\"week-summary\">\n");
+    out.push_str(&format!(
+        "<h2>{}</h2>\n",
+        html_escape(lp.html_section_summary)
+    ));
+    out.push_str("<ul>\n");
+
+    let total_calls_str = stats.summary.total_calls.to_string();
+    let active_days_str = stats.summary.active_days.to_string();
+    let total_calls_line = replace_all(
+        lp.html_summary_total_calls_template,
+        &[
+            ("calls", total_calls_str.as_str()),
+            ("days", active_days_str.as_str()),
+            ("label", stats.summary.active_days_label.as_str()),
+        ],
+    );
+    out.push_str(&format!("<li>{}</li>\n", html_escape(&total_calls_line)));
+
+    if let Some(p) = stats.summary.primary_project.as_ref() {
+        let calls_str = p.calls.to_string();
+        let total_str = stats.summary.total_calls.to_string();
+        let pct_str = p.share_pct.to_string();
+        let line = replace_all(
+            lp.html_summary_primary_project_template,
+            &[
+                ("name", p.name.as_str()),
+                ("calls", calls_str.as_str()),
+                ("total", total_str.as_str()),
+                ("pct", pct_str.as_str()),
+            ],
+        );
+        out.push_str(&format!("<li>{}</li>\n", html_escape(&line)));
+    }
+
+    out.push_str(&format!(
+        "<li><strong>{}</strong> {}</li>\n",
+        html_escape(lp.html_summary_weekly_theme_label),
+        html_escape(&stats.summary.weekly_theme)
+    ));
+    out.push_str("</ul>\n");
+    out.push_str("</section>\n");
+}
+
+/// Render the M5.3 "Daily Breakdown" 7-row table.
+fn render_daily_breakdown(out: &mut String, stats: &WeekHtmlStats, lp: &LangPack) {
+    if stats.daily_breakdown.is_empty() {
+        return;
+    }
+    out.push_str("<section class=\"daily-breakdown\">\n");
+    out.push_str(&format!(
+        "<h2>{}</h2>\n",
+        html_escape(lp.html_section_daily)
+    ));
+    out.push_str("<table>\n<thead><tr>\n");
+    out.push_str(&format!(
+        "<th>{}</th><th class=\"num\">{}</th><th class=\"num\">{}</th><th class=\"num\">{}</th><th>{}</th>\n",
+        html_escape(lp.html_table_date),
+        html_escape(lp.html_table_calls),
+        html_escape(lp.html_table_new),
+        html_escape(lp.html_table_edited),
+        html_escape(lp.html_table_theme)
+    ));
+    out.push_str("</tr></thead>\n<tbody>\n");
+    for row in &stats.daily_breakdown {
+        let date_label = format!("{} ({})", row.date.format("%Y-%m-%d"), row.dow_label);
+        let bg = theme_color(row.theme);
+        let mut theme_text = theme_label(row.theme, lp).to_string();
+        if row.agents_active >= 2 {
+            theme_text.push_str(
+                &lp.html_theme_agents_suffix
+                    .replace("{n}", &row.agents_active.to_string()),
+            );
+        }
+        out.push_str(&format!(
+            "<tr><td>{}</td><td class=\"num\">{}</td><td class=\"num\">{}</td><td class=\"num\">{}</td><td class=\"theme-cell\" style=\"background:{};\">{}</td></tr>\n",
+            html_escape(&date_label),
+            row.calls,
+            row.new_files,
+            row.edited_files,
+            bg,
+            html_escape(&theme_text)
+        ));
+    }
+    out.push_str("</tbody>\n</table>\n");
+    out.push_str("</section>\n");
+}
+
+/// Render the M5.3 "Highlights" bullet list. Bullets with no data are
+/// skipped so the visible count stays between 3 and 5.
+fn render_highlights(out: &mut String, stats: &WeekHtmlStats, lp: &LangPack) {
+    let h = &stats.highlights;
+    let mut bullets: Vec<(String, String)> = Vec::new();
+    if !h.work_pattern.is_empty() {
+        bullets.push((
+            lp.html_highlight_lead_pattern.to_string(),
+            h.work_pattern.clone(),
+        ));
+    }
+    if let Some(area) = h.active_feature_area.as_ref() {
+        bullets.push((lp.html_highlight_lead_area.to_string(), area.clone()));
+    }
+    if !h.hot_spine_files.is_empty() {
+        let parts: Vec<String> = h
+            .hot_spine_files
+            .iter()
+            .map(|(f, n)| format!("{} ({})", f, n))
+            .collect();
+        let line = lp
+            .html_highlight_hot_spine_template
+            .replace("{files}", &parts.join(", "));
+        bullets.push((lp.html_highlight_lead_spine.to_string(), line));
+    }
+    if !h.agent_breakdown.is_empty() {
+        bullets.push((
+            lp.html_highlight_lead_agents.to_string(),
+            h.agent_breakdown.clone(),
+        ));
+    }
+    if let Some(p) = h.project_breakdown.as_ref() {
+        bullets.push((lp.html_highlight_lead_projects.to_string(), p.clone()));
+    }
+
+    if bullets.is_empty() {
+        return;
+    }
+
+    out.push_str("<section class=\"highlights\">\n");
+    out.push_str(&format!(
+        "<h2>{}</h2>\n",
+        html_escape(lp.html_section_highlights)
+    ));
+    out.push_str("<ul>\n");
+    for (lead, body) in bullets {
+        out.push_str(&format!(
+            "<li><strong>{}:</strong> {}</li>\n",
+            html_escape(&lead),
+            html_escape(&body)
+        ));
+    }
+    out.push_str("</ul>\n");
+    out.push_str("</section>\n");
+}
+
+/// Render the M5.3 "Insights" bullet list.
+fn render_insights(out: &mut String, stats: &WeekHtmlStats, lp: &LangPack) {
+    let i = &stats.insights;
+    let mut bullets: Vec<String> = Vec::new();
+
+    // Busiest day — derive theme by re-running the classifier on the
+    // breakdown row matching the date so the phrase stays consistent
+    // with the daily table.
+    if let Some((date, calls, new, edited)) = i.busiest_day {
+        let theme = stats
+            .daily_breakdown
+            .iter()
+            .find(|r| r.date == date)
+            .map(|r| theme_label(r.theme, lp))
+            .unwrap_or(lp.html_theme_light);
+        let dow_idx = chrono::Datelike::weekday(&date).num_days_from_monday() as usize;
+        let dow = lp.html_dow_labels.get(dow_idx).copied().unwrap_or("?");
+        let calls_str = calls.to_string();
+        let new_str = new.to_string();
+        let edited_str = edited.to_string();
+        let date_str = date.format("%Y-%m-%d").to_string();
+        let line = replace_all(
+            lp.html_insight_busiest_day_template,
+            &[
+                ("dow", dow),
+                ("date", date_str.as_str()),
+                ("calls", calls_str.as_str()),
+                ("new", new_str.as_str()),
+                ("edited", edited_str.as_str()),
+                ("theme", theme),
+            ],
+        );
+        bullets.push(line);
+    }
+
+    if let Some((edits, news, ratio)) = i.edit_to_new_ratio {
+        let mode = ratio_mode_label(news, edits, ratio, lp);
+        let ratio_str = if ratio.is_infinite() {
+            "inf".to_string()
+        } else {
+            format!("{:.2}", ratio)
+        };
+        let edits_str = edits.to_string();
+        let news_str = news.to_string();
+        let line = replace_all(
+            lp.html_insight_edit_ratio_template,
+            &[
+                ("edits", edits_str.as_str()),
+                ("news", news_str.as_str()),
+                ("ratio", ratio_str.as_str()),
+                ("mode", mode),
+            ],
+        );
+        bullets.push(line);
+    }
+
+    if let (Some(pct), Some(p)) = (
+        i.project_focus_pct,
+        stats.summary.primary_project.as_ref(),
+    ) {
+        let pct_str = pct.to_string();
+        let line = replace_all(
+            lp.html_insight_focus_template,
+            &[
+                ("pct", pct_str.as_str()),
+                ("project", p.name.as_str()),
+                ("minor", ""),
+            ],
+        );
+        bullets.push(line);
+    }
+
+    if !i.mcp_traffic_label.is_empty() {
+        let line = lp
+            .html_insight_mcp_template
+            .replace("{label}", &i.mcp_traffic_label);
+        bullets.push(line);
+    }
+
+    if bullets.is_empty() {
+        return;
+    }
+
+    out.push_str("<section class=\"insights\">\n");
+    out.push_str(&format!(
+        "<h2>{}</h2>\n",
+        html_escape(lp.html_section_insights)
+    ));
+    out.push_str("<ul>\n");
+    for body in bullets {
+        out.push_str(&format!("<li>{}</li>\n", html_escape(&body)));
+    }
+    out.push_str("</ul>\n");
     out.push_str("</section>\n");
 }
 
@@ -474,11 +764,42 @@ td.item { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospac
   word-break: break-word;
 }
 .narrative li:first-child { border-top: none; }
+.week-summary ul, .highlights ul, .insights ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.week-summary li, .highlights li, .insights li {
+  position: relative;
+  padding: 4px 0 4px 18px;
+  font-size: 0.95rem;
+  color: #1f2937;
+}
+.week-summary li::before, .highlights li::before, .insights li::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 12px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3b82f6;
+}
+.highlights li strong { color: #111827; margin-right: 4px; }
+.daily-breakdown table { font-variant-numeric: tabular-nums; }
+.daily-breakdown td.theme-cell {
+  font-weight: 600;
+  color: #111827;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+  text-align: left;
+}
 "#;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::week_summary::{Highlights, Insights, WeekSummary};
 
     fn fixture_stats() -> WeekHtmlStats {
         let mut heatmap = [[0u32; 24]; 7];
@@ -506,6 +827,16 @@ mod tests {
             total_agents: 1,
             generated_footer: "Generated by fluxmirror v0.5.7 - 2026-04-27T00:00:00Z".into(),
             narrative: None,
+            summary: WeekSummary {
+                total_calls: 10,
+                active_days: 2,
+                active_days_label: "Tue, Thu".into(),
+                primary_project: None,
+                weekly_theme: "Idle week - no logged activity".into(),
+            },
+            daily_breakdown: Vec::new(),
+            highlights: Highlights::default(),
+            insights: Insights::default(),
         }
     }
 

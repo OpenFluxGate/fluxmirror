@@ -22,6 +22,7 @@ pub mod html;
 pub mod today;
 pub(crate) mod tools;
 pub mod week;
+pub mod week_summary;
 pub mod yesterday;
 
 /// Output format selected by the caller via `--format`.

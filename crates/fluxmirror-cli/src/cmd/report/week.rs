@@ -34,6 +34,7 @@ use fluxmirror_core::report::{pack, LangPack};
 use super::git_narrative::{self, GitNarrative};
 use super::html::{render_card, AgentRow as HtmlAgentRow, WeekHtmlStats};
 use super::tools::{is_read, is_shell, is_write};
+use super::week_summary;
 use super::ReportFormat;
 
 /// Maximum rows in the "files written or edited" table — week sees more
@@ -110,8 +111,13 @@ pub fn run(args: WeekArgs) -> ExitCode {
 
     let lp = pack(&args.lang);
 
+    // MCP traffic count for the same window. Best-effort — falls back
+    // to 0 if the `events` table isn't present or the query fails so a
+    // Phase 1 user without a proxy install never sees an error.
+    let mcp_count = count_mcp_events(&conn, start_utc, end_utc).unwrap_or(0);
+
     if matches!(args.format, ReportFormat::Html) {
-        let html_stats = build_html_stats(&stats, week_start, week_end, &args.tz);
+        let html_stats = build_html_stats(&stats, week_start, week_end, &args.tz, mcp_count, lp);
         let html = render_card(&html_stats, lp);
         return emit_html(html, args.out.as_deref());
     }
@@ -314,6 +320,8 @@ pub(crate) fn build_html_stats(
     week_start: NaiveDate,
     week_end: NaiveDate,
     tz_label: &str,
+    mcp_count: u64,
+    lp: &LangPack,
 ) -> WeekHtmlStats {
     // Heaviest tool across the whole window: highest tool_mix count, ties
     // resolve alphabetically for determinism.
@@ -400,6 +408,8 @@ pub(crate) fn build_html_stats(
     );
 
     let _ = week_end; // included in tz_label-prefixed range header by the renderer
+    let (summary, daily_breakdown, highlights, insights) =
+        week_summary::synthesise(stats, mcp_count, lp);
     WeekHtmlStats {
         range_start: week_start,
         range_end: week_end,
@@ -416,7 +426,34 @@ pub(crate) fn build_html_stats(
         total_agents,
         generated_footer,
         narrative: stats.narrative.clone(),
+        summary,
+        daily_breakdown,
+        highlights,
+        insights,
     }
+}
+
+/// Count rows in the `events` table whose timestamp falls inside the
+/// week's UTC bounds. Returns `Ok(0)` when the table is absent (e.g. a
+/// fresh DB before the proxy migration ran) so the M5.3 MCP-traffic
+/// insight is always populated.
+fn count_mcp_events(
+    conn: &Connection,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+) -> Result<u64, String> {
+    let start_ms = start.timestamp_millis();
+    let end_ms = end.timestamp_millis();
+    let mut stmt = match conn.prepare(
+        "SELECT COUNT(*) FROM events WHERE ts_ms >= ?1 AND ts_ms < ?2",
+    ) {
+        Ok(s) => s,
+        Err(_) => return Ok(0),
+    };
+    let n: i64 = stmt
+        .query_row([start_ms, end_ms], |r| r.get(0))
+        .unwrap_or(0);
+    Ok(n.max(0) as u64)
 }
 
 fn render_human(

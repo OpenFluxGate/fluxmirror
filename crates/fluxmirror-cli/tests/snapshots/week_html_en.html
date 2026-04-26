@@ -102,6 +102,36 @@ td.item { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospac
   word-break: break-word;
 }
 .narrative li:first-child { border-top: none; }
+.week-summary ul, .highlights ul, .insights ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.week-summary li, .highlights li, .insights li {
+  position: relative;
+  padding: 4px 0 4px 18px;
+  font-size: 0.95rem;
+  color: #1f2937;
+}
+.week-summary li::before, .highlights li::before, .insights li::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 12px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3b82f6;
+}
+.highlights li strong { color: #111827; margin-right: 4px; }
+.daily-breakdown table { font-variant-numeric: tabular-nums; }
+.daily-breakdown td.theme-cell {
+  font-weight: 600;
+  color: #111827;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+  text-align: left;
+}
 </style>
 </head>
 <body>
@@ -110,6 +140,31 @@ td.item { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospac
 <h1>fluxmirror weekly digest</h1>
 <p class="sub">Apr 21 - Apr 27, 2026 &middot; UTC</p>
 </header>
+<section class="week-summary">
+<h2>Week Summary</h2>
+<ul>
+<li>Total calls: 28 across 5 active days (Mon-Fri)</li>
+<li>Primary project: fluxmirror (28/28 calls = 100%)</li>
+<li><strong>Weekly theme:</strong> Weekday focus - light tinkering</li>
+</ul>
+</section>
+<section class="daily-breakdown">
+<h2>Daily Breakdown</h2>
+<table>
+<thead><tr>
+<th>Date</th><th class="num">Calls</th><th class="num">New</th><th class="num">Edited</th><th>Theme</th>
+</tr></thead>
+<tbody>
+<tr><td>2026-04-21 (Mon)</td><td class="num">8</td><td class="num">2</td><td class="num">4</td><td class="theme-cell" style="background:#dbeafe;">light</td></tr>
+<tr><td>2026-04-22 (Tue)</td><td class="num">7</td><td class="num">1</td><td class="num">3</td><td class="theme-cell" style="background:#dbeafe;">light</td></tr>
+<tr><td>2026-04-23 (Wed)</td><td class="num">2</td><td class="num">0</td><td class="num">1</td><td class="theme-cell" style="background:#dbeafe;">light</td></tr>
+<tr><td>2026-04-24 (Thu)</td><td class="num">10</td><td class="num">3</td><td class="num">5</td><td class="theme-cell" style="background:#dbeafe;">light (2 agents)</td></tr>
+<tr><td>2026-04-25 (Fri)</td><td class="num">1</td><td class="num">0</td><td class="num">0</td><td class="theme-cell" style="background:#dbeafe;">light</td></tr>
+<tr><td>2026-04-26 (Sat)</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="theme-cell" style="background:#f3f4f6;">idle</td></tr>
+<tr><td>2026-04-27 (Sun)</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="theme-cell" style="background:#f3f4f6;">idle</td></tr>
+</tbody>
+</table>
+</section>
 <section class="hm">
 <h2>Activity heatmap</h2>
 <p class="axis">Hour of day (00 - 23)</p>
@@ -358,6 +413,24 @@ td.item { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospac
 <tr><td>gemini-cli</td><td class="num">10</td><td class="num">2</td><td class="num">3</td><td>read_file</td></tr>
 </tbody>
 </table>
+</section>
+<section class="highlights">
+<h2>Highlights</h2>
+<ul>
+<li><strong>Work pattern:</strong> Mon-Fri work pattern - 28 total calls in window</li>
+<li><strong>Active feature area:</strong> Ongoing focus: cmd/report - week.rs (7), README.md (5), Cargo.toml (3)</li>
+<li><strong>Hot spine:</strong> week.rs (7), README.md (5), Cargo.toml (3)</li>
+<li><strong>Agent breakdown:</strong> claude-code dominance - 18 calls / 4 sessions vs gemini-cli 10</li>
+</ul>
+</section>
+<section class="insights">
+<h2>Insights</h2>
+<ul>
+<li>Busiest day: Fri 2026-04-24 (10 calls, 3 new files, 5 edited) - clear light day</li>
+<li>Edit-to-new ratio: 13 edits vs 6 new files (0.46x) - in refactor / polish mode</li>
+<li>Single-project focus: 100% of calls in fluxmirror</li>
+<li>MCP traffic: none - proxy not active</li>
+</ul>
 </section>
 <section class="sm">
 <h2>Summary</h2>

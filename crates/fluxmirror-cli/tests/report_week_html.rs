@@ -16,6 +16,9 @@ use std::process::Command;
 
 use chrono::NaiveDate;
 use fluxmirror_cli::cmd::report::html::{render_card, AgentRow, WeekHtmlStats};
+use fluxmirror_cli::cmd::report::week_summary::{
+    DailyRow, DayTheme, Highlights, Insights, ProjectShare, WeekSummary,
+};
 use fluxmirror_core::report::pack;
 
 /// Build the deterministic fixture both snapshot variants share.
@@ -69,8 +72,109 @@ fn fixture_stats() -> WeekHtmlStats {
         ("git push origin main".into(), 2),
     ];
 
+    // M5.3 business sections, hand-built to be deterministic and to
+    // exercise every renderer branch (project share, weekly theme,
+    // active feature area, hot spine, agent breakdown, project mix,
+    // edit-to-new ratio insight, MCP traffic insight).
+    let week_start = NaiveDate::from_ymd_opt(2026, 4, 21).unwrap();
+    let daily_breakdown = vec![
+        DailyRow {
+            date: week_start,
+            dow_label: "Mon".into(),
+            calls: 8,
+            new_files: 2,
+            edited_files: 4,
+            agents_active: 1,
+            theme: DayTheme::Light,
+        },
+        DailyRow {
+            date: week_start.succ_opt().unwrap(),
+            dow_label: "Tue".into(),
+            calls: 7,
+            new_files: 1,
+            edited_files: 3,
+            agents_active: 1,
+            theme: DayTheme::Light,
+        },
+        DailyRow {
+            date: NaiveDate::from_ymd_opt(2026, 4, 23).unwrap(),
+            dow_label: "Wed".into(),
+            calls: 2,
+            new_files: 0,
+            edited_files: 1,
+            agents_active: 1,
+            theme: DayTheme::Light,
+        },
+        DailyRow {
+            date: NaiveDate::from_ymd_opt(2026, 4, 24).unwrap(),
+            dow_label: "Thu".into(),
+            calls: 10,
+            new_files: 3,
+            edited_files: 5,
+            agents_active: 2,
+            theme: DayTheme::Light,
+        },
+        DailyRow {
+            date: NaiveDate::from_ymd_opt(2026, 4, 25).unwrap(),
+            dow_label: "Fri".into(),
+            calls: 1,
+            new_files: 0,
+            edited_files: 0,
+            agents_active: 1,
+            theme: DayTheme::Light,
+        },
+        DailyRow {
+            date: NaiveDate::from_ymd_opt(2026, 4, 26).unwrap(),
+            dow_label: "Sat".into(),
+            calls: 0,
+            new_files: 0,
+            edited_files: 0,
+            agents_active: 0,
+            theme: DayTheme::Idle,
+        },
+        DailyRow {
+            date: NaiveDate::from_ymd_opt(2026, 4, 27).unwrap(),
+            dow_label: "Sun".into(),
+            calls: 0,
+            new_files: 0,
+            edited_files: 0,
+            agents_active: 0,
+            theme: DayTheme::Idle,
+        },
+    ];
+    let summary = WeekSummary {
+        total_calls: 28,
+        active_days: 5,
+        active_days_label: "Mon-Fri".into(),
+        primary_project: Some(ProjectShare {
+            name: "fluxmirror".into(),
+            calls: 28,
+            share_pct: 100,
+        }),
+        weekly_theme: "Weekday focus - light tinkering".into(),
+    };
+    let highlights = Highlights {
+        work_pattern: "Mon-Fri work pattern - 28 total calls in window".into(),
+        active_feature_area: Some(
+            "Ongoing focus: cmd/report - week.rs (7), README.md (5), Cargo.toml (3)".into(),
+        ),
+        hot_spine_files: vec![
+            ("week.rs".into(), 7),
+            ("README.md".into(), 5),
+            ("Cargo.toml".into(), 3),
+        ],
+        agent_breakdown: "claude-code dominance - 18 calls / 4 sessions vs gemini-cli 10".into(),
+        project_breakdown: None,
+    };
+    let insights = Insights {
+        busiest_day: Some((NaiveDate::from_ymd_opt(2026, 4, 24).unwrap(), 10, 3, 5)),
+        edit_to_new_ratio: Some((13, 6, 0.4615384615384615)),
+        project_focus_pct: Some(100),
+        mcp_traffic_label: "none - proxy not active".into(),
+    };
+
     WeekHtmlStats {
-        range_start: NaiveDate::from_ymd_opt(2026, 4, 21).unwrap(),
+        range_start: week_start,
         range_end: NaiveDate::from_ymd_opt(2026, 4, 27).unwrap(),
         tz_label: "UTC".into(),
         heatmap,
@@ -91,6 +195,10 @@ fn fixture_stats() -> WeekHtmlStats {
         // Snapshots cover the no-narrative path. The narrative
         // renderer has its own dedicated tests in `cmd/report/html.rs`.
         narrative: None,
+        summary,
+        daily_breakdown,
+        highlights,
+        insights,
     }
 }
 
