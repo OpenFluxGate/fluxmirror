@@ -32,4 +32,4 @@ if [ ! -x "$BIN" ]; then
   chmod +x "$BIN"
 fi
 
-exec "$BIN" --kind gemini
+exec "$BIN" hook --kind gemini

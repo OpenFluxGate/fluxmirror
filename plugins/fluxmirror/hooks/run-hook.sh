@@ -34,4 +34,4 @@ if [ ! -x "$BIN" ]; then
   chmod +x "$BIN"
 fi
 
-exec "$BIN" --kind claude
+exec "$BIN" hook --kind claude
