@@ -6,19 +6,27 @@
 // On completion:
 //   * `${config_dir()}/config.json` is written atomically with schema_version=1
 //   * The chosen wrapper is applied via `wrapper::apply_set`
+//   * A compressed `welcome.md` is dropped under `config_dir()`
+//   * Unless `--no-demo-row` is passed, one synthetic `agent='setup'`
+//     row is inserted into `agent_events` so `/fluxmirror:today` returns
+//     a meaningful report immediately on a fresh DB.
 //   * A summary block is printed to stdout
 //
 // All prompts are plain stdin readline; no extra deps.
 
 use std::env;
+use std::fs;
 use std::io::{self, BufRead, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use chrono::{SecondsFormat, Utc};
+use fluxmirror_core::report::lang::pack as lang_pack;
 use fluxmirror_core::{
-    chrono_tz::Tz, paths, tz, AgentToggle, AgentsConfig, Config, Language, SelfNoiseConfig,
-    StorageConfig, WrapperConfig, WrapperKind,
+    chrono_tz::Tz, paths, tz, AgentEvent, AgentId, AgentToggle, AgentsConfig, Config, Language,
+    SelfNoiseConfig, StorageConfig, ToolClass, ToolKind, WrapperConfig, WrapperKind,
 };
+use fluxmirror_store::{EventStore, SqliteStore};
 
 use crate::cmd::wrapper::{self, EngineInfo};
 
@@ -27,6 +35,7 @@ pub fn run(
     non_interactive: bool,
     language: Option<String>,
     timezone: Option<String>,
+    demo_row: bool,
 ) -> ExitCode {
     // 1. Resolve language.
     let lang = match language.as_deref() {
@@ -160,8 +169,29 @@ pub fn run(
         );
     }
 
-    // 8. Summary.
+    // 8. Drop the compressed welcome.md into the config dir. Errors here
+    //    are swallowed — first-run friendliness must never block init.
+    let _ = write_welcome_md(&paths::config_dir());
+
+    // 9. Demo row insert. Default-on so a fresh user gets a meaningful
+    //    /fluxmirror:today report immediately. Errors are reported as a
+    //    warning to stderr and never break init (NF-3).
     let db_path = cfg.effective_db_path();
+    if demo_row {
+        match insert_demo_row(&db_path) {
+            Ok(true) => {
+                println!("{}", lang_pack(lang.as_str()).init_demo_row_inserted);
+            }
+            Ok(false) => {
+                // Already present — idempotent re-run, stay quiet.
+            }
+            Err(e) => {
+                eprintln!("fluxmirror init: demo row insert failed: {e}");
+            }
+        }
+    }
+
+    // 10. Summary.
     println!();
     println!("Wrote config: {}", cfg_path.display());
     println!("Language:    {}", lang.as_str());
@@ -172,6 +202,130 @@ pub fn run(
     println!("Next: try `fluxmirror today` from a Claude Code / Qwen Code / Gemini CLI session.");
 
     ExitCode::SUCCESS
+}
+
+/// Insert a single synthetic `agent='setup'` row into `agent_events`
+/// so the very first invocation of `/fluxmirror:today` returns a
+/// non-empty report. Idempotent: if a row with `agent='setup'` and
+/// `session='init-demo'` already exists, the function returns
+/// `Ok(false)` and inserts nothing.
+///
+/// All errors bubble up to the caller, which is responsible for
+/// converting them into a warning — init must never fail because the
+/// demo row could not be written (NF-3: telemetry must never break the
+/// user's CLI).
+fn insert_demo_row(db_path: &Path) -> Result<bool, String> {
+    let store = SqliteStore::open(db_path).map_err(|e| format!("open db: {e}"))?;
+
+    // Idempotency probe: another `init` run already left a demo row.
+    if demo_row_exists(db_path)? {
+        return Ok(false);
+    }
+
+    let cwd = std::env::current_dir()
+        .unwrap_or_else(|_| PathBuf::from("/"));
+    let host = gethostname::gethostname()
+        .to_string_lossy()
+        .into_owned();
+    let user = env::var("USER")
+        .or_else(|_| env::var("USERNAME"))
+        .unwrap_or_default();
+    let now = Utc::now();
+    let ts_iso = now.to_rfc3339_opts(SecondsFormat::Secs, true);
+
+    let detail = "fluxmirror init demo row \u{2014} delete me with: fluxmirror sqlite \"DELETE FROM agent_events WHERE agent='setup'\"".to_string();
+
+    let raw_json = serde_json::json!({
+        "ts": ts_iso,
+        "agent": "setup",
+        "session": "init-demo",
+        "tool": "Init",
+        "tool_canonical": "Init",
+        "tool_class": "Meta",
+        "detail": detail,
+        "cwd": cwd.to_string_lossy(),
+        "host": host,
+        "user": user,
+        "schema_version": 1,
+    })
+    .to_string();
+
+    let event = AgentEvent {
+        ts_utc: now,
+        schema_version: 1,
+        agent: AgentId::Other("setup".to_string()),
+        session: "init-demo".to_string(),
+        tool_raw: "Init".to_string(),
+        tool_canonical: ToolKind::Other("Init".to_string()),
+        tool_class: ToolClass::Meta,
+        detail,
+        cwd,
+        host,
+        user,
+        raw_json,
+    };
+
+    store
+        .write_agent_event(&event)
+        .map_err(|e| format!("write demo row: {e}"))?;
+    Ok(true)
+}
+
+/// Probe the DB for an existing `agent='setup' AND session='init-demo'`
+/// row. Returns `Ok(false)` if the row is missing OR the table does not
+/// yet exist (the SqliteStore::open call will create it next).
+fn demo_row_exists(db_path: &Path) -> Result<bool, String> {
+    use rusqlite::OpenFlags;
+    if !db_path.exists() {
+        return Ok(false);
+    }
+    let conn = rusqlite::Connection::open_with_flags(
+        db_path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(|e| format!("open db: {e}"))?;
+    // Table may not exist on a brand-new DB that we are about to open
+    // through SqliteStore — treat that as "no row".
+    let exists: i64 = match conn.query_row(
+        "SELECT COUNT(*) FROM agent_events WHERE agent = 'setup' AND session = 'init-demo'",
+        [],
+        |r| r.get(0),
+    ) {
+        Ok(n) => n,
+        Err(_) => return Ok(false),
+    };
+    Ok(exists > 0)
+}
+
+/// Drop a tightly compressed welcome.md into the config dir. The
+/// content is intentionally small: a tagline, three try-first slash
+/// commands, a paragraph on data location, and an asciinema embed
+/// placeholder. Total target: ≤ 25 lines.
+fn write_welcome_md(dir: &Path) -> std::io::Result<()> {
+    fs::create_dir_all(dir)?;
+    let welcome = dir.join("welcome.md");
+    let body = "# FluxMirror
+
+FluxMirror is now logging your AI agent activity locally.
+
+## Try these first
+
+- /fluxmirror:today
+- /fluxmirror:agents
+- /fluxmirror:doctor
+
+## Where data lives
+
+Your activity is recorded in a single SQLite database under the
+fluxmirror data dir for your OS (`~/Library/Application Support/fluxmirror/`
+on macOS, `${XDG_DATA_HOME:-~/.local/share}/fluxmirror/` on Linux,
+`%APPDATA%\\fluxmirror\\` on Windows). Run `fluxmirror doctor` for a
+five-component health check, or read the project README for the full
+configuration / migration story.
+
+<!-- ASCIINEMA_PLACEHOLDER -->
+";
+    fs::write(welcome, body)
 }
 
 // ---------------------------------------------------------------------------
@@ -392,6 +546,7 @@ mod tests {
             true,
             Some("korean".into()),
             Some("Asia/Seoul".into()),
+            false,
         );
         assert_eq!(format!("{code:?}"), format!("{:?}", ExitCode::SUCCESS));
 
@@ -412,7 +567,7 @@ mod tests {
         let _lc = EnvGuard::unset("LC_ALL");
         let _lm = EnvGuard::unset("LC_MESSAGES");
 
-        let code = run(false, true, None, None);
+        let code = run(false, true, None, None, false);
         assert_eq!(format!("{code:?}"), format!("{:?}", ExitCode::SUCCESS));
 
         let cfg_path = paths::config_dir().join("config.json");
@@ -430,7 +585,7 @@ mod tests {
         let _h = EnvGuard::set("HOME", tmp.path().to_str().unwrap());
         let _u = EnvGuard::unset("USERPROFILE");
 
-        let code = run(false, true, Some("klingon".into()), None);
+        let code = run(false, true, Some("klingon".into()), None, false);
         assert_eq!(format!("{code:?}"), format!("{:?}", ExitCode::from(2)));
     }
 
@@ -441,7 +596,7 @@ mod tests {
         let _h = EnvGuard::set("HOME", tmp.path().to_str().unwrap());
         let _u = EnvGuard::unset("USERPROFILE");
 
-        let code = run(false, true, None, Some("Atlantis/Lost".into()));
+        let code = run(false, true, None, Some("Atlantis/Lost".into()), false);
         assert_eq!(format!("{code:?}"), format!("{:?}", ExitCode::from(2)));
     }
 

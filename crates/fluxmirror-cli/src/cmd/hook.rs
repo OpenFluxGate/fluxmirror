@@ -145,11 +145,12 @@ fn run_inner(argv: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-/// On the first successful event-write, drop a welcome.md alongside the
-/// `.first-fire-at` marker so the user has a friendly local landing page
-/// for the new tool. Idempotent: returns silently if the marker exists.
-/// Every IO error is swallowed — the hook must always exit 0.
-fn write_welcome_once(db_path: &Path) {
+/// On the first successful event-write, drop a `.first-fire-at` marker
+/// (and a compressed `welcome.md`, if init has not already emitted one)
+/// so the user has a friendly local landing page for the new tool.
+/// Idempotent: returns silently if the marker exists. Every IO error
+/// is swallowed — the hook must always exit 0.
+fn write_welcome_once(_db_path: &Path) {
     let dir = paths::config_dir();
     let marker = dir.join(".first-fire-at");
     if marker.exists() {
@@ -160,16 +161,32 @@ fn write_welcome_once(db_path: &Path) {
     let _ = fs::write(&marker, ts.as_bytes());
 
     let welcome = dir.join("welcome.md");
-    let mut body = String::new();
-    body.push_str("# FluxMirror is recording\n\n");
-    body.push_str("Your AI agent activity now lands in:\n");
-    body.push_str(&format!("  {}\n\n", db_path.display()));
-    body.push_str("Try these from any Claude Code, Qwen Code, or Gemini CLI session:\n");
-    body.push_str("  /fluxmirror:today\n");
-    body.push_str("  /fluxmirror:week\n");
-    body.push_str("  /fluxmirror:doctor\n\n");
-    body.push_str("Configure language / timezone / wrapper:\n");
-    body.push_str("  fluxmirror init\n");
+    if welcome.exists() {
+        // `fluxmirror init` already wrote the canonical compressed
+        // welcome page — don't clobber it on first hook fire.
+        return;
+    }
+    let body = "# FluxMirror
+
+FluxMirror is now logging your AI agent activity locally.
+
+## Try these first
+
+- /fluxmirror:today
+- /fluxmirror:agents
+- /fluxmirror:doctor
+
+## Where data lives
+
+Your activity is recorded in a single SQLite database under the
+fluxmirror data dir for your OS (`~/Library/Application Support/fluxmirror/`
+on macOS, `${XDG_DATA_HOME:-~/.local/share}/fluxmirror/` on Linux,
+`%APPDATA%\\fluxmirror\\` on Windows). Run `fluxmirror doctor` for a
+five-component health check, or read the project README for the full
+configuration / migration story.
+
+<!-- ASCIINEMA_PLACEHOLDER -->
+";
     let _ = fs::write(&welcome, body.as_bytes());
 }
 
@@ -351,8 +368,18 @@ mod tests {
         assert!(cfg_dir.join("welcome.md").exists());
 
         let body = fs::read_to_string(cfg_dir.join("welcome.md")).unwrap();
-        assert!(body.contains("FluxMirror is recording"));
-        assert!(body.contains(&db_path.display().to_string()));
+        // Compressed welcome (≤ 25 lines): tagline + 3 try-first commands
+        // + where-data-lives paragraph + asciinema placeholder.
+        assert!(body.contains("FluxMirror"));
+        assert!(body.contains("/fluxmirror:today"));
+        assert!(body.contains("/fluxmirror:agents"));
+        assert!(body.contains("/fluxmirror:doctor"));
+        assert!(body.contains("ASCIINEMA_PLACEHOLDER"));
+        let line_count = body.lines().count();
+        assert!(
+            line_count <= 25,
+            "welcome.md should be ≤ 25 lines, got {line_count}"
+        );
     }
 
     #[test]

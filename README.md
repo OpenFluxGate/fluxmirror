@@ -320,6 +320,17 @@ fluxmirror sqlite --db "$(fluxmirror db-path)" \
   "SELECT agent, COUNT(*) FROM agent_events GROUP BY agent"
 ```
 
+## Troubleshooting
+
+| Symptom | Resolution |
+|---|---|
+| `fluxmirror: command not found` from a slash command | Re-run `fluxmirror init` so the binary is on `PATH` for the shell that the slash command spawns. |
+| `/fluxmirror:today` reports "no events" | Trigger any tool call in your agent first; confirm `fluxmirror doctor` shows `database ok`. A fresh install is also seeded with one demo row tagged `agent='setup'` so the very first report is non-empty. |
+| `Extension "fluxmirror" already loaded` | A previous install left a `*.backup.*` directory next to the live one. Remove it: `rm -rf ~/.gemini/extensions/fluxmirror.backup.*` (or the matching `~/.qwen/extensions/` path). |
+| Qwen install completes but `/fluxmirror:*` commands never surface | Confirm `~/.qwen/extensions/fluxmirror/qwen-extension.json` exists. If it is missing, the package is from a pre-v0.6.0 build — re-install from the latest release. |
+| Gemini / Qwen show flat `/today` instead of `/fluxmirror:today` | The `/fluxmirror:` namespace prefix comes from the `commands/fluxmirror/` subdirectory. If your install has flat `commands/*.{md,toml}` files at the top level, the package shipped a flatten regression — re-install from the latest release. |
+| Gemini ran `/fluxmirror:init` non-interactively (skipped questions) | The model raced past the question gate. Post-v0.6.0 `init.toml` puts the question block before any shell fence so the user must answer first; update the extension and retry. |
+
 ## Updating
 
 | Surface | Command |

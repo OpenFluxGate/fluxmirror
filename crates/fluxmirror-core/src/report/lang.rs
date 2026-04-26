@@ -158,6 +158,12 @@ pub struct LangPack {
     pub compare_word_up: &'static str,
     /// Word for "down" / "decrease".
     pub compare_word_down: &'static str,
+
+    // ----- init demo row ---------------------------------------------
+    /// One-line confirmation printed after `fluxmirror init` inserts the
+    /// `agent='setup'` demo row. Includes the literal removal command,
+    /// quoted exactly so the user can copy/paste it.
+    pub init_demo_row_inserted: &'static str,
 }
 
 const ENGLISH: LangPack = LangPack {
@@ -230,6 +236,7 @@ const ENGLISH: LangPack = LangPack {
     compare_insight_only_yesterday: "Today has no activity yet; yesterday had {n} calls.",
     compare_word_up: "up",
     compare_word_down: "down",
+    init_demo_row_inserted: "Inserted demo row so /fluxmirror:today returns a meaningful report immediately. Remove with: fluxmirror sqlite \"DELETE FROM agent_events WHERE agent='setup'\"",
 };
 
 const KOREAN: LangPack = LangPack {
@@ -302,6 +309,7 @@ const KOREAN: LangPack = LangPack {
     compare_insight_only_yesterday: "오늘 아직 활동 없음, 어제 호출 {n}회.",
     compare_word_up: "증가",
     compare_word_down: "감소",
+    init_demo_row_inserted: "데모 행을 추가했습니다. 이제 /fluxmirror:today 가 바로 의미 있는 리포트를 반환합니다. 제거하려면: fluxmirror sqlite \"DELETE FROM agent_events WHERE agent='setup'\"",
 };
 
 const JAPANESE: LangPack = LangPack {
@@ -374,6 +382,7 @@ const JAPANESE: LangPack = LangPack {
     compare_insight_only_yesterday: "本日まだ活動なし。昨日は {n} 回。",
     compare_word_up: "増加",
     compare_word_down: "減少",
+    init_demo_row_inserted: "デモ行を追加しました。これで /fluxmirror:today が即座に意味のあるレポートを返します。削除するには: fluxmirror sqlite \"DELETE FROM agent_events WHERE agent='setup'\"",
 };
 
 const CHINESE: LangPack = LangPack {
@@ -446,6 +455,7 @@ const CHINESE: LangPack = LangPack {
     compare_insight_only_yesterday: "今日尚无活动,昨日 {n} 次调用。",
     compare_word_up: "上升",
     compare_word_down: "下降",
+    init_demo_row_inserted: "已插入演示行,/fluxmirror:today 现在会立即返回有意义的报告。移除方式: fluxmirror sqlite \"DELETE FROM agent_events WHERE agent='setup'\"",
 };
 
 /// Resolve a language code (or canonical name) to a `LangPack`.

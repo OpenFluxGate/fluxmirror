@@ -55,6 +55,17 @@ enum Cmd {
         language: Option<String>,
         #[arg(long)]
         timezone: Option<String>,
+        /// Insert one synthetic `agent='setup'` row into agent_events on
+        /// first init so /fluxmirror:today returns a non-empty report
+        /// immediately. Default: enabled. Use `--no-demo-row` to skip.
+        #[arg(long, default_value_t = true, action = clap::ArgAction::Set,
+              num_args = 0..=1, default_missing_value = "true",
+              overrides_with = "no_demo_row")]
+        demo_row: bool,
+        /// Disable the demo row insert (counterpart to `--demo-row`).
+        #[arg(long, default_value_t = false, action = clap::ArgAction::SetTrue,
+              overrides_with = "demo_row")]
+        no_demo_row: bool,
     },
 
     /// Read / write / inspect config layers.
@@ -323,7 +334,16 @@ fn main() -> ExitCode {
             non_interactive,
             language,
             timezone,
-        } => cmd::init::run(advanced, non_interactive, language, timezone),
+            demo_row,
+            no_demo_row,
+        } => {
+            // `--no-demo-row` is the explicit opt-out; clap's
+            // `overrides_with` ensures the last flag on the line wins,
+            // and the boolean we hand init::run is the resolved
+            // "should we insert?" answer.
+            let insert = demo_row && !no_demo_row;
+            cmd::init::run(advanced, non_interactive, language, timezone, insert)
+        }
         Cmd::Config { op } => cmd::config::run(op),
         Cmd::Wrapper { op } => cmd::wrapper::run(op),
         Cmd::Doctor => cmd::doctor::run(),

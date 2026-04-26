@@ -132,13 +132,17 @@ against the official Gemini CLI hooks reference at
 
 | Symptom | Resolution |
 |---|---|
-| Slash command prints "no events" | Trigger any tool call, then re-run. Confirm `fluxmirror doctor` shows `database ok`. |
+| Slash command prints "no events" | Trigger any tool call, then re-run. Confirm `fluxmirror doctor` shows `database ok`. A fresh `fluxmirror init` also seeds one synthetic `agent='setup'` row so the very first `/fluxmirror:today` is non-empty; remove it any time with `fluxmirror sqlite "DELETE FROM agent_events WHERE agent='setup'"`. |
 | `Configuration file not found` on install | You omitted `--ref gemini-extension-pkg`. Add it. |
 | `Install source not found.` | Use the full `https://github.com/OpenFluxGate/fluxmirror` URL — `owner/repo` shorthand is not accepted. |
 | `Extension "fluxmirror" is already installed.` | `gemini extensions uninstall fluxmirror`, then re-install. |
 | Hook never fires | Check `~/.fluxmirror/hook-errors.log`; restart `gemini`; verify `hooks.json` exists under the extension dir. |
 | Binary download fails on first fire | The wrapper exits 0 silently to never break the calling agent. Check network and trigger another tool call. |
 | `Gemini CLI is not running in a trusted directory.` | Set `GEMINI_CLI_TRUST_WORKSPACE=true` or pass `--skip-trust` (only when invoking `gemini`, not `gemini extensions install`). |
+| `Extension "fluxmirror" already loaded` | An earlier install left a `*.backup.*` directory next to the live one. Remove it: `rm -rf ~/.gemini/extensions/fluxmirror.backup.*`. |
+| Qwen install completes but `/fluxmirror:*` commands never surface | Confirm `~/.qwen/extensions/fluxmirror/qwen-extension.json` exists. If it is missing, the package was built before v0.6.0 — re-install from the latest release. |
+| Gemini shows flat `/today` instead of `/fluxmirror:today` | The `/fluxmirror:` namespace prefix comes from the `commands/fluxmirror/` subdirectory. If your install has flat `commands/*.toml` files, the package shipped a flatten regression — re-install from the latest release. |
+| Gemini ran `/fluxmirror:init` non-interactively (skipped questions) | The model raced past the question gate. The post-v0.6.0 `init.toml` keeps the "STEP 1 — ASK THE USER" block in front of any shell fence so the questions are answered first — update the extension and retry. |
 
 ## Isolation across agents
 

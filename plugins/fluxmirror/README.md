@@ -136,11 +136,15 @@ Qwen snake_case, so a single report covers all agents uniformly.
 
 | Symptom | Resolution |
 |---|---|
-| Slash command prints "no events" | Trigger any tool call, then re-run. Confirm `fluxmirror doctor` shows `database ok`. |
+| Slash command prints "no events" | Trigger any tool call, then re-run. Confirm `fluxmirror doctor` shows `database ok`. A fresh `fluxmirror init` also seeds one synthetic `agent='setup'` row so the very first `/fluxmirror:today` is non-empty; remove it any time with `fluxmirror sqlite "DELETE FROM agent_events WHERE agent='setup'"`. |
 | `fluxmirror: command not found` from a slash command | Re-run `fluxmirror init`; it ensures the binary is on `PATH` for the slash-command shell. |
 | Wrong wrapper engine picked | `fluxmirror wrapper set <bash\|node\|cmd>` to override; init's probe table shows what is viable. |
 | Hook never fires | Check `~/.fluxmirror/hook-errors.log`; restart the agent CLI; verify `hooks.json` exists under `<plugin>/hooks/`. |
 | Binary download fails on first fire | The wrapper exits 0 silently to never break the calling agent. Check network / GitHub availability and trigger another tool call. |
+| `Extension "fluxmirror" already loaded` | A previous install left a `*.backup.*` directory next to the live one. Remove it: `rm -rf ~/.qwen/extensions/fluxmirror.backup.*` (Qwen) or `~/.claude/plugins/fluxmirror.backup.*` (Claude). |
+| Qwen install completes but `/fluxmirror:*` commands never surface | Confirm `~/.qwen/extensions/fluxmirror/qwen-extension.json` exists. If it is missing, the package was built before v0.6.0 — re-install from the latest release. |
+| Slash commands appear as flat `/today` instead of `/fluxmirror:today` | The `/fluxmirror:` namespace prefix comes from the `commands/fluxmirror/` subdirectory. If your install has flat `commands/*.md` files, the package shipped a flatten regression — re-install from the latest release. |
+| `/fluxmirror:init` ran non-interactively (skipped questions) | The model raced past the question gate. The post-v0.6.0 `init.md` keeps the user-facing question block in front of any shell fence — update the plugin and retry. |
 
 ## Extending to Claude Desktop (optional)
 
