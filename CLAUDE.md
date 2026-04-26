@@ -73,13 +73,20 @@ via rusqlite's `bundled` feature).
 
 ## Tech stack
 
-- **Rust** (stable, edition 2021) for both binaries — `rusqlite` (bundled SQLite),
-  `serde_json`. Released as ~1.2 MB statically-linked artifacts.
-- **Bash + curl** for the ~25-line install wrapper (`hooks/run-hook.sh`) that
-  downloads the per-arch Rust binary on first invocation. Both `bash` and
-  `curl` are universal on macOS / Linux / WSL.
-- **GitHub Actions** for CI (3 workflows): unit + regression + integration tests
-  on every PR; cross-arch matrix release on tag push.
+- **Rust** (stable, edition 2021) — single-binary `fluxmirror` built from
+  a 4-crate workspace (`fluxmirror-cli`, `fluxmirror-core`,
+  `fluxmirror-store`, `fluxmirror-proxy`). Deps: `rusqlite` (bundled
+  SQLite), `serde_json`, `clap` (derive), `chrono`, `chrono-tz`,
+  `gethostname`. Released as ~2.2 MB statically-linked artifacts per arch.
+- **Cross-shell wrapper layer** (`wrappers/{shim.sh, shim.mjs, shim.cmd,
+  router.sh}`) — each shim depends on a **single** runtime that the OS
+  already provides: `bash + curl` (macOS / Linux / WSL / Git-Bash), or
+  `node` ≥ 18, or `cmd.exe` + PowerShell. `fluxmirror init` probes the
+  host and picks one.
+- **GitHub Actions** for CI (3 workflows): workspace test matrix
+  (`ubuntu-latest`, `macos-latest`, `windows-latest`) + manifest drift
+  guard + hook parity test on every PR; cross-arch matrix release on
+  tag push.
 
 No JVM, no Gradle, no Java toolchain. No Python or jq at runtime — they were
 removed when the bash fallback path was retired in favour of the auto-download
@@ -242,32 +249,57 @@ Example (Claude Desktop's `~/Library/Application Support/Claude/claude_desktop_c
 
 ```
 fluxmirror/
-├── CLAUDE.md                         (this file)
+├── CLAUDE.md                              (this file)
 ├── README.md
-├── LICENSE                           (MIT — match FluxGate)
-├── rust-hook/                        single-binary tool-call hook (Rust)
-│   ├── Cargo.toml
-│   └── src/main.rs
-├── rust-proxy/                       long-running MCP proxy (Rust)
-│   ├── Cargo.toml
-│   └── src/                          {cli, framer, store, writer, child, bridge, main}.rs
-├── plugins/fluxmirror/               Claude Code plugin (also used by Qwen)
+├── LICENSE                                (MIT — match FluxGate)
+├── Cargo.toml                             workspace manifest
+├── crates/
+│   ├── fluxmirror-cli/                    [[bin]] fluxmirror — clap dispatcher
+│   │   ├── Cargo.toml
+│   │   └── src/{main,lib}.rs + cmd/{hook,proxy,init,config,wrapper,doctor,db_path,window,histogram,daily_totals,per_day_files,sqlite}.rs
+│   ├── fluxmirror-core/                   Event types, normalize, Config, paths, tz
+│   │   ├── Cargo.toml
+│   │   └── src/{lib,event,normalize,config,paths,tz,errors}.rs
+│   ├── fluxmirror-store/                  EventStore trait + SqliteStore + migrations
+│   │   ├── Cargo.toml
+│   │   └── src/{lib,sqlite}.rs
+│   └── fluxmirror-proxy/                  stdio MCP relay (lib)
+│       ├── Cargo.toml
+│       └── src/{lib,framer,store,writer,child,bridge}.rs
+├── wrappers/
+│   ├── shim.sh                            bash entry (macOS / Linux / WSL / Git-Bash)
+│   ├── shim.mjs                           Node entry
+│   ├── shim.cmd                           cmd.exe entry (Node-less Windows)
+│   └── router.sh                          tries shims in priority order (pre-init default)
+├── manifests/
+│   └── source.yaml                        single source of truth for hooks.json files
+├── plugins/fluxmirror/                    Claude Code plugin (also used by Qwen)
 │   ├── .claude-plugin/plugin.json
-│   ├── hooks/                        run-hook.sh (auto-downloads + execs Rust binary)
-│   └── commands/                     /fluxmirror:* slash command surface
-├── gemini-extension/                 Gemini CLI extension
+│   ├── hooks/                             hooks.json (generated) + run-hook.sh wrapper
+│   └── commands/                          /fluxmirror:* slash commands (.md)
+├── gemini-extension/                      Gemini CLI extension
 │   ├── gemini-extension.json
-│   └── hooks/                        run-hook.sh (same wrapper)
+│   ├── hooks/                             hooks.json (generated) + run-hook.sh wrapper
+│   ├── commands/                          /fluxmirror:* slash commands (.toml)
+│   └── scripts/                           report-data.sh shell wrapper used by the .toml commands
+├── docs/
+│   ├── architecture.md                    layered model + crate map + Phase 2-5 roadmap
+│   └── adr/000{1..4}*.md                  design decisions (single binary / wrapper / store / onboarding)
 ├── scripts/
-│   ├── verify-isolation.sh           JSONL + SQLite isolation verification
-│   ├── test-rust-hook.sh             Rust hook regression suite
-│   └── bump-version.sh               release helper (sync 3 manifests + tag)
+│   ├── verify-isolation.sh                JSONL + SQLite isolation verification
+│   ├── test-rust-hook.sh                  hook regression suite (parity test)
+│   ├── build-manifests.sh                 emit hooks.json from manifests/source.yaml (--check in CI)
+│   └── bump-version.sh                    release helper (sync workspace + 3 plugin manifests + tag)
 ├── .github/workflows/
-│   ├── test.yml                      CI on push/PR (2 Rust jobs)
-│   ├── release.yml                   CI on tag: gemini-extension archive + branch
-│   └── rust-release.yml              CI on tag: per-arch Rust binaries (5 × 2)
-└── .claude-plugin/
-    └── marketplace.json              Claude marketplace listing
+│   ├── test.yml                           CI on push/PR (3-OS matrix + manifest check + parity test)
+│   ├── release.yml                        CI on tag: gemini-extension archive + branch
+│   └── rust-release.yml                   CI on tag: per-arch single binary (5 targets)
+├── .claude-plugin/
+│   └── marketplace.json                   Claude marketplace listing
+└── .omc/autopilot/
+    ├── spec.md                            Phase 1 source of truth (functional + non-functional reqs)
+    ├── plan.md                            13-STEP executable plan
+    └── progress.md                        per-STEP completion log (compaction-resilient)
 ```
 
 ## Working with me (Claude Code)
