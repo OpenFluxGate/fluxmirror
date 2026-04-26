@@ -115,6 +115,20 @@ pub struct LangPack {
     /// Insight phrasing for the cross-project rule. Placeholders: `{n}`
     /// (number of distinct cwds with ≥5 calls).
     pub week_insight_cross_project: &'static str,
+
+    // ----- about report -----------------------------------------------
+    /// "About FluxMirror" — H1 of the about output.
+    pub about_title: &'static str,
+    /// One-paragraph project blurb (multi-line OK; rendered verbatim).
+    pub about_blurb: &'static str,
+    /// "Available commands" section heading.
+    pub about_commands_heading: &'static str,
+    /// "Where data lives" section heading.
+    pub about_paths_heading: &'static str,
+    /// Label preceding the database path: "Database:".
+    pub about_db_label: &'static str,
+    /// Label preceding the log file: "Log file:".
+    pub about_log_label: &'static str,
 }
 
 const ENGLISH: LangPack = LangPack {
@@ -164,6 +178,12 @@ const ENGLISH: LangPack = LangPack {
     week_insight_top_day: "Most productive day: {date} ({n} calls)",
     week_insight_active_days: "Days active: {n}/7",
     week_insight_cross_project: "Cross-project: {n} distinct working dirs with >= 5 calls",
+    about_title: "About FluxMirror",
+    about_blurb: "FluxMirror is a local observability layer for AI coding agents. It records every tool call from Claude Code, Gemini CLI, Qwen Code, and (optionally) Claude Desktop's MCP traffic into a single SQLite database, then turns that data into per-day, per-week, and per-agent reports you can read from your own terminal.",
+    about_commands_heading: "Available commands",
+    about_paths_heading: "Where data lives",
+    about_db_label: "Database",
+    about_log_label: "Log file",
 };
 
 const KOREAN: LangPack = LangPack {
@@ -213,6 +233,12 @@ const KOREAN: LangPack = LangPack {
     week_insight_top_day: "가장 활발한 날: {date} (호출 {n}회)",
     week_insight_active_days: "활동 일수: {n}/7",
     week_insight_cross_project: "여러 프로젝트: 5회 이상 호출된 작업 디렉터리 {n}개",
+    about_title: "FluxMirror 소개",
+    about_blurb: "FluxMirror는 로컬에서 AI 코딩 에이전트의 활동을 기록하는 관측 도구입니다. Claude Code, Gemini CLI, Qwen Code, (선택적으로) Claude Desktop 의 MCP 트래픽까지 하나의 SQLite 데이터베이스에 모아두고, 그 데이터를 일별/주간/에이전트별 보고서로 보여줍니다.",
+    about_commands_heading: "사용 가능한 명령",
+    about_paths_heading: "데이터 위치",
+    about_db_label: "데이터베이스",
+    about_log_label: "로그 파일",
 };
 
 const JAPANESE: LangPack = LangPack {
@@ -262,6 +288,12 @@ const JAPANESE: LangPack = LangPack {
     week_insight_top_day: "最も活発な日: {date} ({n} 回)",
     week_insight_active_days: "活動日数: {n}/7",
     week_insight_cross_project: "複数プロジェクト: 5 回以上呼ばれた作業ディレクトリ {n} 個",
+    about_title: "FluxMirror について",
+    about_blurb: "FluxMirror は AI コーディングエージェントの動作をローカルで記録するツールです。Claude Code、Gemini CLI、Qwen Code、(任意で) Claude Desktop の MCP トラフィックを単一の SQLite データベースに集約し、そのデータを日次・週次・エージェント別レポートとして提示します。",
+    about_commands_heading: "利用可能なコマンド",
+    about_paths_heading: "データの保存場所",
+    about_db_label: "データベース",
+    about_log_label: "ログファイル",
 };
 
 const CHINESE: LangPack = LangPack {
@@ -311,6 +343,12 @@ const CHINESE: LangPack = LangPack {
     week_insight_top_day: "最活跃日: {date} (调用 {n} 次)",
     week_insight_active_days: "活动天数: {n}/7",
     week_insight_cross_project: "多项目: 至少 5 次调用的工作目录 {n} 个",
+    about_title: "关于 FluxMirror",
+    about_blurb: "FluxMirror 是一款本地化的 AI 编码代理观测工具。它将 Claude Code、Gemini CLI、Qwen Code 以及 (可选) Claude Desktop 的 MCP 流量统一记录到单个 SQLite 数据库,并将数据呈现为按日、按周、按代理划分的报告。",
+    about_commands_heading: "可用命令",
+    about_paths_heading: "数据位置",
+    about_db_label: "数据库",
+    about_log_label: "日志文件",
 };
 
 /// Resolve a language code (or canonical name) to a `LangPack`.

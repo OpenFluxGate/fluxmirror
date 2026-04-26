@@ -105,6 +105,9 @@ enum Cmd {
     /// Single-agent filtered report. Takes a positional <name> plus an
     /// optional --period (today | yesterday | week, default today).
     Agent(AgentCliArgs),
+
+    /// Project blurb + slash-command index + data paths. No DB query.
+    About(AboutCliArgs),
 }
 
 #[derive(Args)]
@@ -260,6 +263,18 @@ struct AgentCliArgs {
     format: ReportFormat,
 }
 
+/// CLI shape for `fluxmirror about`. The DB path is reported but not
+/// queried — the override exists so tests can pin a deterministic path.
+#[derive(Args)]
+struct AboutCliArgs {
+    #[arg(long)]
+    db: Option<PathBuf>,
+    #[arg(long)]
+    lang: Option<String>,
+    #[arg(long, value_enum, default_value_t = ReportFormat::Human)]
+    format: ReportFormat,
+}
+
 #[derive(Copy, Clone, ValueEnum)]
 enum HookKind {
     Claude,
@@ -379,6 +394,17 @@ fn main() -> ExitCode {
                 format: args.format,
                 agent_name: args.name,
                 period: args.period,
+            })
+        }
+        Cmd::About(args) => {
+            let cfg = Config::load().unwrap_or_default();
+            let lang = args
+                .lang
+                .unwrap_or_else(|| cfg.language.as_str().to_string());
+            cmd::report::about::run(cmd::report::about::AboutArgs {
+                db: args.db,
+                lang,
+                format: args.format,
             })
         }
     }
