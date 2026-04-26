@@ -1,32 +1,4 @@
 description = "Summarize the last 7 days of AI agent activity from FluxMirror SQLite"
 prompt = """
-This week's raw FluxMirror data (last 7 days, includes a daily breakdown):
-
-!{$HOME/.gemini/extensions/fluxmirror/scripts/report-data.sh week}
-
-Produce a one-page report (translate to user language, default English):
-
-# This Week's Work (<WEEK_START> .. <WEEK_END> <timezone>)
-
-## Week Summary
-- Total calls / active days / primary project / weekly theme
-
-## Daily Breakdown
-| Date | Calls | Agents | Theme |
-|---|---|---|---|
-| YYYY-MM-DD (Mon) | N | comma-list or `-` | research / building / shipping / off |
-
-(Use the daily-totals output above. Include zero-event days as "off".)
-
-## Highlights
-2-4 bullets of cross-day patterns: ongoing files (appearing across
-multiple days), focus shifts, shipping moments, cwd changes.
-
-## Insights
-1-3 observed patterns (most active day, longest streak, busiest cwd,
-edit-to-read ratio, multi-agent collaboration if any).
-
-If fewer than 30 events across the whole week, output (user language):
-en: "Limited activity this week." / ko: "이번 주 활동 적음."
-ja: "今週の活動は少なめです。" / zh: "本周活动较少。"
+!{fluxmirror week}
 """

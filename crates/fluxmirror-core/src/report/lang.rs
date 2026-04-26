@@ -92,6 +92,29 @@ pub struct LangPack {
     /// Single-line message when yesterday's window has fewer than 5
     /// events. Worded for "no activity yesterday" rather than today.
     pub yesterday_no_data: &'static str,
+
+    // ----- week report ------------------------------------------------
+    /// "Last 7 Days" — H1 of the week report. Rendered as
+    /// `# {week_title} (YYYY-MM-DD ~ YYYY-MM-DD <tz>)`.
+    pub week_title: &'static str,
+    /// Single-line message when the 7-day window has fewer than 5 events.
+    pub week_no_data: &'static str,
+    /// "Per-day totals" section heading.
+    pub week_daily_totals_heading: &'static str,
+    /// "Day distribution" section heading (analogous to `today`'s hour
+    /// distribution chart).
+    pub week_day_distribution_heading: &'static str,
+    /// Two column headers: Date | Calls.
+    pub week_columns_date_calls: [&'static str; 2],
+    /// Insight phrasing for the most-productive day rule. Placeholders:
+    /// `{date}` (YYYY-MM-DD) and `{n}` (calls).
+    pub week_insight_top_day: &'static str,
+    /// Insight phrasing for the active-days rule. Placeholders: `{n}`
+    /// (active days, integer 1..=7).
+    pub week_insight_active_days: &'static str,
+    /// Insight phrasing for the cross-project rule. Placeholders: `{n}`
+    /// (number of distinct cwds with ≥5 calls).
+    pub week_insight_cross_project: &'static str,
 }
 
 const ENGLISH: LangPack = LangPack {
@@ -133,6 +156,14 @@ const ENGLISH: LangPack = LangPack {
     today_columns_tool_count: ["Tool", "Count"],
     yesterday_title: "Yesterday's Work",
     yesterday_no_data: "No activity yesterday.",
+    week_title: "Last 7 Days",
+    week_no_data: "Limited activity this week.",
+    week_daily_totals_heading: "Per-day totals",
+    week_day_distribution_heading: "Day distribution",
+    week_columns_date_calls: ["Date", "Calls"],
+    week_insight_top_day: "Most productive day: {date} ({n} calls)",
+    week_insight_active_days: "Days active: {n}/7",
+    week_insight_cross_project: "Cross-project: {n} distinct working dirs with >= 5 calls",
 };
 
 const KOREAN: LangPack = LangPack {
@@ -174,6 +205,14 @@ const KOREAN: LangPack = LangPack {
     today_columns_tool_count: ["도구", "횟수"],
     yesterday_title: "어제의 작업",
     yesterday_no_data: "어제 활동 없음.",
+    week_title: "지난 7일",
+    week_no_data: "이번 주 활동 적음.",
+    week_daily_totals_heading: "일별 합계",
+    week_day_distribution_heading: "요일 분포",
+    week_columns_date_calls: ["날짜", "호출"],
+    week_insight_top_day: "가장 활발한 날: {date} (호출 {n}회)",
+    week_insight_active_days: "활동 일수: {n}/7",
+    week_insight_cross_project: "여러 프로젝트: 5회 이상 호출된 작업 디렉터리 {n}개",
 };
 
 const JAPANESE: LangPack = LangPack {
@@ -215,6 +254,14 @@ const JAPANESE: LangPack = LangPack {
     today_columns_tool_count: ["ツール", "回数"],
     yesterday_title: "昨日の作業",
     yesterday_no_data: "昨日の活動はありませんでした。",
+    week_title: "過去7日間",
+    week_no_data: "今週の活動は少なめです。",
+    week_daily_totals_heading: "日次合計",
+    week_day_distribution_heading: "曜日分布",
+    week_columns_date_calls: ["日付", "呼び出し"],
+    week_insight_top_day: "最も活発な日: {date} ({n} 回)",
+    week_insight_active_days: "活動日数: {n}/7",
+    week_insight_cross_project: "複数プロジェクト: 5 回以上呼ばれた作業ディレクトリ {n} 個",
 };
 
 const CHINESE: LangPack = LangPack {
@@ -256,6 +303,14 @@ const CHINESE: LangPack = LangPack {
     today_columns_tool_count: ["工具", "次数"],
     yesterday_title: "昨日的工作",
     yesterday_no_data: "昨日无活动。",
+    week_title: "最近 7 天",
+    week_no_data: "本周活动较少。",
+    week_daily_totals_heading: "每日合计",
+    week_day_distribution_heading: "按日分布",
+    week_columns_date_calls: ["日期", "调用"],
+    week_insight_top_day: "最活跃日: {date} (调用 {n} 次)",
+    week_insight_active_days: "活动天数: {n}/7",
+    week_insight_cross_project: "多项目: 至少 5 次调用的工作目录 {n} 个",
 };
 
 /// Resolve a language code (or canonical name) to a `LangPack`.

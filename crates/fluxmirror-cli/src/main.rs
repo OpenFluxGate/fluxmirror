@@ -98,6 +98,9 @@ enum Cmd {
 
     /// Yesterday's activity report (same shape as today).
     Yesterday(YesterdayCliArgs),
+
+    /// 7-day rollup report (per-day totals + top files).
+    Week(WeekCliArgs),
 }
 
 #[derive(Args)]
@@ -219,6 +222,20 @@ struct YesterdayCliArgs {
     format: ReportFormat,
 }
 
+/// CLI shape for `fluxmirror week`. Same defaulting pattern as the day
+/// reports — db / tz / lang fall back to the merged config.
+#[derive(Args)]
+struct WeekCliArgs {
+    #[arg(long)]
+    db: Option<PathBuf>,
+    #[arg(long)]
+    tz: Option<String>,
+    #[arg(long)]
+    lang: Option<String>,
+    #[arg(long, value_enum, default_value_t = ReportFormat::Human)]
+    format: ReportFormat,
+}
+
 #[derive(Copy, Clone, ValueEnum)]
 enum HookKind {
     Claude,
@@ -304,6 +321,20 @@ fn main() -> ExitCode {
                 .lang
                 .unwrap_or_else(|| cfg.language.as_str().to_string());
             cmd::report::yesterday::run(cmd::report::yesterday::YesterdayArgs {
+                db,
+                tz,
+                lang,
+                format: args.format,
+            })
+        }
+        Cmd::Week(args) => {
+            let cfg = Config::load().unwrap_or_default();
+            let db = args.db.unwrap_or_else(|| cfg.effective_db_path());
+            let tz = args.tz.unwrap_or(cfg.timezone);
+            let lang = args
+                .lang
+                .unwrap_or_else(|| cfg.language.as_str().to_string());
+            cmd::report::week::run(cmd::report::week::WeekArgs {
                 db,
                 tz,
                 lang,
