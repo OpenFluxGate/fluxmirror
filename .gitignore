@@ -12,7 +12,11 @@
 __MACOSX/
 
 # Rust
-rust-hook/target/
+target/
+
+# Java/Gradle leftovers (pre-Rust era)
+build/
+.gradle/
 
 # Per-arch hook binaries (built locally or downloaded from GitHub release)
 plugins/fluxmirror/bin/
@@ -24,3 +28,9 @@ gemini-extension/bin/
 
 # Gemini extension release archives
 fluxmirror-gemini-extension-*.tar.gz
+
+# Local tooling state (per-session, never tracked)
+.bkit/
+.omc/
+.qwen/
+.agtx/
