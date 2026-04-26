@@ -56,20 +56,21 @@ Four concrete outputs — nothing fuzzy, nothing aspirational:
 
 ## Current phase
 
-The original Week 1 PoC (a Java MCP proxy for Claude Desktop) is **DONE**. The
-project has since grown a hook layer for the modern agent CLIs and the Java
-proxy has been ported to Rust. Today FluxMirror is two single-binary Rust
-programs plus a slash command surface:
+Phase 1 is complete. The original Week 1 PoC (a Java MCP proxy for Claude
+Desktop) and the v0.5.x two-binary layout have both been collapsed into a
+single Rust binary built from a 4-crate workspace:
 
 | Component | Role |
 |---|---|
-| `fluxmirror-hook` (Rust binary) | PostToolUse / AfterTool hook for Claude Code, Qwen Code, Gemini CLI. Writes one row per tool call to `agent_events`. |
-| `fluxmirror-proxy` (Rust binary) | Long-running stdio MCP proxy used by Claude Desktop. Spawns the real MCP server, relays stdio transparently, writes one row per JSON-RPC line to `events`. |
-| `plugins/fluxmirror/commands/*.md` | `/fluxmirror:*` slash commands that turn the SQLite data into reports. |
-| `hooks/run-hook.sh` (~25-line bash) | Auto-downloads the per-arch Rust binary from the latest GitHub release on first invocation, caches it under `<plugin>/bin/`, then execs it on every call. |
+| `fluxmirror` (single Rust binary) | kubectl-style subcommands. `fluxmirror hook --kind …` writes one row per tool call to `agent_events`. `fluxmirror proxy …` is the long-running stdio MCP relay used by Claude Desktop, writing JSON-RPC lines to `events`. Plus `init`, `config`, `wrapper`, `doctor`, `db-path`, `window`, `histogram`, `daily-totals`, `per-day-files`, `sqlite`. |
+| `wrappers/{shim.sh, shim.mjs, shim.cmd, router.sh}` | Cross-shell entry points. Each shim downloads the per-arch binary on first invocation, caches it, then execs `fluxmirror hook --kind <claude\|gemini>`. `router.sh` tries shim.sh, falls back to shim.mjs. |
+| `plugins/fluxmirror/commands/fluxmirror/*.md` | `/fluxmirror:*` slash commands for Claude Code / Qwen Code; turn SQLite data into reports. |
+| `gemini-extension/commands/fluxmirror/*.toml` | Same slash command surface for Gemini CLI; delegates to `gemini-extension/scripts/report-data.sh`. |
+| `manifests/source.yaml` + `scripts/build-manifests.sh` | Single source of truth for `hooks.json`. CI guards drift via `--check`. |
 
-Both Rust binaries have **zero runtime dependencies** (SQLite is statically linked
-via rusqlite's `bundled` feature).
+The binary has **zero runtime dependencies** (SQLite is statically linked via
+rusqlite's `bundled` feature). The wrapper layer depends on whatever shell
+the OS already provides (bash / node / cmd).
 
 ## Tech stack
 
@@ -96,13 +97,13 @@ wrapper.
 
 ```
 Claude Code   ─┐
-Qwen Code     ─┼── PostToolUse / AfterTool hook ──▶ fluxmirror-hook ──▶ agent_events
-Gemini CLI    ─┘                                                        │
-                                                                        │
-Claude Desktop ◀── stdio ──▶ fluxmirror-proxy ◀── stdio ──▶ MCP server  │
-                                  │                                     │
-                                  └── ndjson framer ──▶ events ─────────┤
-                                                                        ▼
+Qwen Code     ─┼── hook event ──▶ wrappers/router.sh ──▶ fluxmirror hook ──▶ agent_events
+Gemini CLI    ─┘                                                              │
+                                                                              │
+Claude Desktop ◀── stdio ──▶ fluxmirror proxy ◀── stdio ──▶ MCP server        │
+                                  │                                           │
+                                  └── ndjson framer ──▶ events ───────────────┤
+                                                                              ▼
                                               ~/Library/Application Support/
                                                   fluxmirror/events.db
                                                           │
@@ -121,31 +122,42 @@ The slash command surface queries both.
 
 MCP's two transports use different framing:
 
-- **stdio transport** (what `fluxmirror-proxy` audits): newline-delimited JSON
+- **stdio transport** (what `fluxmirror proxy` audits): newline-delimited JSON
   (NDJSON). The framer reads bytes until `\n`, optionally strips a trailing
   `\r`, and emits one JSON object per line. Messages exceeding 10 MiB are
   silently dropped until the next newline (resync-on-overflow).
 - **HTTP+SSE transport**: Content-Length-prefixed (LSP-style). FluxMirror
   does not currently audit this transport; the proxy is stdio-only.
 
-## SQLite schema
+## SQLite schema (v1)
 
 ```sql
--- written by fluxmirror-hook (one row per agent tool call)
+-- migration metadata
+CREATE TABLE IF NOT EXISTS schema_meta (
+  version    INTEGER PRIMARY KEY,
+  applied_at TEXT NOT NULL
+);
+
+-- written by `fluxmirror hook` (one row per agent tool call)
 CREATE TABLE IF NOT EXISTS agent_events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   ts TEXT NOT NULL,                    -- ISO 8601 UTC
-  agent TEXT NOT NULL,                 -- 'claude-code' | 'qwen-code' | 'gemini-cli'
+  agent TEXT NOT NULL,                 -- 'claude-code' | 'qwen-code' | 'gemini-cli' | 'claude-desktop'
   session TEXT,
   tool TEXT,                           -- raw tool name as emitted by the CLI
+  tool_canonical TEXT,                 -- normalized: Bash | Read | Write | MultiEdit | Search | Web | Task | …
+  tool_class TEXT,                     -- family: Shell | Read | Write | Search | Web | Task | Meta | Other
   detail TEXT,                         -- per-tool primary field, truncated to 200 bytes
   cwd TEXT,
+  host TEXT,                           -- gethostname()
+  user TEXT,                           -- $USER / %USERNAME%
+  schema_version INTEGER NOT NULL DEFAULT 1,
   raw_json TEXT
 );
 CREATE INDEX idx_agent_events_ts    ON agent_events(ts);
 CREATE INDEX idx_agent_events_agent ON agent_events(agent);
 
--- written by fluxmirror-proxy (one row per JSON-RPC line, both directions)
+-- written by `fluxmirror proxy` (one row per JSON-RPC line, both directions)
 CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   ts_ms INTEGER NOT NULL,              -- epoch milliseconds
@@ -157,26 +169,32 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX idx_events_ts ON events(ts_ms);
 ```
 
-Schema evolves via simple hand-rolled `CREATE TABLE IF NOT EXISTS` migrations
-inside each binary — no heavyweight ORM.
+Migrations live in `crates/fluxmirror-store::SqliteStore::migrate()`. They are
+additive (`ALTER TABLE ADD COLUMN` for missing v1 columns on legacy DBs),
+fully transactional, and idempotent. `schema_meta` records the applied
+version so re-opens are no-ops.
 
 ## CLI contracts
 
-### `fluxmirror-hook`
+The single `fluxmirror` binary uses kubectl-style subcommands. `fluxmirror
+--help` lists them all.
+
+### `fluxmirror hook`
 
 ```
-fluxmirror-hook                   # auto-detect kind from env
-fluxmirror-hook --kind claude     # claude or qwen (resolved via env at runtime)
-fluxmirror-hook --kind gemini     # always gemini-cli
+fluxmirror hook                   # default --kind claude (qwen detected via env)
+fluxmirror hook --kind claude     # claude or qwen (resolved via env at runtime)
+fluxmirror hook --kind gemini     # always gemini-cli
 ```
 
 Reads a tool-call JSON payload on stdin, writes one JSONL line and one
-parameter-bound SQLite row.
+parameter-bound SQLite row. Always exits 0 — telemetry must never kill
+the calling agent's tool call.
 
-### `fluxmirror-proxy`
+### `fluxmirror proxy`
 
 ```
-fluxmirror-proxy --server-name <name> --db <path> \
+fluxmirror proxy --server-name <name> --db <path> \
   [--capture-c2s <path>] [--capture-s2c <path>] \
   -- <real MCP server command and args...>
 ```
@@ -187,8 +205,9 @@ Example (Claude Desktop's `~/Library/Application Support/Claude/claude_desktop_c
 {
   "mcpServers": {
     "fluxmirror-fs": {
-      "command": "/Users/me/fluxmirror-proxy",
+      "command": "/Users/me/.cargo/bin/fluxmirror",
       "args": [
+        "proxy",
         "--server-name", "fs",
         "--db", "/Users/me/Library/Application Support/fluxmirror/events.db",
         "--",
@@ -201,22 +220,46 @@ Example (Claude Desktop's `~/Library/Application Support/Claude/claude_desktop_c
 
 ## Acceptance criteria (current state — all met)
 
-1. Each of Claude Code, Qwen Code, and Gemini CLI invokes `fluxmirror-hook`
-   on every tool call, and rows land in `agent_events` with the correct
-   `agent` label and an accurate `detail` field (the actual command for shell
-   tools, the file path for read/edit, the URL for web fetch, etc.).
-2. `fluxmirror-proxy`, when wrapped around any stdio MCP server, makes
+1. Each of Claude Code, Qwen Code, and Gemini CLI invokes `fluxmirror hook`
+   via `wrappers/router.sh` (or the legacy `hooks/run-hook.sh`) on every
+   tool call, and rows land in `agent_events` with the correct `agent`
+   label, `tool_canonical` / `tool_class` normalization, and an accurate
+   `detail` field (the actual command for shell tools, the file path for
+   read/edit, the URL for web fetch, etc.).
+2. `fluxmirror proxy`, when wrapped around any stdio MCP server, makes
    Claude Desktop work indistinguishably from using the server directly.
 3. After a `tools/call` in Claude Desktop, `events` contains both the
    `c2s` request and the `s2c` response, both timestamped in `ts_ms`.
 4. Child stderr is forwarded to the proxy's stderr.
 5. When Claude Desktop quits, the proxy sends SIGTERM (then SIGKILL after 2s)
    to the child — no zombies.
-6. The slash command surface (`/fluxmirror:today`, `:week`, `:agent`, etc.)
-   surfaces all three agents in a single report, with tool-name normalization
-   across PascalCase (Claude) and snake_case (Gemini/Qwen).
-7. Both Rust binaries pass their unit suites and the bash-vs-Rust parity
-   tests in CI.
+6. The slash command surface (`/fluxmirror:today`, `:week`, `:agent`,
+   `:doctor`, `:config`, …) surfaces all three agents in a single report
+   and uses only `fluxmirror` subcommands (no `python3`, `sqlite3`, or
+   `readlink` calls — enforced by a CI grep guard).
+7. The workspace passes `cargo test` on all three OSes (linux / macos /
+   windows), the `scripts/test-rust-hook.sh` parity suite is green, and
+   `scripts/build-manifests.sh --check` confirms `hooks.json` matches
+   `manifests/source.yaml`.
+
+### Known limitations (Phase 1 ship state)
+
+- **TOML project file** (`./.fluxmirror.toml`): the layer is honored at
+  the precedence level documented in `crates/fluxmirror-core/src/config.rs`,
+  but the parser is a stub (the `toml` crate dep is intentionally not
+  pulled in). Set values via env vars (`FLUXMIRROR_LANGUAGE`,
+  `FLUXMIRROR_TIMEZONE`, `FLUXMIRROR_DB`) or `fluxmirror config set`
+  until Phase 2 turns this on.
+- **Cached binaries on pre-v0.6.0 plugin installs**: the wrappers cache
+  the per-arch binary under `~/.fluxmirror/cache/` (or per-plugin
+  `bin/`). After releasing v0.6.0, users on the v0.4.x / v0.5.x plugin
+  cache will get a working binary on the next download (cache miss),
+  but if their cached binary is from a pre-subcommand build it must be
+  evicted manually: `rm -rf ~/.claude/plugins/cache/fluxmirror/*/bin
+  ~/.qwen/extensions/fluxmirror/bin ~/.gemini/extensions/fluxmirror/bin`.
+- **`cargo clippy`**: not part of the local dev tooling baseline (the
+  toolchain ships without the clippy component). CI runs the test
+  matrix; a clippy job can be added in Phase 2 if desired.
 
 ## Code style & principles
 

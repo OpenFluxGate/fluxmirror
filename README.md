@@ -248,6 +248,27 @@ to migrate to the new wrapper layer (`shim.sh` / `shim.mjs` /
 place: the v1 migration is purely additive (`ALTER TABLE … ADD
 COLUMN`) and runs automatically on the first connection.
 
+If your installed plugin is older than v0.6.0, it will have cached a
+pre-subcommand binary under one of:
+
+```
+~/.claude/plugins/cache/fluxmirror/*/bin/
+~/.qwen/extensions/fluxmirror/bin/
+~/.gemini/extensions/fluxmirror/bin/
+```
+
+Evict that cache so the next hook fire downloads the v0.6+ binary:
+
+```bash
+rm -rf ~/.claude/plugins/cache/fluxmirror/*/bin
+rm -rf ~/.qwen/extensions/fluxmirror/bin
+rm -rf ~/.gemini/extensions/fluxmirror/bin
+```
+
+The wrapper scripts always re-download on a missing cache, so the next
+agent tool call after the eviction will fetch the new binary
+transparently.
+
 ## Verify
 
 After installing on a new machine, confirm logs are isolated per agent
