@@ -19,6 +19,25 @@ router.sh}`) auto-downloads the per-arch binary on first invocation
 and execs it on every call — first call is one-time ~1-2 s, every call
 after is ~30 ms.
 
+## What FluxMirror produces
+
+| # | Output | Status | Notes |
+|---|---|---|---|
+| 1 | Nightly journal | ✅ shipped | `/fluxmirror:today` and `fluxmirror today` produce a one-page activity report in your chosen language. |
+| 2 | Usage tracker | 🟡 partial | Tool-call counts, per-agent and per-tool breakdowns shipped via `/fluxmirror:agents` and `/fluxmirror:week`. Estimated API cost is not yet computed — see roadmap. |
+| 3 | Weekly digest | 🟡 partial | `/fluxmirror:week` ships the data view. The shareable HTML card form is on Phase 2 M5 (TBD). |
+| 4 | Anomaly alerts | 🗺 roadmap | No detection or gating ships in Phase 1 / 2. Events are captured but not analysed. Phase 3 candidate. |
+
+Legend: ✅ shipped · 🟡 partial (core function works; one named gap) · 🗺 roadmap (not yet implemented)
+
+## Values
+
+| Value | Status | Notes |
+|---|---|---|
+| Transparency | ✅ | Every tool call is logged to a queryable SQLite DB; reports surface it in plain language. |
+| Control | 🗺 roadmap | No policy engine, no gating, no rate-limiting. Planned for Phase 3 (FluxGate integration). |
+| Memory | 🟡 partial | Raw history is durable and queryable; curation and summarisation tooling beyond the existing reports is roadmap. |
+
 ## Why
 
 When you use multiple AI coding agents during a day, your activity is
@@ -339,6 +358,17 @@ fluxmirror sqlite --db "$(fluxmirror db-path)" \
 | Qwen Code | `qwen extensions update fluxmirror` |
 | Gemini CLI | `gemini extensions update fluxmirror` |
 | Direct binary | re-download the per-arch asset and overwrite |
+
+## What it doesn't do (yet)
+
+- **Redaction / sensitive-data masking**: raw shell arguments and file paths land in the SQLite DB unfiltered; nothing is scrubbed before storage.
+- **Anomaly detection, policy gating, or rate limiting**: events are captured but no analysis, alerting, or blocking layer exists. This is a Phase 3 goal.
+- **FluxGate integration**: per-agent call rate control via FluxGate is planned but not started; FluxGate is not a runtime dependency today.
+- **Windows-native `cmd.exe` shim hardening**: only the `bash` and `node` wrapper paths are exercised in CI; `shim.cmd` ships but is not regression-tested.
+- **Real `.fluxmirror.toml` parser**: the TOML project-config layer exists at the precedence level but the parser is a stub. Use env vars (`FLUXMIRROR_DB`, `FLUXMIRROR_LANGUAGE`, `FLUXMIRROR_TIMEZONE`) or `fluxmirror config set` until Phase 2 turns this on.
+- **Estimated API cost**: only tool-call counts are tracked; no token-count or cost estimation is computed.
+- **Shareable HTML / image digest cards**: `/fluxmirror:week` produces a text report only; the visual card form is a Phase 2 M5 candidate, not yet implemented.
+- **HTTP+SSE MCP transport**: `fluxmirror proxy` is stdio-only; the HTTP+SSE MCP transport is not audited.
 
 ## Repository layout
 

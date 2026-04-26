@@ -39,18 +39,22 @@ The first and only guaranteed user is me. Everything else is bonus.
 
 ## What FluxMirror produces
 
-Four concrete outputs — nothing fuzzy, nothing aspirational:
+| # | Output | Status | Notes |
+|---|---|---|---|
+| 1 | Nightly journal | ✅ shipped | `/fluxmirror:today` and `fluxmirror today` produce a one-page activity report in your chosen language. |
+| 2 | Usage tracker | 🟡 partial | Tool-call counts, per-agent and per-tool breakdowns shipped via `/fluxmirror:agents` and `/fluxmirror:week`. Estimated API cost is not yet computed — see roadmap. |
+| 3 | Weekly digest | 🟡 partial | `/fluxmirror:week` ships the data view. The shareable HTML card form is on Phase 2 M5 (TBD). |
+| 4 | Anomaly alerts | 🗺 roadmap | No detection or gating ships in Phase 1 / 2. Events are captured but not analysed. Phase 3 candidate. |
 
-1. **Nightly journal** — a one-page human-readable summary of what my AI did today
-2. **Anomaly alerts** — warnings (and optional blocking) when agents touch unexpected resources
-3. **Usage tracker** — tool call counts, estimated API cost, per-agent / per-server stats
-4. **Weekly digest card** — shareable summary of the week's agent activity
+Legend: ✅ shipped · 🟡 partial (core function works; one named gap) · 🗺 roadmap (not yet implemented)
 
 ## Why it matters (three values)
 
-- **Transparency** — translate opaque tool calls and JSON-RPC into human-readable history
-- **Control** — intercept and gate agent actions with user-defined policies
-- **Memory** — build a personal archive of agent behavior that accumulates value over time
+| Value | Status | Notes |
+|---|---|---|
+| Transparency | ✅ | Every tool call is logged to a queryable SQLite DB; reports surface it in plain language. |
+| Control | 🗺 roadmap | No policy engine, no gating, no rate-limiting. Planned for Phase 3 (FluxGate integration). |
+| Memory | 🟡 partial | Raw history is durable and queryable; curation and summarisation tooling beyond the existing reports is roadmap. |
 
 ---
 
@@ -279,13 +283,16 @@ Example (Claude Desktop's `~/Library/Application Support/Claude/claude_desktop_c
 
 ## Out of scope (still)
 
-- Redaction of sensitive data
-- HTTP/SSE MCP transport
+- Redaction / sensitive-data masking (raw shell args and file paths land in the DB unfiltered)
+- Anomaly detection / policy gating (data captured; analysis layer not built — Phase 3)
+- FluxGate integration (per-agent rate control — Phase 3, not a runtime dependency today)
+- Estimated API cost (only call counts are tracked)
+- Shareable HTML / image digest cards (`week` report is text only — Phase 2 M5 candidate)
+- Windows-native `cmd.exe` shim hardening (only bash and node paths are CI-tested)
+- Real `.fluxmirror.toml` parser (stub; use env vars or `fluxmirror config set` until Phase 2)
+- HTTP/SSE MCP transport (proxy is stdio-only)
 - Web UI, mobile app, backend server
-- Rate limiting (planned via FluxGate integration, not yet started)
 - Encryption, authentication, multi-device sync
-- Policy language / anomaly detection (the *Anomaly alerts* output is still
-  todo; the data is captured, the analysis layer is not built)
 - CRDT-based syncing
 
 ## Project layout (current)
