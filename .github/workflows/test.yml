@@ -64,6 +64,10 @@ jobs:
         if: runner.os != 'Windows'
         run: bash scripts/build-manifests.sh --check
 
+      - name: Report-command shape guard (Linux only)
+        if: runner.os == 'Linux'
+        run: bash scripts/check-report-commands.sh
+
       - name: Rust binary regression suite (POSIX only)
         if: runner.os != 'Windows'
         run: bash scripts/test-rust-hook.sh
