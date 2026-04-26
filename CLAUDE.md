@@ -64,8 +64,8 @@ single Rust binary built from a 4-crate workspace:
 |---|---|
 | `fluxmirror` (single Rust binary) | kubectl-style subcommands. `fluxmirror hook --kind …` writes one row per tool call to `agent_events`. `fluxmirror proxy …` is the long-running stdio MCP relay used by Claude Desktop, writing JSON-RPC lines to `events`. Plus `init`, `config`, `wrapper`, `doctor`, `db-path`, `window`, `histogram`, `daily-totals`, `per-day-files`, `sqlite`. |
 | `wrappers/{shim.sh, shim.mjs, shim.cmd, router.sh}` | Cross-shell entry points. Each shim downloads the per-arch binary on first invocation, caches it, then execs `fluxmirror hook --kind <claude\|gemini>`. `router.sh` tries shim.sh, falls back to shim.mjs. |
-| `plugins/fluxmirror/commands/*.md` | `/fluxmirror:*` slash commands for Claude Code / Qwen Code; turn SQLite data into reports. |
-| `gemini-extension/commands/*.toml` | Same slash command surface for Gemini CLI; delegates to `gemini-extension/scripts/report-data.sh`. |
+| `plugins/fluxmirror/commands/fluxmirror/*.md` | `/fluxmirror:*` slash commands for Claude Code / Qwen Code; turn SQLite data into reports. |
+| `gemini-extension/commands/fluxmirror/*.toml` | Same slash command surface for Gemini CLI; delegates to `gemini-extension/scripts/report-data.sh`. |
 | `manifests/source.yaml` + `scripts/build-manifests.sh` | Single source of truth for `hooks.json`. CI guards drift via `--check`. |
 
 The binary has **zero runtime dependencies** (SQLite is statically linked via

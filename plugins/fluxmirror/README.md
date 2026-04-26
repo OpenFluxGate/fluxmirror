@@ -55,7 +55,7 @@ accordingly.
 |---|---|
 | `hooks/hooks.json` | PostToolUse → `wrappers/router.sh` (until init picks an explicit shim) |
 | `bin/` | Cache directory for the per-arch `fluxmirror` binary (auto-populated on first hook fire) |
-| `commands/*.md` | `/fluxmirror:*` slash command surface |
+| `commands/fluxmirror/*.md` | `/fluxmirror:*` slash command surface |
 
 The `hooks.json` and the wrapper-engine choice are managed by the
 `fluxmirror init` and `fluxmirror wrapper set <kind>` subcommands —

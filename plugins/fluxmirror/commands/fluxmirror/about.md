@@ -25,13 +25,13 @@ echo "Language: $USER_LANG"
 ## Step 1: Discover sub-commands dynamically
 
 To prevent the listing from going stale, enumerate the actual command
-files instead of hardcoding names. Commands live directly under
-`commands/`; Claude Code / Qwen Code register each `<name>.md` as
-`/fluxmirror:<name>`:
+files instead of hardcoding names. Commands live under
+`commands/fluxmirror/` (sub-namespace so that Qwen / Gemini also
+register them as `/fluxmirror:<name>`):
 
 ```bash
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$0")/..}"
-CMD_DIR="$PLUGIN_ROOT/commands"
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$0")/../..}"
+CMD_DIR="$PLUGIN_ROOT/commands/fluxmirror"
 
 if [ -d "$CMD_DIR" ]; then
   echo ""

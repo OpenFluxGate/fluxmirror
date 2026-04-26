@@ -1,0 +1,101 @@
+description = "First-run init. Asks the user for language / timezone / wrapper interactively (any value already given on the command line is reused). Usage: [language <korean|english|japanese|chinese>] [timezone <KST|JST|PST|EST|UTC|Asia/Seoul|...>]"
+prompt = """
+This is /fluxmirror:init. It MUST be interactive — never silently
+choose defaults.
+
+User arguments: {{args}}
+
+These arguments may contain `language <value>` and/or `timezone
+<value>`. Both are optional. Anything not supplied here MUST be asked
+of the user in Step 1 below.
+
+============================================================
+   STEP 1 — ASK THE USER (do this FIRST, do NOT run any
+   shell command until the user has replied)
+============================================================
+
+Output exactly the following text to the chat, then STOP and wait
+for the user's reply. Do not call any tool. Do not run any shell
+command. The user has not yet given you the information you need.
+
+> 👋 fluxmirror first-run setup. Please answer all three on one line:
+>
+>   1. Output language?  korean / english / japanese / chinese
+>   2. Timezone?         KST / JST / PST / EST / UTC
+>                        (or any IANA name, e.g. Asia/Seoul)
+>   3. Wrapper engine?   bash / node / auto-detect
+>
+> Example reply:  `english  UTC  bash`
+
+If the user's `{{args}}` already contains `language <X>`, omit
+question 1. If it already contains `timezone <Y>`, omit question 2.
+The wrapper question is always asked — it is never settable from
+{{args}}.
+
+============================================================
+   STEP 2 — parse the reply (only after the user answers)
+============================================================
+
+Map the user's reply through the tables below. Result: NEW_LANG,
+NEW_TZ, NEW_WRAPPER (canonical values).
+
+Language (lowercase canonical):
+- korean / ko / kr / 한국어    → korean
+- english / en / 영어          → english
+- japanese / ja / 日本語       → japanese
+- chinese / zh / 中文          → chinese
+
+Timezone (IANA):
+- KST / Korean / Korea         → Asia/Seoul
+- JST / Tokyo / Japan          → Asia/Tokyo
+- PST / Pacific / California   → America/Los_Angeles
+- EST / Eastern / New York     → America/New_York
+- UTC / GMT                    → UTC
+- already-IANA (e.g. Asia/Seoul) → use as-is
+
+Wrapper: bash, node, or auto-detect / auto.
+
+============================================================
+   STEP 3 — apply
+============================================================
+
+Now run the shell commands, substituting NEW_LANG / NEW_TZ /
+NEW_WRAPPER with the canonical values from Step 2:
+
+```bash
+if ! command -v fluxmirror >/dev/null 2>&1; then
+  echo "fluxmirror binary not found on PATH. Install via the latest release first."
+  exit 0
+fi
+
+args=(init --non-interactive)
+if [ -n "<NEW_LANG>" ]; then args+=(--language "<NEW_LANG>"); fi
+if [ -n "<NEW_TZ>" ];   then args+=(--timezone "<NEW_TZ>"); fi
+fluxmirror "${args[@]}"
+
+if [ -n "<NEW_WRAPPER>" ] && [ "<NEW_WRAPPER>" != "auto-detect" ] && [ "<NEW_WRAPPER>" != "auto" ]; then
+  fluxmirror wrapper set "<NEW_WRAPPER>"
+fi
+
+echo
+echo "Resolved config:"
+fluxmirror config show
+echo
+echo "Health check:"
+fluxmirror doctor
+```
+
+============================================================
+   STEP 4 — confirm
+============================================================
+
+Re-read the resolved language (it may differ from NEW_LANG if the
+user typed a synonym) and confirm in that language:
+- en: "Initialized. language=<lang>, timezone=<tz>, wrapper=<kind>"
+- ko: "초기화 완료. 언어=<lang>, 시간대=<tz>, 래퍼=<kind>"
+- ja: "初期化しました。言語=<lang>, タイムゾーン=<tz>, ラッパー=<kind>"
+- zh: "初始化完成。语言=<lang>, 时区=<tz>, 包装器=<kind>"
+
+If `fluxmirror doctor` reported any `warn` or `fail` rows, list them
+verbatim under the confirmation so the user can act on them.
+"""

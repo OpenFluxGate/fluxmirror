@@ -7,7 +7,7 @@
 #   report-data.sh config   # full resolved config from `fluxmirror config show`
 #   report-data.sh agents   # per-agent 7-day quick stat
 #
-# Read by Gemini CLI custom commands (commands/*.toml) via
+# Read by Gemini CLI custom commands (commands/fluxmirror/*.toml) via
 # !{...} interpolation. Output is plain text with "=== section ==="
 # headers; the model parses it.
 #
