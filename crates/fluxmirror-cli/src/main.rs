@@ -92,6 +92,9 @@ enum Cmd {
 
     /// Per-agent quick stats for the past 7 days.
     Agents(AgentsCliArgs),
+
+    /// Today's activity report (per-agent calls, files, shell, hours).
+    Today(TodayCliArgs),
 }
 
 #[derive(Args)]
@@ -175,6 +178,29 @@ struct AgentsCliArgs {
     format: ReportFormat,
 }
 
+/// CLI shape for `fluxmirror today`. Same defaulting pattern as
+/// `agents`: db / tz / lang fall back to the merged config so the
+/// user's `config set` settings flow through unchanged.
+#[derive(Args)]
+struct TodayCliArgs {
+    /// Path to the events database. Defaults to the merged config's
+    /// effective DB path.
+    #[arg(long)]
+    db: Option<PathBuf>,
+    /// IANA timezone (e.g. `Asia/Seoul`). Defaults to the configured
+    /// timezone.
+    #[arg(long)]
+    tz: Option<String>,
+    /// Output language: english | korean | japanese | chinese.
+    /// Defaults to the configured language.
+    #[arg(long)]
+    lang: Option<String>,
+    /// Output format. M1 ships `human`; `json` and `markdown` are
+    /// reserved on the surface.
+    #[arg(long, value_enum, default_value_t = ReportFormat::Human)]
+    format: ReportFormat,
+}
+
 #[derive(Copy, Clone, ValueEnum)]
 enum HookKind {
     Claude,
@@ -232,6 +258,20 @@ fn main() -> ExitCode {
                 .lang
                 .unwrap_or_else(|| cfg.language.as_str().to_string());
             cmd::report::agents::run(cmd::report::agents::AgentsArgs {
+                db,
+                tz,
+                lang,
+                format: args.format,
+            })
+        }
+        Cmd::Today(args) => {
+            let cfg = Config::load().unwrap_or_default();
+            let db = args.db.unwrap_or_else(|| cfg.effective_db_path());
+            let tz = args.tz.unwrap_or(cfg.timezone);
+            let lang = args
+                .lang
+                .unwrap_or_else(|| cfg.language.as_str().to_string());
+            cmd::report::today::run(cmd::report::today::TodayArgs {
                 db,
                 tz,
                 lang,

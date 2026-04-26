@@ -1,39 +1,4 @@
 description = "Summarize today's AI agent activity from FluxMirror SQLite"
 prompt = """
-Today's raw FluxMirror data:
-
-!{$HOME/.gemini/extensions/fluxmirror/scripts/report-data.sh today}
-
-Now produce a one-page report (translate to user language; default English).
-Read `~/.fluxmirror/config.json` for the language preference if you need to.
-
-# Today's Work (YYYY-MM-DD <timezone>)
-
-## Key Activities
-- **[Objective]** — [lifecycle one-liner: research / implementation /
-  testing / shipping / refactor] [files/area with edit counts or shell
-  cycle counts when present]
-
-Write 1-2 substantive activities — no padding. Quote concrete counts
-("edited X 7 times", "5 cargo cycles"). Prefer "what was done for what
-purpose" over "X was modified, Y was modified".
-
-## Activity Stats
-| Agent | Calls | Sessions |
-|---|---|---|
-(one row per agent from the per-agent table)
-
-If ≥ 2 agents present, add a "## Multi-Agent" section after this with
-tool-mix differences, shared files, time-window separation.
-
-## Insights
-1–3 data-supported observed patterns (busiest hour, edit-to-read ratio,
-multi-project switches, new-file count, etc.). Never fabricate.
-
-## Active Hours
-Cluster bash command timestamps in user timezone.
-
-If fewer than 5 events total, instead just say:
-- en: "Limited activity today."  / ko: "오늘 활동 적음."
-- ja: "本日の活動は少なめです。" / zh: "今日活动较少。"
+!{fluxmirror today}
 """

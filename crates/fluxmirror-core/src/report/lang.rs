@@ -37,6 +37,52 @@ pub struct LangPack {
     /// Insight phrasing for write-heavy agents: "{agent} is write-heavy
     /// ({pct}% writes)".
     pub insight_write_heavy: &'static str,
+
+    // ----- today report -----------------------------------------------
+    /// "Today's Work" — H1 of the today report. Rendered as
+    /// `# {today_title} (YYYY-MM-DD <tz>)`.
+    pub today_title: &'static str,
+    /// "Activity" section heading.
+    pub today_activity_heading: &'static str,
+    /// "Files written or edited" section heading.
+    pub today_files_edited_heading: &'static str,
+    /// "Files only read" section heading.
+    pub today_files_read_heading: &'static str,
+    /// "Shell commands" section heading.
+    pub today_shell_heading: &'static str,
+    /// "Working directories" section heading.
+    pub today_cwds_heading: &'static str,
+    /// "MCP traffic methods" section heading.
+    pub today_mcp_heading: &'static str,
+    /// "Tool mix" section heading.
+    pub today_tool_mix_heading: &'static str,
+    /// "Hour distribution" section heading.
+    pub today_hours_heading: &'static str,
+    /// "Insights" section heading (today report uses its own copy so
+    /// future divergence doesn't ripple through `agents`).
+    pub today_insights_heading: &'static str,
+    /// Single-line message printed when the day has fewer than 5 events.
+    pub today_no_data: &'static str,
+    /// Insight: "Most productive hour: HH:00 (N calls)". Placeholders:
+    /// `{hour}` (HH:00) and `{n}` (call count).
+    pub today_insight_busiest_hour: &'static str,
+    /// Insight: "Edit-to-read ratio: X.YZ". Placeholder: `{ratio}`.
+    pub today_insight_edit_read_ratio: &'static str,
+    /// Insight: "Multi-project day: N distinct working dirs with >= 5
+    /// calls". Placeholder: `{n}`.
+    pub today_insight_multi_project: &'static str,
+    /// Three column headers: Agent | Calls | Sessions.
+    pub today_columns_calls_sessions: [&'static str; 3],
+    /// Three column headers: File | Tool | Count.
+    pub today_columns_file_tool_count: [&'static str; 3],
+    /// Two column headers: Path | Count.
+    pub today_columns_path_count: [&'static str; 2],
+    /// Two column headers: Time | Command.
+    pub today_columns_time_command: [&'static str; 2],
+    /// Two column headers: Method | Count.
+    pub today_columns_method_count: [&'static str; 2],
+    /// Two column headers: Tool | Count.
+    pub today_columns_tool_count: [&'static str; 2],
 }
 
 const ENGLISH: LangPack = LangPack {
@@ -56,6 +102,26 @@ const ENGLISH: LangPack = LangPack {
     insight_busiest: "{agent} is the busiest with {n} calls.",
     insight_one_shot: "{agent} ran a single session ({n} calls).",
     insight_write_heavy: "{agent} is write-heavy ({pct}% writes).",
+    today_title: "Today's Work",
+    today_activity_heading: "Activity",
+    today_files_edited_heading: "Files written or edited",
+    today_files_read_heading: "Files only read",
+    today_shell_heading: "Shell commands",
+    today_cwds_heading: "Working directories",
+    today_mcp_heading: "MCP traffic methods",
+    today_tool_mix_heading: "Tool mix",
+    today_hours_heading: "Hour distribution",
+    today_insights_heading: "Insights",
+    today_no_data: "Limited activity today.",
+    today_insight_busiest_hour: "Most productive hour: {hour} ({n} calls)",
+    today_insight_edit_read_ratio: "Edit-to-read ratio: {ratio}",
+    today_insight_multi_project: "Multi-project day: {n} distinct working dirs with >= 5 calls",
+    today_columns_calls_sessions: ["Agent", "Calls", "Sessions"],
+    today_columns_file_tool_count: ["Path", "Tool", "Count"],
+    today_columns_path_count: ["Path", "Count"],
+    today_columns_time_command: ["Time", "Command"],
+    today_columns_method_count: ["Method", "Count"],
+    today_columns_tool_count: ["Tool", "Count"],
 };
 
 const KOREAN: LangPack = LangPack {
@@ -75,6 +141,26 @@ const KOREAN: LangPack = LangPack {
     insight_busiest: "{agent} 가 가장 활발 — 호출 {n}회.",
     insight_one_shot: "{agent} 는 단일 세션만 실행 ({n}회 호출).",
     insight_write_heavy: "{agent} 는 쓰기 중심 (쓰기 {pct}%).",
+    today_title: "오늘의 작업",
+    today_activity_heading: "활동 통계",
+    today_files_edited_heading: "편집한 파일",
+    today_files_read_heading: "읽기만 한 파일",
+    today_shell_heading: "셸 명령",
+    today_cwds_heading: "작업 디렉터리",
+    today_mcp_heading: "MCP 호출 메서드",
+    today_tool_mix_heading: "도구 분포",
+    today_hours_heading: "시간대 분포",
+    today_insights_heading: "인사이트",
+    today_no_data: "오늘 활동 적음.",
+    today_insight_busiest_hour: "가장 활발한 시간: {hour} (호출 {n}회)",
+    today_insight_edit_read_ratio: "편집/읽기 비율: {ratio}",
+    today_insight_multi_project: "멀티 프로젝트 날: 5회 이상 호출된 작업 디렉터리 {n}개",
+    today_columns_calls_sessions: ["에이전트", "호출", "세션"],
+    today_columns_file_tool_count: ["경로", "도구", "횟수"],
+    today_columns_path_count: ["경로", "횟수"],
+    today_columns_time_command: ["시간", "명령"],
+    today_columns_method_count: ["메서드", "횟수"],
+    today_columns_tool_count: ["도구", "횟수"],
 };
 
 const JAPANESE: LangPack = LangPack {
@@ -94,6 +180,26 @@ const JAPANESE: LangPack = LangPack {
     insight_busiest: "{agent} が最多 — 呼び出し {n} 回。",
     insight_one_shot: "{agent} は単発セッション ({n} 回呼び出し)。",
     insight_write_heavy: "{agent} は書込中心 (書込 {pct}%)。",
+    today_title: "本日の作業",
+    today_activity_heading: "活動統計",
+    today_files_edited_heading: "編集したファイル",
+    today_files_read_heading: "閲覧のみのファイル",
+    today_shell_heading: "シェルコマンド",
+    today_cwds_heading: "作業ディレクトリ",
+    today_mcp_heading: "MCP メソッド",
+    today_tool_mix_heading: "ツール構成",
+    today_hours_heading: "時間帯分布",
+    today_insights_heading: "インサイト",
+    today_no_data: "本日の活動は少なめです。",
+    today_insight_busiest_hour: "最も活発な時間: {hour} ({n} 回)",
+    today_insight_edit_read_ratio: "編集/読取 比率: {ratio}",
+    today_insight_multi_project: "マルチプロジェクト日: 5 回以上呼ばれた作業ディレクトリ {n} 個",
+    today_columns_calls_sessions: ["エージェント", "呼び出し", "セッション"],
+    today_columns_file_tool_count: ["パス", "ツール", "回数"],
+    today_columns_path_count: ["パス", "回数"],
+    today_columns_time_command: ["時刻", "コマンド"],
+    today_columns_method_count: ["メソッド", "回数"],
+    today_columns_tool_count: ["ツール", "回数"],
 };
 
 const CHINESE: LangPack = LangPack {
@@ -113,6 +219,26 @@ const CHINESE: LangPack = LangPack {
     insight_busiest: "{agent} 最为活跃 — 调用 {n} 次。",
     insight_one_shot: "{agent} 仅有单次会话 ({n} 次调用)。",
     insight_write_heavy: "{agent} 以写入为主 (写入 {pct}%)。",
+    today_title: "今日工作",
+    today_activity_heading: "活动统计",
+    today_files_edited_heading: "已编辑文件",
+    today_files_read_heading: "仅读取文件",
+    today_shell_heading: "Shell 命令",
+    today_cwds_heading: "工作目录",
+    today_mcp_heading: "MCP 方法",
+    today_tool_mix_heading: "工具分布",
+    today_hours_heading: "时间分布",
+    today_insights_heading: "洞察",
+    today_no_data: "今日活动较少。",
+    today_insight_busiest_hour: "最活跃时段: {hour} (调用 {n} 次)",
+    today_insight_edit_read_ratio: "编辑/读取 比率: {ratio}",
+    today_insight_multi_project: "多项目日: 至少 5 次调用的工作目录 {n} 个",
+    today_columns_calls_sessions: ["代理", "调用", "会话"],
+    today_columns_file_tool_count: ["路径", "工具", "次数"],
+    today_columns_path_count: ["路径", "次数"],
+    today_columns_time_command: ["时间", "命令"],
+    today_columns_method_count: ["方法", "次数"],
+    today_columns_tool_count: ["工具", "次数"],
 };
 
 /// Resolve a language code (or canonical name) to a `LangPack`.

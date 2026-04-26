@@ -29,21 +29,8 @@ use crate::cmd::util::{err_exit2, open_db_readonly, parse_tz};
 use crate::cmd::window::week_range;
 use fluxmirror_core::report::{pack, LangPack};
 
+use super::tools::{is_read, is_shell, is_write};
 use super::ReportFormat;
-
-/// Tool names that count as "writes" for the share-of-calls breakdown.
-/// Mirrors the legacy slash command surface (Edit, Write, MultiEdit,
-/// plus the gemini/qwen camelCase variants).
-const WRITE_TOOLS: &[&str] = &[
-    "Edit",
-    "Write",
-    "MultiEdit",
-    "edit_file",
-    "write_file",
-    "replace",
-];
-const READ_TOOLS: &[&str] = &["Read", "read_file", "read_many_files"];
-const SHELL_TOOLS: &[&str] = &["Bash", "run_shell_command"];
 
 /// Threshold (write-share, 0..=100) above which the write-heavy
 /// insight rule fires.
@@ -197,11 +184,11 @@ pub(crate) fn collect_stats(
     for row in rows {
         let (agent, tool, n) = row.map_err(|e| format!("row(class): {e}"))?;
         let entry = stats.entry(agent).or_default();
-        if WRITE_TOOLS.contains(&tool.as_str()) {
+        if is_write(&tool) {
             entry.writes += n;
-        } else if READ_TOOLS.contains(&tool.as_str()) {
+        } else if is_read(&tool) {
             entry.reads += n;
-        } else if SHELL_TOOLS.contains(&tool.as_str()) {
+        } else if is_shell(&tool) {
             entry.shells += n;
         }
     }

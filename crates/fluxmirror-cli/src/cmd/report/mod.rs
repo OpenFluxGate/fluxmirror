@@ -17,6 +17,7 @@ pub mod agent;
 pub mod agents;
 pub mod compare;
 pub mod today;
+pub(crate) mod tools;
 pub mod week;
 pub mod yesterday;
 

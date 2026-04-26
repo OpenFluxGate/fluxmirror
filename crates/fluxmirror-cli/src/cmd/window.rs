@@ -54,6 +54,43 @@ pub(crate) fn week_range(
     ))
 }
 
+/// Resolve the local-midnight `[start, end)` UTC window for a single
+/// day offset relative to today in `tz`.
+///
+/// `day_offset == 0` is today (local), `-1` is yesterday, etc. Returns
+/// `(target_local_date, start_utc, end_utc)`. Errors mirror
+/// `week_range` (a DST gap on the requested local midnight that the
+/// resolver could not skip past).
+pub(crate) fn day_range(
+    tz: Tz,
+    day_offset: i64,
+) -> Result<(NaiveDate, DateTime<Utc>, DateTime<Utc>), String> {
+    let now_local = Utc::now().with_timezone(&tz);
+    let target_date = now_local.date_naive() + Duration::days(day_offset);
+    let next_date = target_date + Duration::days(1);
+
+    let start_local = local_midnight(tz, target_date).ok_or_else(|| {
+        format!("cannot resolve local midnight for {target_date} in {tz}")
+    })?;
+    let end_local = local_midnight(tz, next_date)
+        .ok_or_else(|| format!("cannot resolve local midnight for {next_date} in {tz}"))?;
+
+    Ok((
+        target_date,
+        start_local.with_timezone(&Utc),
+        end_local.with_timezone(&Utc),
+    ))
+}
+
+/// Convenience wrapper around `day_range(tz, 0)`. Used by both the
+/// `today` report and any future caller that wants today's window
+/// without the day-offset boilerplate.
+pub(crate) fn today_range(
+    tz: Tz,
+) -> Result<(NaiveDate, DateTime<Utc>, DateTime<Utc>), String> {
+    day_range(tz, 0)
+}
+
 pub fn run(tz: String, period: String) -> ExitCode {
     let tz = match parse_tz(&tz) {
         Ok(t) => t,
