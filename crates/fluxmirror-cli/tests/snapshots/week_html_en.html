@@ -62,6 +62,46 @@ td.item { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospac
 .empty { color: #9ca3af; margin: 0; }
 .sm p { font-size: 0.95rem; color: #1f2937; margin: 0; }
 .ft { color: #9ca3af; font-size: 0.75rem; text-align: right; margin-top: 16px; }
+.narrative article {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+.narrative article:last-child { margin-bottom: 0; }
+.narrative article > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+  gap: 12px;
+}
+.narrative .repo-name {
+  font-weight: 600;
+  color: #111827;
+  font-size: 0.95rem;
+}
+.narrative .commit-count {
+  color: #6b7280;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.narrative ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.narrative li {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  color: #1f2937;
+  padding: 3px 0;
+  border-top: 1px dashed #e5e7eb;
+  word-break: break-word;
+}
+.narrative li:first-child { border-top: none; }
 </style>
 </head>
 <body>

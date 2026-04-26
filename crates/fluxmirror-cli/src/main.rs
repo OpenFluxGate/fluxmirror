@@ -259,6 +259,11 @@ struct WeekCliArgs {
     /// is printed to stdout. Ignored for non-HTML formats.
     #[arg(long)]
     out: Option<PathBuf>,
+    /// Skip the "Shipped this week" git-narrative section entirely.
+    /// The narrative is on by default; pass this flag to opt out when
+    /// sharing the card publicly.
+    #[arg(long, default_value_t = false, action = clap::ArgAction::SetTrue)]
+    no_git_narrative: bool,
 }
 
 /// CLI shape for `fluxmirror agent`. Positional `name` plus optional
@@ -427,6 +432,7 @@ fn main() -> ExitCode {
                 lang,
                 format: args.format,
                 out: args.out,
+                no_git_narrative: args.no_git_narrative,
             })
         }
         Cmd::Agent(args) => {

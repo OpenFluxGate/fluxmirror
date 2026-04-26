@@ -17,6 +17,7 @@ pub mod agent;
 pub mod agents;
 pub mod compare;
 pub(crate) mod day;
+pub mod git_narrative;
 pub mod html;
 pub mod today;
 pub(crate) mod tools;

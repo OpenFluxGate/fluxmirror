@@ -31,6 +31,7 @@ use crate::cmd::util::{err_exit2, open_db_readonly, parse_tz};
 use crate::cmd::window::week_range;
 use fluxmirror_core::report::{pack, LangPack};
 
+use super::git_narrative::{self, GitNarrative};
 use super::html::{render_card, AgentRow as HtmlAgentRow, WeekHtmlStats};
 use super::tools::{is_read, is_shell, is_write};
 use super::ReportFormat;
@@ -62,6 +63,11 @@ pub struct WeekArgs {
     /// document is written to disk and a single confirmation line is
     /// printed to stdout. Ignored for non-HTML formats.
     pub out: Option<PathBuf>,
+    /// When `true`, skip the "Shipped this week" git-narrative
+    /// collection entirely. Default is `false` — the section is on
+    /// by default. The flag is the user's escape hatch when sharing
+    /// the card publicly without exposing repo / commit-message data.
+    pub no_git_narrative: bool,
 }
 
 pub fn run(args: WeekArgs) -> ExitCode {
@@ -90,10 +96,17 @@ pub fn run(args: WeekArgs) -> ExitCode {
         Err(e) => return err_exit2(format!("fluxmirror week: {e}")),
     };
 
-    let stats = match collect_week(&conn, tz, week_start, start_utc, end_utc) {
+    let mut stats = match collect_week(&conn, tz, week_start, start_utc, end_utc) {
         Ok(s) => s,
         Err(e) => return err_exit2(format!("fluxmirror week: {e}")),
     };
+
+    // Optional "Shipped this week" pass — shells out to git per
+    // distinct cwd. Default ON; opt out via `--no-git-narrative`.
+    if !args.no_git_narrative {
+        let cwds: Vec<String> = stats.cwds.keys().cloned().collect();
+        stats.narrative = Some(git_narrative::collect(&cwds, start_utc, end_utc, None));
+    }
 
     let lp = pack(&args.lang);
 
@@ -174,6 +187,11 @@ pub(crate) struct WeekStats {
     /// invocation count. Drives the HTML card's "Top shell commands"
     /// table. Empty in the human path.
     pub shell_counts: HashMap<String, u64>,
+    /// "Shipped this week" git narrative. Populated by `run` after
+    /// `collect_week` returns, then forwarded to both the human
+    /// renderer and `build_html_stats`. `None` when the user passed
+    /// `--no-git-narrative` or collection was otherwise skipped.
+    pub narrative: Option<GitNarrative>,
 }
 
 /// Build the day list and run the aggregation in one pass over the
@@ -397,6 +415,7 @@ pub(crate) fn build_html_stats(
         total_calls,
         total_agents,
         generated_footer,
+        narrative: stats.narrative.clone(),
     }
 }
 
@@ -429,9 +448,35 @@ fn render_human(
     render_tool_mix(&mut out, lp, stats);
     render_cwds(&mut out, lp, stats);
     render_day_distribution(&mut out, lp, stats);
+    render_narrative(&mut out, lp, stats);
     render_insights(&mut out, lp, stats);
 
     out
+}
+
+/// Render the "Shipped this week" git-narrative section in the human
+/// (markdown-flavoured) week report. Omits the heading entirely when
+/// the narrative is missing or empty so an empty section never bloats
+/// a quiet week's report.
+fn render_narrative(out: &mut String, lp: &LangPack, stats: &WeekStats) {
+    let narrative = match stats.narrative.as_ref() {
+        Some(n) if !n.repos.is_empty() => n,
+        _ => return,
+    };
+    out.push_str(&format!("## {}\n\n", lp.html_narrative_heading));
+    for repo in &narrative.repos {
+        let count_label = if repo.total_commits == 1 {
+            lp.html_narrative_count_one.to_string()
+        } else {
+            lp.html_narrative_count_many
+                .replace("{n}", &repo.total_commits.to_string())
+        };
+        out.push_str(&format!("📁 {} — {}\n", repo.repo_name, count_label));
+        for subject in &repo.commits {
+            out.push_str(&format!("  - {}\n", subject));
+        }
+        out.push('\n');
+    }
 }
 
 fn render_activity(out: &mut String, lp: &LangPack, stats: &WeekStats) {
