@@ -1,14 +1,14 @@
 {
-  "hooks": {
-    "AfterTool": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${extensionPath}/hooks/run-hook.sh"
-          }
+    "hooks": {
+        "AfterTool": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "${extensionPath}/wrappers/router.sh gemini"
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  }
+    }
 }

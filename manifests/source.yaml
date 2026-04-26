@@ -1,0 +1,13 @@
+# FluxMirror manifest source.
+# Run scripts/build-manifests.sh after editing.
+agents:
+  claude-code:
+    hook_event: PostToolUse
+    plugin_var: CLAUDE_PLUGIN_ROOT
+    output: plugins/fluxmirror/hooks/hooks.json
+    kind: claude
+  gemini-cli:
+    hook_event: AfterTool
+    plugin_var: extensionPath
+    output: gemini-extension/hooks/hooks.json
+    kind: gemini
