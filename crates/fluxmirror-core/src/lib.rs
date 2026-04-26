@@ -23,3 +23,9 @@ pub use config::{
 pub use errors::{Error, Result};
 pub use event::{AgentEvent, AgentId, Direction, ProxyEvent};
 pub use normalize::{extract_detail, normalize, ToolClass, ToolKind};
+
+// Re-export the third-party crates we expose through public types so
+// downstream crates can pin to the same version we built against
+// without re-listing the dependency.
+pub use chrono;
+pub use chrono_tz;

@@ -13,7 +13,12 @@ path = "src/main.rs"
 fluxmirror-core  = { path = "../fluxmirror-core" }
 fluxmirror-store = { path = "../fluxmirror-store" }
 fluxmirror-proxy = { path = "../fluxmirror-proxy" }
+rusqlite         = { workspace = true }
 serde_json       = { workspace = true }
 chrono           = { version = "0.4", default-features = false, features = ["clock", "std"] }
+chrono-tz        = "0.10"
 gethostname      = "0.4"
 clap             = { version = "4", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3"
