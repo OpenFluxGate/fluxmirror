@@ -20,13 +20,15 @@
 //   QWEN_CODE_NO_RELAUNCH set when running under Qwen Code
 //   QWEN_PROJECT_DIR      set when running under Qwen Code
 //
-// STEP 2 note: this module now constructs a `core::AgentEvent` and
-// extracts the row from there before writing. The SQLite write is
-// still inline; STEP 3 moves it behind the `EventStore` trait.
+// STEP 3 note: SQLite writes go through `fluxmirror_store::SqliteStore`.
+// The store owns schema creation + additive migration of legacy DBs;
+// this module now only builds the canonical `AgentEvent` and hands it
+// off. Errors at any stage still funnel through `log_error` and the
+// process exits 0 — the hook must never break the calling agent.
 
 use chrono::{DateTime, SecondsFormat, Utc};
 use fluxmirror_core::{extract_detail, normalize, paths, AgentEvent, AgentId};
-use rusqlite::{params, Connection};
+use fluxmirror_store::{EventStore, SqliteStore};
 use serde_json::Value;
 use std::env;
 use std::fs::{self, OpenOptions};
@@ -119,12 +121,20 @@ fn run_inner(argv: &[String]) -> Result<(), String> {
 
     // SQLite write (best-effort, with full error logging)
     let db_path = paths::default_db_path();
-    if let Err(e) = sqlite_write(&db_path, &event) {
-        log_error(&format!(
-            "sqlite write (agent={} tool={}): {e}",
-            event.agent.as_str(),
-            event.tool_raw,
-        ));
+    match SqliteStore::open(&db_path) {
+        Ok(store) => {
+            if let Err(e) = store.write_agent_event(&event) {
+                log_error(&format!(
+                    "sqlite write (agent={} tool={}): {e}",
+                    event.agent.as_str(),
+                    event.tool_raw,
+                ));
+            }
+        }
+        Err(e) => log_error(&format!(
+            "sqlite open ({}): {e}",
+            db_path.display()
+        )),
     }
 
     Ok(())
@@ -217,63 +227,6 @@ fn append_jsonl(log_base: &Path, event: &AgentEvent) -> io::Result<()> {
     });
     let mut f = OpenOptions::new().create(true).append(true).open(&file)?;
     writeln!(f, "{}", line)?;
-    Ok(())
-}
-
-fn sqlite_write(db_path: &Path, event: &AgentEvent) -> Result<(), String> {
-    if let Some(parent) = db_path.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("mkdir {parent:?}: {e}"))?;
-    }
-    let conn = Connection::open(db_path).map_err(|e| format!("open: {e}"))?;
-    conn.busy_timeout(std::time::Duration::from_secs(5))
-        .map_err(|e| format!("busy_timeout: {e}"))?;
-    // Schema v1: includes the canonical/class/host/user/schema_version
-    // columns. STEP 3 will move this CREATE plus a real ALTER-based
-    // migration into fluxmirror-store. Until then, fresh DBs match
-    // schema v1 directly; legacy DBs missing columns will trip a
-    // missing-column error from this INSERT, which gets logged via
-    // log_error and swallowed (hook never breaks the agent).
-    conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS agent_events (
-           id INTEGER PRIMARY KEY AUTOINCREMENT,
-           ts TEXT NOT NULL,
-           agent TEXT NOT NULL,
-           session TEXT,
-           tool TEXT,
-           tool_canonical TEXT,
-           tool_class TEXT,
-           detail TEXT,
-           cwd TEXT,
-           host TEXT,
-           user TEXT,
-           schema_version INTEGER NOT NULL DEFAULT 1,
-           raw_json TEXT
-         );
-         CREATE INDEX IF NOT EXISTS idx_agent_events_ts    ON agent_events(ts);
-         CREATE INDEX IF NOT EXISTS idx_agent_events_agent ON agent_events(agent);",
-    )
-    .map_err(|e| format!("schema: {e}"))?;
-    let cwd_str = event.cwd.to_string_lossy().to_string();
-    conn.execute(
-        "INSERT INTO agent_events \
-         (ts, agent, session, tool, tool_canonical, tool_class, detail, cwd, host, user, schema_version, raw_json) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
-        params![
-            format_iso8601(&event.ts_utc),
-            event.agent.as_str(),
-            event.session,
-            event.tool_raw,
-            event.tool_canonical.as_str(),
-            event.tool_class.as_str(),
-            event.detail,
-            cwd_str,
-            event.host,
-            event.user,
-            event.schema_version,
-            event.raw_json,
-        ],
-    )
-    .map_err(|e| format!("insert: {e}"))?;
     Ok(())
 }
 
