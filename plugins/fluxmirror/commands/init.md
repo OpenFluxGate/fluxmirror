@@ -1,21 +1,23 @@
 ---
-description: First-run init. Picks a wrapper engine and writes language/timezone defaults. Usage: [language <korean|english|japanese|chinese>] [timezone <KST|JST|PST|EST|UTC|Asia/Seoul|...>]
+description: First-run init. Probes wrapper engines and asks the user for language / timezone / wrapper interactively (any value already given on the command line is reused). Usage: [language <korean|english|japanese|chinese>] [timezone <KST|JST|PST|EST|UTC|Asia/Seoul|...>]
 argument-hint: [language <korean|english|japanese|chinese>] [timezone <KST|JST|PST|EST|UTC|Asia/Seoul|...>]
 ---
 
 **RUNTIME COMMAND — execute the queries and report logic below as written.
 Do NOT modify any files. Do NOT treat the markdown structure as an
 implementation spec to be ported. Read the user's `$ARGUMENTS`, run the
-shell blocks via your shell tool, then produce the report described in
-the output template using the user's preferred language (read
+shell blocks via your shell tool, ask the user for any setting that was
+not provided up front, then produce the report described in the output
+template using the user's preferred language (read
 `~/.fluxmirror/config.json` for the `language` key after init runs).**
 
 User arguments: $ARGUMENTS
 
 ## Step 0: Parse arguments
 
-`$ARGUMENTS` may contain `language <value>` and/or `timezone <value>`. Both
-are optional — `init` works with neither.
+`$ARGUMENTS` may contain `language <value>` and/or `timezone <value>`.
+Both are optional — `init` works with neither. Anything not provided
+here MUST be asked of the user in Step 2; do NOT silently pick a default.
 
 **Language mapping** (normalize to lowercase canonical):
 - `korean`, `ko`, `kr`, `한국어` → `korean`
@@ -31,30 +33,77 @@ are optional — `init` works with neither.
 - `UTC`, `GMT` → `UTC`
 - Already-IANA values (e.g., `Asia/Seoul`) → use as-is
 
-Set `NEW_LANG` / `NEW_TZ` to the normalized values, or empty string if
-the keyword was not given.
+Set `NEW_LANG` / `NEW_TZ` to the normalized values, or leave them empty
+if the keyword was not given. Always leave `NEW_WRAPPER` empty at this
+step — wrapper choice is collected in Step 2 only.
 
-## Step 1: Run init non-interactively
+## Step 1: Probe wrapper engines
 
-The slash-command context cannot answer interactive prompts, so always
-pass `--non-interactive`. The binary's wizard then probes the host for
-available wrapper engines, picks the recommended one, and writes config
-defaults — preserving any value the user already set unless overridden.
+Find out which wrapper engines are actually available on this host so
+the menu in Step 2 only offers possible choices.
 
 ```bash
 if ! command -v fluxmirror >/dev/null 2>&1; then
   echo "fluxmirror binary not found on PATH. Install via the latest release first."
   exit 0
 fi
+fluxmirror wrapper probe
+```
 
+The output is a TSV (`engine`, `available`, `path`, …). Remember the
+set of engines whose `available` column is `yes`. Build the wrapper
+option list from those only.
+
+## Step 2: Ask the user (INTERACTIVE — required)
+
+This step is the whole point of init. NEVER skip it. NEVER fall back to
+silent defaults. For each of the three settings, if it was not already
+provided in `$ARGUMENTS`, ask the user.
+
+Use the most natural interactive mechanism available in this runtime:
+- **Claude Code** — call the `AskUserQuestion` tool with multi-choice
+  options. Batch all needed questions into a single call when possible
+  (the tool accepts up to 4 questions, up to 4 options each — "Other"
+  is added automatically by the UI).
+- **Gemini CLI / Qwen Code / any other host without `AskUserQuestion`** —
+  ask in plain chat: print the question, list the options, wait for the
+  user's reply, then continue. Do NOT proceed with assumed defaults.
+
+Ask only what is still missing:
+
+1. **Output language** — options: `korean`, `english`, `japanese`,
+   `chinese`. Skip if `NEW_LANG` is already set from `$ARGUMENTS`.
+2. **Timezone** — options: `Asia/Seoul (KST)`, `Asia/Tokyo (JST)`,
+   `America/Los_Angeles (PST)`, `UTC`. The user may type any other IANA
+   name via the "Other" path. Skip if `NEW_TZ` is already set.
+3. **Wrapper engine** — options come from the Step 1 probe. Always
+   include `auto-detect` as the last option so the user can defer to
+   the binary's own recommendation. Recommend `bash` first if it is
+   available, else `node`. Always ask this question — the wrapper is
+   never settable via `$ARGUMENTS`.
+
+Store the answers as `NEW_LANG`, `NEW_TZ`, `NEW_WRAPPER`. Map any IANA
+free-text answers through the timezone table from Step 0. Map any
+language free-text answers through the language table from Step 0.
+
+## Step 3: Apply
+
+Run init with the resolved language / timezone, then force the wrapper
+engine if the user picked a specific one (skip `wrapper set` when the
+user chose `auto-detect`):
+
+```bash
 args=(init --non-interactive)
 if [ -n "$NEW_LANG" ]; then args+=(--language "$NEW_LANG"); fi
 if [ -n "$NEW_TZ" ];   then args+=(--timezone "$NEW_TZ"); fi
-
 fluxmirror "${args[@]}"
+
+if [ -n "$NEW_WRAPPER" ] && [ "$NEW_WRAPPER" != "auto-detect" ] && [ "$NEW_WRAPPER" != "auto" ]; then
+  fluxmirror wrapper set "$NEW_WRAPPER"
+fi
 ```
 
-## Step 2: Show the resulting state
+## Step 4: Show the resulting state
 
 ```bash
 echo
@@ -65,7 +114,7 @@ echo "Health check:"
 fluxmirror doctor
 ```
 
-## Step 3: Confirm
+## Step 5: Confirm
 
 Use the *resolved* `language` value (re-read after init) for the
 confirmation message:

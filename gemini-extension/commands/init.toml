@@ -1,9 +1,10 @@
-description = "First-run init. Picks a wrapper engine and writes language/timezone defaults. Usage: [language <korean|english|japanese|chinese>] [timezone <KST|JST|PST|EST|UTC|Asia/Seoul|...>]"
+description = "First-run init. Probes wrapper engines and asks the user for language / timezone / wrapper interactively (any value already given on the command line is reused). Usage: [language <korean|english|japanese|chinese>] [timezone <KST|JST|PST|EST|UTC|Asia/Seoul|...>]"
 prompt = """
 User arguments: {{args}}
 
 Parse {{args}} for `language <value>` and/or `timezone <value>`. Both are
-optional — init works with neither.
+optional. Anything not provided up front MUST be asked of the user
+interactively below — do NOT silently pick a default.
 
 Language mapping (normalise to lowercase canonical):
 - korean / ko / kr / 한국어 → korean
@@ -19,21 +20,64 @@ Timezone mapping (normalise to IANA):
 - UTC / GMT → UTC
 - Already-IANA values → use as-is
 
-The slash-command context cannot answer interactive prompts, so always
-run init with --non-interactive. Substitute the parsed values into
-NEW_LANG / NEW_TZ; leave empty for keys not given:
+Set NEW_LANG / NEW_TZ from the parsed args, or leave them empty if the
+keyword was not given. NEW_WRAPPER is always empty at this point and
+gets filled in by the prompt below.
+
+## Step 1 — probe wrapper engines
+
+Run this first so the menu only shows engines that actually work on
+this host:
 
 ```bash
 if ! command -v fluxmirror >/dev/null 2>&1; then
   echo "fluxmirror binary not found on PATH. Install via the latest release first."
   exit 0
 fi
+fluxmirror wrapper probe
+```
 
+The output is TSV (engine, available, path, ...). Remember the engines
+whose `available` column is `yes`.
+
+## Step 2 — ask the user (interactive, required)
+
+This step is the entire point of `/fluxmirror:init`. NEVER skip it.
+NEVER fall back to silent defaults.
+
+Ask the user in chat for any setting still missing. Use whichever
+interactive mechanism this runtime offers:
+- if a structured ask-the-user tool is available (e.g. AskUserQuestion
+  in Claude Code), use it with multi-choice options
+- otherwise, print the question and the option list in plain text and
+  wait for the user's reply before continuing
+
+Questions:
+1. Output language — options: korean / english / japanese / chinese.
+   Skip if NEW_LANG is already set.
+2. Timezone — options: Asia/Seoul (KST) / Asia/Tokyo (JST) /
+   America/Los_Angeles (PST) / UTC. Accept any other IANA name as
+   free-text. Skip if NEW_TZ is already set.
+3. Wrapper engine — options come from the Step 1 probe (only engines
+   with available=yes). Always also offer `auto-detect` so the user
+   can defer to the binary's recommendation. Always ask this; the
+   wrapper is never settable via {{args}}.
+
+Store the answers as NEW_LANG, NEW_TZ, NEW_WRAPPER. Map free-text
+answers through the language / timezone tables above.
+
+## Step 3 — apply
+
+```bash
 args=(init --non-interactive)
 if [ -n "<NEW_LANG>" ]; then args+=(--language "<NEW_LANG>"); fi
 if [ -n "<NEW_TZ>" ];   then args+=(--timezone "<NEW_TZ>"); fi
-
 fluxmirror "${args[@]}"
+
+if [ -n "<NEW_WRAPPER>" ] && [ "<NEW_WRAPPER>" != "auto-detect" ] && [ "<NEW_WRAPPER>" != "auto" ]; then
+  fluxmirror wrapper set "<NEW_WRAPPER>"
+fi
+
 echo
 echo "Resolved config:"
 fluxmirror config show
@@ -41,6 +85,8 @@ echo
 echo "Health check:"
 fluxmirror doctor
 ```
+
+## Step 4 — confirm
 
 Confirm in the resolved language (re-read after init):
 - en: "Initialized. language=<lang>, timezone=<tz>, wrapper=<kind>"
