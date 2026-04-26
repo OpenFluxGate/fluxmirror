@@ -16,3 +16,4 @@ fluxmirror-proxy = { path = "../fluxmirror-proxy" }
 serde_json       = { workspace = true }
 chrono           = { version = "0.4", default-features = false, features = ["clock", "std"] }
 gethostname      = "0.4"
+clap             = { version = "4", features = ["derive"] }
