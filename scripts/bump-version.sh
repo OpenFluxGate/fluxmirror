@@ -43,6 +43,8 @@ manifest_files=(
   gemini-extension/gemini-extension.json
   plugins/fluxmirror/.claude-plugin/plugin.json
   .claude-plugin/marketplace.json
+  Cargo.toml
+  Cargo.lock
 )
 
 if [ "$dry" -eq 0 ]; then
@@ -87,6 +89,42 @@ if [ -f "$mp" ]; then
   else
     mv "$tmp" "$mp"
     echo "  synced $mp (nested) -> $v"
+    tmp=$(mktemp)
+  fi
+fi
+
+# Workspace Cargo.toml: rewrite the version line inside [workspace.package].
+# bash 3.2-safe (macOS default): no associative arrays, no GNU sed quirks.
+ws_cargo="Cargo.toml"
+if [ -f "$ws_cargo" ]; then
+  awk -v new="$v" '
+    BEGIN { in_pkg = 0 }
+    /^\[workspace\.package\][[:space:]]*$/ { in_pkg = 1; print; next }
+    /^\[/ && !/^\[workspace\.package\][[:space:]]*$/ { in_pkg = 0 }
+    in_pkg && /^version[[:space:]]*=/ { print "version = \"" new "\""; next }
+    { print }
+  ' "$ws_cargo" > "$tmp"
+  if [ "$dry" -eq 1 ]; then
+    diff -u "$ws_cargo" "$tmp" || true
+  else
+    mv "$tmp" "$ws_cargo"
+    echo "  synced $ws_cargo -> $v"
+    tmp=$(mktemp)
+  fi
+fi
+
+# Refresh Cargo.lock so the workspace member versions match.  We try a
+# plain build first (offline if possible) and let cargo rewrite the lock
+# file.  Failures are tolerated — `cargo build` on the next CI run will
+# regenerate it correctly anyway.
+if [ "$dry" -eq 0 ] && command -v cargo >/dev/null 2>&1; then
+  echo "  refreshing Cargo.lock (best-effort)..."
+  if cargo build --workspace --offline >/dev/null 2>&1; then
+    :
+  elif cargo build --workspace >/dev/null 2>&1; then
+    :
+  else
+    echo "  warning: could not auto-update Cargo.lock; commit will skip it" >&2
   fi
 fi
 
@@ -96,10 +134,16 @@ if [ "$dry" -eq 1 ]; then
   exit 0
 fi
 
+# Stage everything we synced.  Cargo.lock is added only if it actually
+# changed (some bump scenarios — e.g. patch-only — leave it untouched).
 git add \
   gemini-extension/gemini-extension.json \
   plugins/fluxmirror/.claude-plugin/plugin.json \
-  .claude-plugin/marketplace.json
+  .claude-plugin/marketplace.json \
+  Cargo.toml
+if [ -n "$(git status --porcelain -- Cargo.lock 2>/dev/null)" ]; then
+  git add Cargo.lock
+fi
 
 git commit -m "chore: bump version to ${v}"
 git tag -a "$tag" -m "${tag}"

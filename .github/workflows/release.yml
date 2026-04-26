@@ -49,21 +49,36 @@ jobs:
 
       - name: Strip macOS metadata before packaging
         run: |
-          find gemini-extension plugins/fluxmirror -name '._*' -delete 2>/dev/null || true
-          find gemini-extension plugins/fluxmirror -name '.DS_Store' -delete 2>/dev/null || true
+          find gemini-extension plugins/fluxmirror wrappers -name '._*' -delete 2>/dev/null || true
+          find gemini-extension plugins/fluxmirror wrappers -name '.DS_Store' -delete 2>/dev/null || true
 
-      - name: Build gemini-extension archive (no AppleDouble)
+      - name: Stage gemini-extension archive (with wrappers/)
         env:
           COPYFILE_DISABLE: "1"
         run: |
+          set -euo pipefail
+          stage=$(mktemp -d)
+          # Copy gemini-extension contents to the archive root.
+          cp -R gemini-extension/. "$stage/"
+          # Copy the shared wrappers/ directory so hooks.json's
+          # ${extensionPath}/wrappers/router.sh resolves at runtime.
+          cp -R wrappers "$stage/wrappers"
           tar --exclude='._*' --exclude='.DS_Store' \
               -czf fluxmirror-gemini-extension-${{ github.ref_name }}.tar.gz \
-              -C gemini-extension .
+              -C "$stage" .
 
-      - name: Verify archive structure (manifest + no AppleDouble)
+      - name: Verify archive structure (manifest + wrappers + no AppleDouble)
         run: |
           tar tzf fluxmirror-gemini-extension-${{ github.ref_name }}.tar.gz \
             | grep -q '^./gemini-extension.json$' || { echo "manifest missing"; exit 1; }
+          tar tzf fluxmirror-gemini-extension-${{ github.ref_name }}.tar.gz \
+            | grep -q '^./hooks/hooks.json$' || { echo "hooks.json missing"; exit 1; }
+          tar tzf fluxmirror-gemini-extension-${{ github.ref_name }}.tar.gz \
+            | grep -q '^./wrappers/router.sh$' || { echo "wrappers/router.sh missing"; exit 1; }
+          tar tzf fluxmirror-gemini-extension-${{ github.ref_name }}.tar.gz \
+            | grep -q '^./wrappers/shim.sh$' || { echo "wrappers/shim.sh missing"; exit 1; }
+          tar tzf fluxmirror-gemini-extension-${{ github.ref_name }}.tar.gz \
+            | grep -q '^./wrappers/shim.mjs$' || { echo "wrappers/shim.mjs missing"; exit 1; }
           if tar tzf fluxmirror-gemini-extension-${{ github.ref_name }}.tar.gz | grep -q '^\./\._'; then
             echo "ERROR: AppleDouble files in archive"
             tar tzf fluxmirror-gemini-extension-${{ github.ref_name }}.tar.gz | grep '^\./\._'
@@ -93,6 +108,9 @@ jobs:
           v="${{ steps.ver.outputs.version }}"
           stage=$(mktemp -d)
           cp -R gemini-extension/. "$stage/"
+          # Republish the shared wrappers/ at the branch root so
+          # hooks.json's ${extensionPath}/wrappers/router.sh resolves.
+          cp -R wrappers "$stage/wrappers"
           cd "$stage"
           git init -q -b gemini-extension-pkg
           git -c user.name=release-bot -c user.email=release-bot@users.noreply.github.com \
