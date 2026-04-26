@@ -83,6 +83,15 @@ pub struct LangPack {
     pub today_columns_method_count: [&'static str; 2],
     /// Two column headers: Tool | Count.
     pub today_columns_tool_count: [&'static str; 2],
+
+    // ----- yesterday report -------------------------------------------
+    /// "Yesterday's Work" — H1 of the yesterday report. Rendered as
+    /// `# {yesterday_title} (YYYY-MM-DD <tz>)`. The body sections reuse
+    /// the today-flavoured headings (activity / files / shells / …).
+    pub yesterday_title: &'static str,
+    /// Single-line message when yesterday's window has fewer than 5
+    /// events. Worded for "no activity yesterday" rather than today.
+    pub yesterday_no_data: &'static str,
 }
 
 const ENGLISH: LangPack = LangPack {
@@ -122,6 +131,8 @@ const ENGLISH: LangPack = LangPack {
     today_columns_time_command: ["Time", "Command"],
     today_columns_method_count: ["Method", "Count"],
     today_columns_tool_count: ["Tool", "Count"],
+    yesterday_title: "Yesterday's Work",
+    yesterday_no_data: "No activity yesterday.",
 };
 
 const KOREAN: LangPack = LangPack {
@@ -161,6 +172,8 @@ const KOREAN: LangPack = LangPack {
     today_columns_time_command: ["시간", "명령"],
     today_columns_method_count: ["메서드", "횟수"],
     today_columns_tool_count: ["도구", "횟수"],
+    yesterday_title: "어제의 작업",
+    yesterday_no_data: "어제 활동 없음.",
 };
 
 const JAPANESE: LangPack = LangPack {
@@ -200,6 +213,8 @@ const JAPANESE: LangPack = LangPack {
     today_columns_time_command: ["時刻", "コマンド"],
     today_columns_method_count: ["メソッド", "回数"],
     today_columns_tool_count: ["ツール", "回数"],
+    yesterday_title: "昨日の作業",
+    yesterday_no_data: "昨日の活動はありませんでした。",
 };
 
 const CHINESE: LangPack = LangPack {
@@ -239,6 +254,8 @@ const CHINESE: LangPack = LangPack {
     today_columns_time_command: ["时间", "命令"],
     today_columns_method_count: ["方法", "次数"],
     today_columns_tool_count: ["工具", "次数"],
+    yesterday_title: "昨日的工作",
+    yesterday_no_data: "昨日无活动。",
 };
 
 /// Resolve a language code (or canonical name) to a `LangPack`.

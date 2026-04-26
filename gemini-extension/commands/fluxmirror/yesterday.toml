@@ -1,27 +1,4 @@
 description = "Summarize yesterday's AI agent activity from FluxMirror SQLite"
 prompt = """
-Yesterday's raw FluxMirror data:
-
-!{$HOME/.gemini/extensions/fluxmirror/scripts/report-data.sh yesterday}
-
-Produce a one-page report (translate to user language, default English):
-
-# Yesterday's Work (YYYY-MM-DD <timezone>)
-
-## Key Activities
-- **[Objective]** — [lifecycle + effort one-liner with file/edit counts]
-
-## Activity Stats
-| Agent | Calls | Sessions |
-|---|---|---|
-
-## Insights
-1–3 data-supported observed patterns.
-
-## Active Hours
-[user-timezone-based]
-
-If fewer than 5 events, output (in user language):
-en: "No activity yesterday." / ko: "어제 활동 없음."
-ja: "昨日の活動はありませんでした。" / zh: "昨日无活动。"
+!{fluxmirror yesterday}
 """

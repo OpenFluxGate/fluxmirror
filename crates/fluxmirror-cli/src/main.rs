@@ -95,6 +95,9 @@ enum Cmd {
 
     /// Today's activity report (per-agent calls, files, shell, hours).
     Today(TodayCliArgs),
+
+    /// Yesterday's activity report (same shape as today).
+    Yesterday(YesterdayCliArgs),
 }
 
 #[derive(Args)]
@@ -201,6 +204,21 @@ struct TodayCliArgs {
     format: ReportFormat,
 }
 
+/// CLI shape for `fluxmirror yesterday`. Identical to `today` — the
+/// only divergence is the window (`day_offset = -1`) the dispatch arm
+/// hands to the report module.
+#[derive(Args)]
+struct YesterdayCliArgs {
+    #[arg(long)]
+    db: Option<PathBuf>,
+    #[arg(long)]
+    tz: Option<String>,
+    #[arg(long)]
+    lang: Option<String>,
+    #[arg(long, value_enum, default_value_t = ReportFormat::Human)]
+    format: ReportFormat,
+}
+
 #[derive(Copy, Clone, ValueEnum)]
 enum HookKind {
     Claude,
@@ -272,6 +290,20 @@ fn main() -> ExitCode {
                 .lang
                 .unwrap_or_else(|| cfg.language.as_str().to_string());
             cmd::report::today::run(cmd::report::today::TodayArgs {
+                db,
+                tz,
+                lang,
+                format: args.format,
+            })
+        }
+        Cmd::Yesterday(args) => {
+            let cfg = Config::load().unwrap_or_default();
+            let db = args.db.unwrap_or_else(|| cfg.effective_db_path());
+            let tz = args.tz.unwrap_or(cfg.timezone);
+            let lang = args
+                .lang
+                .unwrap_or_else(|| cfg.language.as_str().to_string());
+            cmd::report::yesterday::run(cmd::report::yesterday::YesterdayArgs {
                 db,
                 tz,
                 lang,
