@@ -62,24 +62,69 @@ pub fn legacy_macos_db_path() -> PathBuf {
     home.join("Library/Application Support/fluxmirror/events.db")
 }
 
-/// User config directory — `~/.fluxmirror/` on every OS for now.
-/// STEP 6 may diversify (XDG_CONFIG_HOME on Linux, %APPDATA% on Windows)
-/// once the migration story is decided.
+/// User config directory, per-OS:
+///
+///   macOS:        `~/.fluxmirror/`          (kept for compat with existing config readers)
+///   Windows:      `%APPDATA%\fluxmirror\`   (falls back to `~/AppData/Roaming/fluxmirror/`)
+///   Linux/other:  `${XDG_CONFIG_HOME}/fluxmirror/`
+///                 (falls back to `~/.config/fluxmirror/`)
 pub fn config_dir() -> PathBuf {
+    let home = home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
+    #[cfg(target_os = "macos")]
+    {
+        home.join(".fluxmirror")
+    }
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(appdata) = env::var_os("APPDATA").filter(|s| !s.is_empty()) {
+            return PathBuf::from(appdata).join("fluxmirror");
+        }
+        home.join("AppData/Roaming/fluxmirror")
+    }
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    {
+        if let Some(xdg) = env::var_os("XDG_CONFIG_HOME").filter(|s| !s.is_empty()) {
+            return PathBuf::from(xdg).join("fluxmirror");
+        }
+        home.join(".config/fluxmirror")
+    }
+}
+
+/// Legacy config directory: `~/.fluxmirror/` on any OS.
+/// Used by `fluxmirror doctor` (STEP 8) to detect and warn about migrations
+/// from pre-Phase-1 installations where config_dir was always `~/.fluxmirror`.
+pub fn legacy_unix_config_dir() -> PathBuf {
     let home = home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
     home.join(".fluxmirror")
 }
 
 /// Cache directory for downloaded binaries (used by wrappers).
+///
+///   macOS:        `~/.fluxmirror/cache`
+///   Windows:      `%LOCALAPPDATA%\fluxmirror\cache`
+///                 (falls back to `~/AppData/Local/fluxmirror/cache`)
+///   Linux/other:  `${XDG_CACHE_HOME}/fluxmirror`
+///                 (falls back to `~/.cache/fluxmirror`)
 pub fn cache_dir() -> PathBuf {
     let home = home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
+    #[cfg(target_os = "macos")]
+    {
+        home.join(".fluxmirror/cache")
+    }
     #[cfg(target_os = "windows")]
     {
         if let Some(local) = env::var_os("LOCALAPPDATA").filter(|s| !s.is_empty()) {
             return PathBuf::from(local).join("fluxmirror").join("cache");
         }
+        home.join("AppData/Local/fluxmirror/cache")
     }
-    home.join(".fluxmirror/cache")
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    {
+        if let Some(xdg) = env::var_os("XDG_CACHE_HOME").filter(|s| !s.is_empty()) {
+            return PathBuf::from(xdg).join("fluxmirror");
+        }
+        home.join(".cache/fluxmirror")
+    }
 }
 
 #[cfg(test)]
@@ -133,11 +178,74 @@ mod tests {
         assert_eq!(home_dir(), None);
     }
 
+    #[cfg(target_os = "macos")]
     #[test]
-    fn config_dir_uses_dot_fluxmirror_under_home() {
+    fn config_dir_macos_stays_dot_fluxmirror() {
         let _h = EnvGuard::set("HOME", "/tmp/somehome");
         let _u = EnvGuard::unset("USERPROFILE");
         assert_eq!(config_dir(), PathBuf::from("/tmp/somehome/.fluxmirror"));
+    }
+
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    #[test]
+    fn config_dir_linux_falls_back_to_dot_config() {
+        let _h = EnvGuard::set("HOME", "/tmp/linuxhome");
+        let _u = EnvGuard::unset("USERPROFILE");
+        let _x = EnvGuard::unset("XDG_CONFIG_HOME");
+        assert_eq!(
+            config_dir(),
+            PathBuf::from("/tmp/linuxhome/.config/fluxmirror")
+        );
+    }
+
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    #[test]
+    fn config_dir_linux_honors_xdg_config_home() {
+        let _h = EnvGuard::set("HOME", "/tmp/linuxhome");
+        let _u = EnvGuard::unset("USERPROFILE");
+        let _x = EnvGuard::set("XDG_CONFIG_HOME", "/custom/config");
+        assert_eq!(config_dir(), PathBuf::from("/custom/config/fluxmirror"));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn config_dir_windows_uses_appdata() {
+        let _a = EnvGuard::set("APPDATA", r"C:\Users\test\AppData\Roaming");
+        assert_eq!(
+            config_dir(),
+            PathBuf::from(r"C:\Users\test\AppData\Roaming\fluxmirror")
+        );
+    }
+
+    #[test]
+    fn legacy_unix_config_dir_always_dot_fluxmirror() {
+        let _h = EnvGuard::set("HOME", "/tmp/anyhome");
+        let _u = EnvGuard::unset("USERPROFILE");
+        assert_eq!(
+            legacy_unix_config_dir(),
+            PathBuf::from("/tmp/anyhome/.fluxmirror")
+        );
+    }
+
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    #[test]
+    fn cache_dir_linux_falls_back_to_dot_cache() {
+        let _h = EnvGuard::set("HOME", "/tmp/linuxhome");
+        let _u = EnvGuard::unset("USERPROFILE");
+        let _x = EnvGuard::unset("XDG_CACHE_HOME");
+        assert_eq!(
+            cache_dir(),
+            PathBuf::from("/tmp/linuxhome/.cache/fluxmirror")
+        );
+    }
+
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    #[test]
+    fn cache_dir_linux_honors_xdg_cache_home() {
+        let _h = EnvGuard::set("HOME", "/tmp/linuxhome");
+        let _u = EnvGuard::unset("USERPROFILE");
+        let _x = EnvGuard::set("XDG_CACHE_HOME", "/custom/cache");
+        assert_eq!(cache_dir(), PathBuf::from("/custom/cache/fluxmirror"));
     }
 
     #[test]
