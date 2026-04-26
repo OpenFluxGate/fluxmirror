@@ -101,6 +101,10 @@ enum Cmd {
 
     /// 7-day rollup report (per-day totals + top files).
     Week(WeekCliArgs),
+
+    /// Single-agent filtered report. Takes a positional <name> plus an
+    /// optional --period (today | yesterday | week, default today).
+    Agent(AgentCliArgs),
 }
 
 #[derive(Args)]
@@ -236,6 +240,26 @@ struct WeekCliArgs {
     format: ReportFormat,
 }
 
+/// CLI shape for `fluxmirror agent`. Positional `name` plus optional
+/// `--period` selector. db / tz / lang share the merged-config default
+/// pattern with the other report subcommands.
+#[derive(Args)]
+struct AgentCliArgs {
+    /// Agent identifier — e.g. `claude-code`, `gemini-cli`, `qwen-code`.
+    name: String,
+    /// Period scope (today | yesterday | week). Default `today`.
+    #[arg(long, value_enum, default_value_t = cmd::report::agent::AgentPeriod::Today)]
+    period: cmd::report::agent::AgentPeriod,
+    #[arg(long)]
+    db: Option<PathBuf>,
+    #[arg(long)]
+    tz: Option<String>,
+    #[arg(long)]
+    lang: Option<String>,
+    #[arg(long, value_enum, default_value_t = ReportFormat::Human)]
+    format: ReportFormat,
+}
+
 #[derive(Copy, Clone, ValueEnum)]
 enum HookKind {
     Claude,
@@ -339,6 +363,22 @@ fn main() -> ExitCode {
                 tz,
                 lang,
                 format: args.format,
+            })
+        }
+        Cmd::Agent(args) => {
+            let cfg = Config::load().unwrap_or_default();
+            let db = args.db.unwrap_or_else(|| cfg.effective_db_path());
+            let tz = args.tz.unwrap_or(cfg.timezone);
+            let lang = args
+                .lang
+                .unwrap_or_else(|| cfg.language.as_str().to_string());
+            cmd::report::agent::run(cmd::report::agent::AgentArgs {
+                db,
+                tz,
+                lang,
+                format: args.format,
+                agent_name: args.name,
+                period: args.period,
             })
         }
     }

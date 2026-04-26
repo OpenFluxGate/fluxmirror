@@ -1,45 +1,4 @@
-description = "Single-agent filtered report. Usage: <claude-code|qwen-code|gemini-cli> [today|yesterday|week]"
+description = "Single-agent filtered report. Usage: <claude-code|qwen-code|gemini-cli> [--period today|yesterday|week]"
 prompt = """
-User arguments: {{args}}
-
-Parse {{args}}. The first token is the agent name (one of:
-`claude-code`, `gemini-cli`, `qwen-code`). The second optional token
-is the period (`today` | `yesterday` | `week`, default `today`).
-
-If no agent name is provided, list known agents and stop:
-
-!{fluxmirror sqlite --db "$(fluxmirror db-path)" "SELECT agent, COUNT(*) FROM agent_events WHERE ts >= datetime('now', '-7 days') GROUP BY agent ORDER BY COUNT(*) DESC"}
-
-Otherwise, raw FluxMirror data (the resolution honours the period
-argument; ignore the agent column for now and filter the agent rows
-yourself when summarising):
-
-!{$HOME/.gemini/extensions/fluxmirror/scripts/report-data.sh today}
-
-(For yesterday or week, ask the user to run /fluxmirror:yesterday or
-/fluxmirror:week — those run the data fetch with the right window.)
-
-Filter mentally to only the rows whose `agent` column matches the
-requested name. Then produce a single-agent profile:
-
-# Agent Report — `<AGENT_NAME>` (<PERIOD>: <RANGE_LABEL> <timezone>)
-
-## Profile
-- Total calls / Sessions / Dominant tool (% of calls) / Working
-  directories count
-
-## Key Activities
-- **[Objective]** — [lifecycle / effort one-liner with file/edit counts]
-
-## Tool Mix
-| Tool | Calls |
-|---|---|
-
-## Insights
-1–3 observed patterns scoped to this agent (busiest hour, focus level,
-single-shot vs fragmented sessions).
-
-If the agent has zero rows in the window, output (user language):
-en: "No activity for agent '<name>' in this period."
-ko: "'<name>' 에이전트의 해당 기간 활동 없음."
+!{fluxmirror agent {{args}}}
 """
