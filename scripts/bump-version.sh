@@ -42,6 +42,7 @@ cd "$repo_root"
 manifest_files=(
   gemini-extension/gemini-extension.json
   plugins/fluxmirror/.claude-plugin/plugin.json
+  plugins/fluxmirror/qwen-extension.json
   .claude-plugin/marketplace.json
   Cargo.toml
   Cargo.lock
@@ -66,7 +67,8 @@ trap 'rm -f "$tmp"' EXIT
 # Top-level .version field
 for f in \
     gemini-extension/gemini-extension.json \
-    plugins/fluxmirror/.claude-plugin/plugin.json
+    plugins/fluxmirror/.claude-plugin/plugin.json \
+    plugins/fluxmirror/qwen-extension.json
 do
   if [ -f "$f" ]; then
     jq --arg v "$v" '.version = $v' "$f" > "$tmp"
@@ -139,6 +141,7 @@ fi
 git add \
   gemini-extension/gemini-extension.json \
   plugins/fluxmirror/.claude-plugin/plugin.json \
+  plugins/fluxmirror/qwen-extension.json \
   .claude-plugin/marketplace.json \
   Cargo.toml
 if [ -n "$(git status --porcelain -- Cargo.lock 2>/dev/null)" ]; then
