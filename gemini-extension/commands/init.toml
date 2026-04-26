@@ -1,0 +1,53 @@
+description = "First-run init. Picks a wrapper engine and writes language/timezone defaults. Usage: [language <korean|english|japanese|chinese>] [timezone <KST|JST|PST|EST|UTC|Asia/Seoul|...>]"
+prompt = """
+User arguments: {{args}}
+
+Parse {{args}} for `language <value>` and/or `timezone <value>`. Both are
+optional — init works with neither.
+
+Language mapping (normalise to lowercase canonical):
+- korean / ko / kr / 한국어 → korean
+- english / en / 영어 → english
+- japanese / ja / 日本語 → japanese
+- chinese / zh / 中文 → chinese
+
+Timezone mapping (normalise to IANA):
+- KST / Korean / Korea → Asia/Seoul
+- JST / Tokyo / Japan → Asia/Tokyo
+- PST / Pacific / California → America/Los_Angeles
+- EST / Eastern / New York → America/New_York
+- UTC / GMT → UTC
+- Already-IANA values → use as-is
+
+The slash-command context cannot answer interactive prompts, so always
+run init with --non-interactive. Substitute the parsed values into
+NEW_LANG / NEW_TZ; leave empty for keys not given:
+
+```bash
+if ! command -v fluxmirror >/dev/null 2>&1; then
+  echo "fluxmirror binary not found on PATH. Install via the latest release first."
+  exit 0
+fi
+
+args=(init --non-interactive)
+if [ -n "<NEW_LANG>" ]; then args+=(--language "<NEW_LANG>"); fi
+if [ -n "<NEW_TZ>" ];   then args+=(--timezone "<NEW_TZ>"); fi
+
+fluxmirror "${args[@]}"
+echo
+echo "Resolved config:"
+fluxmirror config show
+echo
+echo "Health check:"
+fluxmirror doctor
+```
+
+Confirm in the resolved language (re-read after init):
+- en: "Initialized. language=<lang>, timezone=<tz>, wrapper=<kind>"
+- ko: "초기화 완료. 언어=<lang>, 시간대=<tz>, 래퍼=<kind>"
+- ja: "初期化しました。言語=<lang>, タイムゾーン=<tz>, ラッパー=<kind>"
+- zh: "初始化完成。语言=<lang>, 时区=<tz>, 包装器=<kind>"
+
+If `fluxmirror doctor` reported any `warn` or `fail` rows, list them
+verbatim under the confirmation.
+"""
