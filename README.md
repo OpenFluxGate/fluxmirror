@@ -221,6 +221,8 @@ CLIs:
 **Configuration**
 
 ```
+/fluxmirror:init              first-run interactive setup
+                              (language, timezone, wrapper engine)
 /fluxmirror:setup             configure language and timezone
 /fluxmirror:language          set output language
 /fluxmirror:timezone          set timezone
@@ -349,12 +351,13 @@ fluxmirror/
 │   └── source.yaml                        single source of truth for hooks.json
 ├── plugins/fluxmirror/                    Claude Code plugin (also used by Qwen)
 │   ├── .claude-plugin/plugin.json
+│   ├── qwen-extension.json                Qwen Code manifest (same dir is registered as a Qwen extension)
 │   ├── hooks/                             hooks.json (generated) + run-hook.sh wrapper
-│   └── commands/                          /fluxmirror:* slash commands (.md)
+│   └── commands/fluxmirror/*.md           /fluxmirror:* slash commands (Claude Code & Qwen Code)
 ├── gemini-extension/                      Gemini CLI extension
 │   ├── gemini-extension.json
 │   ├── hooks/                             hooks.json (generated) + run-hook.sh wrapper
-│   └── commands/                          /fluxmirror:* slash commands (.toml)
+│   └── commands/fluxmirror/*.toml         /fluxmirror:* slash commands (Gemini CLI)
 ├── docs/
 │   ├── architecture.md                    layered model + crate map + roadmap
 │   └── adr/000{1..4}*.md                  design decisions
@@ -362,7 +365,7 @@ fluxmirror/
 │   ├── verify-isolation.sh                JSONL + SQLite isolation verification
 │   ├── test-rust-hook.sh                  hook regression suite (parity test)
 │   ├── build-manifests.sh                 emit hooks.json from manifests/source.yaml (--check in CI)
-│   └── bump-version.sh                    release helper (sync workspace + 3 plugin manifests + tag)
+│   └── bump-version.sh                    release helper (sync workspace + 4 plugin manifests + tag)
 ├── .github/workflows/
 │   ├── test.yml                           CI on push/PR (3-OS matrix, manifest check, parity test)
 │   ├── release.yml                        CI on tag: gemini-extension archive + branch
@@ -392,14 +395,15 @@ Phase 0 removed.
 ## Releasing (maintainers)
 
 ```bash
-./scripts/bump-version.sh 0.6.0     # syncs workspace + 3 plugin manifests + commits + tags
+./scripts/bump-version.sh 0.6.0     # syncs workspace + 4 plugin manifests + commits + tags
 git push origin main v0.6.0
 ```
 
 `bump-version.sh` updates the workspace `Cargo.toml`
-`[workspace.package].version`, the three plugin manifests
+`[workspace.package].version`, the four plugin manifests
 (`gemini-extension/gemini-extension.json`,
-`plugins/fluxmirror/.claude-plugin/plugin.json`, and the nested
+`plugins/fluxmirror/.claude-plugin/plugin.json`,
+`plugins/fluxmirror/qwen-extension.json`, and the nested
 `.plugins[].version` in `.claude-plugin/marketplace.json`), and
 creates the matching annotated tag. It refuses to run on a dirty
 working tree, off `main`, or if the tag already exists. Pass

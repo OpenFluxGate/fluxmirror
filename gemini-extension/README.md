@@ -29,7 +29,7 @@ JSONL line fields:
 | `cwd`     | Working directory at time of call    |
 
 The Gemini extension uses `!{ ... }` shell interpolation in its
-`commands/*.toml` files; reports are produced by a small
+`commands/fluxmirror/*.toml` files; reports are produced by a small
 `scripts/report-data.sh` shell script that wraps the corresponding
 `fluxmirror` subcommands.
 

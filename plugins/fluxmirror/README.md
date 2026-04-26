@@ -53,6 +53,8 @@ accordingly.
 
 | File | Role |
 |---|---|
+| `.claude-plugin/plugin.json` | Claude Code plugin manifest |
+| `qwen-extension.json` | Qwen Code extension manifest (same directory is registered as both) |
 | `hooks/hooks.json` | PostToolUse → `wrappers/router.sh` (until init picks an explicit shim) |
 | `bin/` | Cache directory for the per-arch `fluxmirror` binary (auto-populated on first hook fire) |
 | `commands/fluxmirror/*.md` | `/fluxmirror:*` slash command surface |
@@ -118,7 +120,11 @@ first string-typed `tool_input` value.
 /fluxmirror:compare          today vs yesterday side-by-side
 /fluxmirror:agent <name>     single-agent filtered report
 /fluxmirror:agents           per-agent 7-day totals + dominant tools
+/fluxmirror:init             interactive first-run setup
+                             (language, timezone, wrapper engine)
 /fluxmirror:setup            configure language and timezone
+/fluxmirror:language         set output language
+/fluxmirror:timezone         set timezone
 /fluxmirror:config           show / get / set / explain config
 /fluxmirror:doctor           5-component health table
 ```
