@@ -1,0 +1,29 @@
+description = "Set fluxmirror output language. Usage: <korean|english|japanese|chinese>"
+prompt = """
+User argument: {{args}}
+
+If empty, print the current language and stop:
+
+!{fluxmirror config get language 2>/dev/null || echo unset}
+
+Otherwise normalise the argument with this mapping:
+- korean / ko / kr / 한국어 → korean
+- english / en / 영어 → english
+- japanese / ja / 日本語 → japanese
+- chinese / zh / 中文 → chinese
+
+Then update only the `language` key (`fluxmirror config set` preserves
+any existing keys atomically). Run this shell with NEW_LANG set to the
+normalised value:
+
+```bash
+fluxmirror config set language "<NEW_LANG>"
+fluxmirror config show
+```
+
+Confirm in the new language:
+- en: "Language set to: <value>"
+- ko: "언어 설정됨: <값>"
+- ja: "言語を設定しました: <値>"
+- zh: "已设置语言: <值>"
+"""

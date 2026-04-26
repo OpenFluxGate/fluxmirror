@@ -1,0 +1,42 @@
+description = "Configure fluxmirror. Usage: language <korean|english|japanese|chinese> timezone <KST|JST|PST|EST|UTC|Asia/Seoul|...>"
+prompt = """
+User arguments: {{args}}
+
+Parse {{args}} for `language <value>` and/or `timezone <value>`. Either,
+both, or neither may be present.
+
+Language mapping (normalise to lowercase canonical):
+- korean / ko / kr / 한국어 → korean
+- english / en / 영어 → english
+- japanese / ja / 日本語 → japanese
+- chinese / zh / 中文 → chinese
+
+Timezone mapping (normalise to IANA):
+- KST / Korean / Korea → Asia/Seoul
+- JST / Tokyo / Japan → Asia/Tokyo
+- PST / Pacific / California → America/Los_Angeles
+- EST / Eastern / New York → America/New_York
+- UTC / GMT → UTC
+- Already-IANA values (Asia/Seoul, America/New_York, …) → use as-is
+
+If both are missing, just print the current config and stop:
+
+!{fluxmirror config show 2>/dev/null || echo 'No config yet. Usage: /fluxmirror:setup language korean timezone KST'}
+
+Otherwise, merge the new values via `fluxmirror config set` (it
+preserves all unrelated keys atomically). Use this shell snippet
+(substitute the parsed values into NEW_LANG / NEW_TZ; leave empty for
+keys not given):
+
+```bash
+if [ -n "<NEW_LANG>" ]; then fluxmirror config set language "<NEW_LANG>"; fi
+if [ -n "<NEW_TZ>" ];   then fluxmirror config set timezone "<NEW_TZ>"; fi
+fluxmirror config show
+```
+
+Confirm in the saved language:
+- en: "Saved: language=<lang>, timezone=<tz>"
+- ko: "저장됨: 언어=<lang>, 시간대=<tz>"
+- ja: "保存しました: 言語=<lang>, タイムゾーン=<tz>"
+- zh: "已保存: 语言=<lang>, 时区=<tz>"
+"""

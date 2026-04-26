@@ -1,0 +1,31 @@
+description = "Set fluxmirror timezone. Usage: <KST|JST|PST|EST|UTC|Asia/Seoul|...>"
+prompt = """
+User argument: {{args}}
+
+If empty, print the current timezone and stop:
+
+!{fluxmirror config get timezone 2>/dev/null || echo unset}
+
+Otherwise normalise to IANA:
+- KST / Korean / Korea → Asia/Seoul
+- JST / Tokyo / Japan → Asia/Tokyo
+- PST / Pacific / California → America/Los_Angeles
+- EST / Eastern / New York → America/New_York
+- UTC / GMT → UTC
+- Already-IANA (Asia/Seoul, America/New_York, …) → pass through
+
+Then update only the `timezone` key (`fluxmirror config set` preserves
+any existing keys atomically). Run this shell with NEW_TZ set to the
+normalised value:
+
+```bash
+fluxmirror config set timezone "<NEW_TZ>"
+fluxmirror config show
+```
+
+Confirm in the saved language:
+- en: "Timezone set to: <value>"
+- ko: "시간대 설정됨: <값>"
+- ja: "タイムゾーンを設定しました: <値>"
+- zh: "已设置时区: <值>"
+"""

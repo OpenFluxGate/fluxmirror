@@ -1,0 +1,25 @@
+description = "Per-agent quick stats for the past 7 days (all agents at a glance)"
+prompt = """
+Per-agent 7-day raw stats:
+
+!{$HOME/.gemini/extensions/fluxmirror/scripts/report-data.sh agents}
+
+Produce a one-page roster (translate to user language, default English):
+
+# Agent Roster (last 7 days, <timezone>)
+
+## Per-Agent Summary
+| Agent | Calls | Sessions | Active Days | Dominant Tool |
+|---|---|---|---|---|
+| (one row per agent from the per-agent table) |
+
+## Insights
+1-3 lines: who's the busiest, who's a one-off, any handoff patterns
+visible across the per-agent dominant-tool list.
+
+If no agent has any rows in the window, output (in user language):
+- en: "No agent activity in the last 7 days."
+- ko: "지난 7일간 에이전트 활동 없음."
+- ja: "過去7日間にエージェントの活動はありません。"
+- zh: "过去7天内无代理活动。"
+"""
