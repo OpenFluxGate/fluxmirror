@@ -72,16 +72,43 @@ Per-OS default DB path (created lazily on first write):
 
 ## Requirements
 
-For the wrapper layer, **one** of the following per host (already
-present on every supported OS):
+The Rust binary itself has **zero runtime dependencies** — SQLite is
+statically linked. The only requirements are (1) an OS-provided shell
+runtime for the wrapper layer, and (2) at least one supported agent
+CLI to actually capture hooks from.
 
-- `bash` + `curl` — macOS, Linux, WSL, Git-Bash on Windows
-- `node` ≥ 18 — any host with Node, including PowerShell-only Windows
-- `cmd.exe` + PowerShell — native Windows without Node
+### End user (just installing the plugin)
 
-Network access on first hook invocation (one-time ~1-2 s download per
-machine, per major version). The Rust binary itself has **zero runtime
-dependencies** — SQLite is statically linked.
+| What | Minimum version | Where it comes from |
+|---|---|---|
+| OS | macOS 11+ / Linux glibc 2.17+ / Windows 10+ (incl. WSL) | — |
+| Shell runtime (one of) | `bash` + `curl` ≥ 7.50 **or** `node` ≥ 18 **or** `cmd.exe` + PowerShell ≥ 5.1 | All preinstalled on every supported OS |
+| Network access | One-time ~3 MB download on first hook fire | github.com/OpenFluxGate/fluxmirror/releases |
+| Disk | ~3 MB binary + bounded SQLite DB | `~/Library/Application Support/fluxmirror/` (macOS), `${XDG_DATA_HOME}/fluxmirror/` (Linux), `%APPDATA%\fluxmirror\` (Windows) |
+| At least one agent CLI | Claude Code, Qwen Code, or Gemini CLI | See per-agent install below |
+
+### Per-agent CLI (install whichever you use — at least one)
+
+| Agent | Install | Hook event |
+|---|---|---|
+| Claude Code | https://claude.ai/code | `PostToolUse` |
+| Qwen Code | `npm install -g @qwen-code/qwen-code` | `PostToolUse` (reuses Claude plugin) |
+| Gemini CLI | `npm install -g @google/gemini-cli` | `AfterTool` |
+| Claude Desktop (optional, MCP audit) | https://claude.ai/desktop | stdio MCP relay via `fluxmirror proxy` |
+
+### Developer (building from source)
+
+| What | Minimum version | Notes |
+|---|---|---|
+| Rust toolchain | stable, edition 2021 | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
+| C compiler | platform default | needed by `rusqlite` (bundled SQLite) — Xcode CLT on macOS, gcc on Linux, MSVC on Windows |
+| `bash` + `node` | any | for `bash -n wrappers/shim.sh` and `node --check wrappers/shim.mjs` lint steps |
+| `gh` CLI | optional | release tag pushes |
+
+### Intentionally NOT required
+
+JVM, Gradle, Java, Python, jq — all removed in earlier phases. Neither
+end users nor developers need to install any of them.
 
 ## Install
 
