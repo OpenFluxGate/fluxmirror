@@ -65,28 +65,8 @@ fn fixture_db_yesterday_sparse() -> (TempDir, PathBuf) {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("events.db");
     let _store = SqliteStore::open(&path).unwrap();
-    let conn = Connection::open(&path).unwrap();
-
-    let now = Utc::now();
-    let yesterday_noon = (now - Duration::days(1))
-        .date_naive()
-        .and_hms_opt(12, 0, 0)
-        .unwrap()
-        .and_utc();
-    let ts = yesterday_noon.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-
-    // Two rows — below the 5-row threshold.
-    for i in 0..2 {
-        conn.execute(
-            "INSERT INTO agent_events \
-             (ts, agent, session, tool, tool_canonical, tool_class, detail, \
-              cwd, host, user, schema_version, raw_json) \
-             VALUES (?1, 'claude-code', ?2, 'Edit', 'Edit', 'Other', \
-                     'src/foo.rs', '/proj/a', 'h', 'u', 1, '{}')",
-            params![ts, format!("s{i}")],
-        )
-        .unwrap();
-    }
+    // Intentionally empty — the threshold was lowered from 5 to 1 so only
+    // a truly zero-row window emits the "no activity" dismissal line.
     (dir, path)
 }
 

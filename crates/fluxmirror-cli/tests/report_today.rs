@@ -90,34 +90,14 @@ fn fixture_db_busy() -> (TempDir, PathBuf) {
     (dir, path)
 }
 
-/// Two-row fixture used to exercise the "limited activity" branch.
+/// Empty-DB fixture used to exercise the "no activity" branch.
+/// The threshold was lowered from 5 to 1 so any non-empty window renders
+/// the full report; only a truly empty window emits the dismissal line.
 fn fixture_db_sparse() -> (TempDir, PathBuf) {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("events.db");
     let _store = SqliteStore::open(&path).unwrap();
-    let conn = Connection::open(&path).unwrap();
-
-    let now = Utc::now();
-    let today_noon = now
-        .date_naive()
-        .and_hms_opt(12, 0, 0)
-        .unwrap()
-        .and_utc();
-    let ts = today_noon
-        .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-
-    for i in 0..2 {
-        conn.execute(
-            "INSERT INTO agent_events \
-             (ts, agent, session, tool, tool_canonical, tool_class, detail, \
-              cwd, host, user, schema_version, raw_json) \
-             VALUES (?1, 'claude-code', ?2, 'Edit', 'Edit', 'Other', \
-                     'src/foo.rs', '/proj/a', 'h', 'u', 1, '{}')",
-            params![ts, format!("s{i}")],
-        )
-        .unwrap();
-    }
-
+    // Intentionally empty — no rows inserted.
     (dir, path)
 }
 

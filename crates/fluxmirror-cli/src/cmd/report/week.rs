@@ -48,8 +48,9 @@ const DAY_BAR_WIDTH: u32 = 30;
 /// the cross-project insight.
 const CROSS_PROJECT_CWD_MIN_CALLS: u64 = 5;
 /// Below this number of total events, emit the "limited activity" line
-/// and exit 0.
-const LIMITED_ACTIVITY_THRESHOLD: u64 = 5;
+/// and exit 0. Threshold is 1 so any non-empty window renders the full
+/// report; only true zero-row windows get the localised "no activity" line.
+const LIMITED_ACTIVITY_THRESHOLD: u64 = 1;
 
 /// CLI args for the week subcommand.
 pub struct WeekArgs {
@@ -689,10 +690,10 @@ mod tests {
     }
 
     #[test]
-    fn render_human_short_window_emits_no_data_line() {
+    fn render_human_empty_window_emits_no_data_line() {
         let lp = pack("english");
         let stats = WeekStats {
-            total_events: 2,
+            total_events: 0,
             ..Default::default()
         };
         let s = render_human(

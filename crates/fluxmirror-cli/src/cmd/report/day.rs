@@ -41,8 +41,9 @@ const HOUR_BAR_WIDTH: u32 = 30;
 /// Truncation length for shell-command detail strings.
 const SHELL_DETAIL_MAX_CHARS: usize = 80;
 /// Below this number of total events, emit the "limited activity" line
-/// and exit 0.
-pub(crate) const LIMITED_ACTIVITY_THRESHOLD: u64 = 5;
+/// and exit 0. Threshold is 1 so any non-empty window renders the full
+/// report; only true zero-row windows get the localised "no activity" line.
+pub(crate) const LIMITED_ACTIVITY_THRESHOLD: u64 = 1;
 /// A working directory needs at least this many calls to count toward
 /// the "multi-project day" insight.
 const MULTI_PROJECT_CWD_MIN_CALLS: u64 = 5;
@@ -689,10 +690,10 @@ mod tests {
     }
 
     #[test]
-    fn render_human_short_window_emits_no_data_line() {
+    fn render_human_empty_window_emits_no_data_line() {
         let lp = pack("english");
         let day = DayStats {
-            total_events: 2,
+            total_events: 0,
             ..Default::default()
         };
         let s = render_human(

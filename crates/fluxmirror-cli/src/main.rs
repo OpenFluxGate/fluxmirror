@@ -283,10 +283,16 @@ struct AgentCliArgs {
 
 /// CLI shape for `fluxmirror about`. The DB path is reported but not
 /// queried — the override exists so tests can pin a deterministic path.
+/// `--tz` is accepted for invocation-pattern consistency with the other
+/// six reports but has no effect inside `about` (no time-window data).
 #[derive(Args)]
 struct AboutCliArgs {
     #[arg(long)]
     db: Option<PathBuf>,
+    /// IANA timezone (accepted for flag uniformity; ignored by about).
+    #[arg(long)]
+    tz: Option<String>,
+    /// Output language: english | korean | japanese | chinese.
     #[arg(long)]
     lang: Option<String>,
     #[arg(long, value_enum, default_value_t = ReportFormat::Human)]
@@ -444,6 +450,9 @@ fn main() -> ExitCode {
             let lang = args
                 .lang
                 .unwrap_or_else(|| cfg.language.as_str().to_string());
+            // `--tz` is accepted for flag uniformity with the other reports
+            // but has no effect inside `about` (no time-window data).
+            let _tz = args.tz;
             cmd::report::about::run(cmd::report::about::AboutArgs {
                 db: args.db,
                 lang,
