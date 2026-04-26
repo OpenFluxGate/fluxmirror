@@ -1,41 +1,4 @@
 description = "Compare today vs yesterday side-by-side from FluxMirror SQLite"
 prompt = """
-TODAY data:
-
-!{$HOME/.gemini/extensions/fluxmirror/scripts/report-data.sh today}
-
-YESTERDAY data:
-
-!{$HOME/.gemini/extensions/fluxmirror/scripts/report-data.sh yesterday}
-
-Produce a side-by-side comparison report (translate to user language,
-default English):
-
-# Today vs Yesterday (<TODAY> vs <YEST> <timezone>)
-
-## Side-by-side
-| | Yesterday (<date>) | Today (<date>) |
-|---|---|---|
-| Calls | N | N |
-| Sessions | N | N |
-| Agents | comma-list | comma-list |
-| Primary cwd | … | … |
-| Top files | … | … |
-| MCP methods | top-3 or "—" | top-3 or "—" |
-
-## What's new today
-- Files / themes present today but not yesterday.
-
-## What continued
-- Files present both days (multi-day work).
-
-## What was dropped
-- Yesterday-only files (finished or paused).
-
-## Insights
-1-3 lines on effort shift, cwd switch, lifecycle change, agent shift
-(e.g., yesterday all Claude, today 50/50 Claude/Gemini).
-
-If either day has fewer than 5 events, just say so in the user's
-language and only show the populated side.
+!{fluxmirror compare}
 """

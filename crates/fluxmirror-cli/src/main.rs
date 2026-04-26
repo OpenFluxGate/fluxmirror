@@ -108,6 +108,9 @@ enum Cmd {
 
     /// Project blurb + slash-command index + data paths. No DB query.
     About(AboutCliArgs),
+
+    /// Today vs yesterday side-by-side comparison.
+    Compare(CompareCliArgs),
 }
 
 #[derive(Args)]
@@ -275,6 +278,21 @@ struct AboutCliArgs {
     format: ReportFormat,
 }
 
+/// CLI shape for `fluxmirror compare`. Same defaulting pattern as the
+/// day reports — the binary calls today_range and day_range(-1)
+/// internally to fetch both windows.
+#[derive(Args)]
+struct CompareCliArgs {
+    #[arg(long)]
+    db: Option<PathBuf>,
+    #[arg(long)]
+    tz: Option<String>,
+    #[arg(long)]
+    lang: Option<String>,
+    #[arg(long, value_enum, default_value_t = ReportFormat::Human)]
+    format: ReportFormat,
+}
+
 #[derive(Copy, Clone, ValueEnum)]
 enum HookKind {
     Claude,
@@ -403,6 +421,20 @@ fn main() -> ExitCode {
                 .unwrap_or_else(|| cfg.language.as_str().to_string());
             cmd::report::about::run(cmd::report::about::AboutArgs {
                 db: args.db,
+                lang,
+                format: args.format,
+            })
+        }
+        Cmd::Compare(args) => {
+            let cfg = Config::load().unwrap_or_default();
+            let db = args.db.unwrap_or_else(|| cfg.effective_db_path());
+            let tz = args.tz.unwrap_or(cfg.timezone);
+            let lang = args
+                .lang
+                .unwrap_or_else(|| cfg.language.as_str().to_string());
+            cmd::report::compare::run(cmd::report::compare::CompareArgs {
+                db,
+                tz,
                 lang,
                 format: args.format,
             })

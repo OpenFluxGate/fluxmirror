@@ -129,6 +129,35 @@ pub struct LangPack {
     pub about_db_label: &'static str,
     /// Label preceding the log file: "Log file:".
     pub about_log_label: &'static str,
+
+    // ----- compare report ---------------------------------------------
+    /// "Today vs Yesterday" — H1 of the compare report.
+    pub compare_title: &'static str,
+    /// Single-line message when both days are below the limited-activity
+    /// threshold (rendered alone with no body).
+    pub compare_no_data: &'static str,
+    /// Three column headers: Metric | Today | Yesterday | Δ.
+    /// We carry four entries instead of three because the table has a
+    /// trailing delta column.
+    pub compare_columns: [&'static str; 4],
+    /// Six row labels for the comparison metrics, in render order:
+    /// total calls, edit count, read count, shell count, distinct files,
+    /// distinct cwds.
+    pub compare_metric_labels: [&'static str; 6],
+    /// Insight phrasing for the calls-trend rule. Placeholders:
+    /// `{direction}` (an up/down indicator string from the lang pack)
+    /// and `{pct}` (absolute percentage).
+    pub compare_insight_calls_trend: &'static str,
+    /// Insight phrasing when both days have zero events.
+    pub compare_insight_both_quiet: &'static str,
+    /// Insight phrasing when only today has data: `{n}` is today's count.
+    pub compare_insight_only_today: &'static str,
+    /// Insight phrasing when only yesterday has data: `{n}` yesterday's count.
+    pub compare_insight_only_yesterday: &'static str,
+    /// Word for "up" / "increase".
+    pub compare_word_up: &'static str,
+    /// Word for "down" / "decrease".
+    pub compare_word_down: &'static str,
 }
 
 const ENGLISH: LangPack = LangPack {
@@ -184,6 +213,23 @@ const ENGLISH: LangPack = LangPack {
     about_paths_heading: "Where data lives",
     about_db_label: "Database",
     about_log_label: "Log file",
+    compare_title: "Today vs Yesterday",
+    compare_no_data: "Not enough activity to compare today and yesterday.",
+    compare_columns: ["Metric", "Today", "Yesterday", "Δ"],
+    compare_metric_labels: [
+        "Total calls",
+        "Edits",
+        "Reads",
+        "Shell commands",
+        "Distinct files",
+        "Distinct working dirs",
+    ],
+    compare_insight_calls_trend: "Calls: today is {direction} {pct}% vs yesterday.",
+    compare_insight_both_quiet: "Both today and yesterday were quiet.",
+    compare_insight_only_today: "Yesterday had no activity; today has {n} calls.",
+    compare_insight_only_yesterday: "Today has no activity yet; yesterday had {n} calls.",
+    compare_word_up: "up",
+    compare_word_down: "down",
 };
 
 const KOREAN: LangPack = LangPack {
@@ -239,6 +285,23 @@ const KOREAN: LangPack = LangPack {
     about_paths_heading: "데이터 위치",
     about_db_label: "데이터베이스",
     about_log_label: "로그 파일",
+    compare_title: "오늘 vs 어제",
+    compare_no_data: "오늘과 어제 모두 활동이 부족해 비교할 수 없습니다.",
+    compare_columns: ["항목", "오늘", "어제", "Δ"],
+    compare_metric_labels: [
+        "총 호출",
+        "편집",
+        "읽기",
+        "셸 명령",
+        "고유 파일",
+        "고유 작업 디렉터리",
+    ],
+    compare_insight_calls_trend: "호출: 오늘이 어제 대비 {pct}% {direction}.",
+    compare_insight_both_quiet: "오늘과 어제 모두 활동이 적습니다.",
+    compare_insight_only_today: "어제는 활동 없음, 오늘 호출 {n}회.",
+    compare_insight_only_yesterday: "오늘 아직 활동 없음, 어제 호출 {n}회.",
+    compare_word_up: "증가",
+    compare_word_down: "감소",
 };
 
 const JAPANESE: LangPack = LangPack {
@@ -294,6 +357,23 @@ const JAPANESE: LangPack = LangPack {
     about_paths_heading: "データの保存場所",
     about_db_label: "データベース",
     about_log_label: "ログファイル",
+    compare_title: "本日 vs 昨日",
+    compare_no_data: "本日と昨日の活動が少なく比較できません。",
+    compare_columns: ["項目", "本日", "昨日", "Δ"],
+    compare_metric_labels: [
+        "総呼び出し",
+        "編集",
+        "読取",
+        "シェルコマンド",
+        "ユニークファイル",
+        "ユニーク作業ディレクトリ",
+    ],
+    compare_insight_calls_trend: "呼び出し: 昨日比 {pct}% {direction}。",
+    compare_insight_both_quiet: "本日と昨日はどちらも活動が少なめです。",
+    compare_insight_only_today: "昨日は活動なし。本日 {n} 回。",
+    compare_insight_only_yesterday: "本日まだ活動なし。昨日は {n} 回。",
+    compare_word_up: "増加",
+    compare_word_down: "減少",
 };
 
 const CHINESE: LangPack = LangPack {
@@ -349,6 +429,23 @@ const CHINESE: LangPack = LangPack {
     about_paths_heading: "数据位置",
     about_db_label: "数据库",
     about_log_label: "日志文件",
+    compare_title: "今日 vs 昨日",
+    compare_no_data: "今日和昨日活动均较少,无法比较。",
+    compare_columns: ["指标", "今日", "昨日", "Δ"],
+    compare_metric_labels: [
+        "总调用",
+        "编辑",
+        "读取",
+        "Shell 命令",
+        "独立文件",
+        "独立工作目录",
+    ],
+    compare_insight_calls_trend: "调用: 今日相比昨日 {pct}% {direction}。",
+    compare_insight_both_quiet: "今日和昨日活动均较少。",
+    compare_insight_only_today: "昨日无活动,今日 {n} 次调用。",
+    compare_insight_only_yesterday: "今日尚无活动,昨日 {n} 次调用。",
+    compare_word_up: "上升",
+    compare_word_down: "下降",
 };
 
 /// Resolve a language code (or canonical name) to a `LangPack`.
