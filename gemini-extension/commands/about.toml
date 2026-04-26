@@ -4,7 +4,7 @@ You are summarizing the FluxMirror Gemini CLI extension for the user.
 
 Available sub-commands shipped with this extension:
 
-!{ls "$(dirname "$0")/commands/fluxmirror"/*.toml 2>/dev/null | xargs -n1 basename | sed 's/\\.toml$//' | sort | sed 's|^|  /fluxmirror:|'}
+!{ls "$(dirname "$0")/commands"/*.toml 2>/dev/null | xargs -n1 basename | sed 's/\\.toml$//' | sort | sed 's|^|  /fluxmirror:|'}
 
 Write a single flowing explanation under 200 words covering:
 

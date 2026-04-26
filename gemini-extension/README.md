@@ -64,7 +64,7 @@ Pinning a specific release: pass `--ref vX.Y.Z` to install at that tag.
 | `gemini-extension.json` | Extension manifest |
 | `hooks/hooks.json` | AfterTool → `wrappers/router.sh` (until init picks an explicit shim) |
 | `bin/` | Cache directory for the per-arch `fluxmirror` binary (auto-populated on first hook fire) |
-| `commands/fluxmirror/*.toml` | `/fluxmirror:*` slash command surface |
+| `commands/*.toml` | `/fluxmirror:*` slash command surface |
 | `scripts/report-data.sh` | Thin shell wrapper used by the slash commands |
 
 ## Wrapper selection
