@@ -1,4 +1,7 @@
 description = "Single-agent filtered report. Usage: <claude-code|qwen-code|gemini-cli> [--period today|yesterday|week]"
 prompt = """
 !{fluxmirror agent {{args}}}
+
+Now add a 2-3 sentence summary of what this agent's work looked like.
+Be concrete. Use the user's preferred language.
 """

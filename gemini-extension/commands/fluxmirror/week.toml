@@ -1,4 +1,8 @@
 description = "Summarize the last 7 days of AI agent activity from FluxMirror SQLite"
 prompt = """
 !{fluxmirror week}
+
+Now add a 2-3 sentence business summary of what was shipped this week.
+Base it on the "Shipped this week" commit-narrative section and the heaviest
+activity clusters above. Be concrete. Use the user's preferred language.
 """
