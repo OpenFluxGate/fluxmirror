@@ -10,10 +10,12 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-mod cmd;
+use fluxmirror_cli::cmd;
 
 use cmd::config::ConfigOp;
+use cmd::report::ReportFormat;
 use cmd::wrapper::WrapperOp;
+use fluxmirror_core::Config;
 
 #[derive(Parser)]
 #[command(
@@ -87,6 +89,9 @@ enum Cmd {
 
     /// Run a SQL query against the events DB and print rows pipe-separated.
     Sqlite(SqliteArgs),
+
+    /// Per-agent quick stats for the past 7 days.
+    Agents(AgentsCliArgs),
 }
 
 #[derive(Args)]
@@ -144,6 +149,32 @@ struct SqliteArgs {
     sql: String,
 }
 
+/// CLI shape for `fluxmirror agents`. Defaults are pulled from the
+/// merged `Config` at dispatch time so the user's `config set language`
+/// / `config set timezone` settings flow through without an explicit
+/// flag on every invocation.
+#[derive(Args)]
+struct AgentsCliArgs {
+    /// Path to the events database. Defaults to the merged config's
+    /// effective DB path (which honours `FLUXMIRROR_DB` and
+    /// `storage.path`).
+    #[arg(long)]
+    db: Option<PathBuf>,
+    /// IANA timezone (e.g. `Asia/Seoul`). Defaults to the configured
+    /// timezone.
+    #[arg(long)]
+    tz: Option<String>,
+    /// Output language: english | korean | japanese | chinese.
+    /// Defaults to the configured language.
+    #[arg(long)]
+    lang: Option<String>,
+    /// Output format. M1 ships `human`; `json` and `markdown` are
+    /// reserved on the surface and return exit code 2 with a
+    /// "not yet implemented" line on stderr.
+    #[arg(long, value_enum, default_value_t = ReportFormat::Human)]
+    format: ReportFormat,
+}
+
 #[derive(Copy, Clone, ValueEnum)]
 enum HookKind {
     Claude,
@@ -190,5 +221,22 @@ fn main() -> ExitCode {
             cmd::per_day_files::run(args.db, args.tz, args.start, args.end)
         }
         Cmd::Sqlite(args) => cmd::sqlite::run(args.db, args.sql),
+        Cmd::Agents(args) => {
+            // Resolve defaults via the merged config so the user's
+            // `config set language` / `config set timezone` settings
+            // win automatically.
+            let cfg = Config::load().unwrap_or_default();
+            let db = args.db.unwrap_or_else(|| cfg.effective_db_path());
+            let tz = args.tz.unwrap_or(cfg.timezone);
+            let lang = args
+                .lang
+                .unwrap_or_else(|| cfg.language.as_str().to_string());
+            cmd::report::agents::run(cmd::report::agents::AgentsArgs {
+                db,
+                tz,
+                lang,
+                format: args.format,
+            })
+        }
     }
 }

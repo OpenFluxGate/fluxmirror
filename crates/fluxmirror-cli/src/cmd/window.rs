@@ -14,10 +14,45 @@
 
 use std::process::ExitCode;
 
-use chrono::{Duration, NaiveDate, SecondsFormat, TimeZone, Utc};
+use chrono::{DateTime, Duration, NaiveDate, SecondsFormat, TimeZone, Utc};
 use chrono_tz::Tz;
 
 use super::util::{err_exit2, parse_tz};
+
+/// Resolve the inclusive 7-day local window ending today in `tz`.
+///
+/// Returns `(week_start_local, week_end_local, start_utc, end_utc)`:
+/// - `week_start_local` is the first local date in the inclusive window.
+/// - `week_end_local` is today's local date (the inclusive last day).
+/// - `start_utc` / `end_utc` are the half-open `[start, end)` UTC bounds
+///   that align with `local_midnight(start_date)` and
+///   `local_midnight(today + 1)` respectively.
+///
+/// Errors (DST gap with no resolvable midnight) propagate as a string
+/// so the caller can frame them in its own command name.
+pub(crate) fn week_range(
+    tz: Tz,
+) -> Result<(NaiveDate, NaiveDate, DateTime<Utc>, DateTime<Utc>), String> {
+    let now_local = Utc::now().with_timezone(&tz);
+    let today = now_local.date_naive();
+    let tomorrow = today + Duration::days(1);
+    let start_date = tomorrow - Duration::days(7);
+
+    let end_local = local_midnight(tz, tomorrow).ok_or_else(|| {
+        format!("cannot resolve local midnight for {tomorrow} in {tz}")
+    })?;
+    let start_local = local_midnight(tz, start_date).ok_or_else(|| {
+        format!("cannot resolve local midnight for {start_date} in {tz}")
+    })?;
+
+    let week_end_local = tomorrow - Duration::days(1);
+    Ok((
+        start_date,
+        week_end_local,
+        start_local.with_timezone(&Utc),
+        end_local.with_timezone(&Utc),
+    ))
+}
 
 pub fn run(tz: String, period: String) -> ExitCode {
     let tz = match parse_tz(&tz) {
@@ -79,33 +114,10 @@ fn emit_day(tz: Tz, day_offset: i64) -> ExitCode {
 /// dates use `start` and `end - 1 day` so the range reads as a closed
 /// interval to the user.
 fn emit_week(tz: Tz) -> ExitCode {
-    let now_local = Utc::now().with_timezone(&tz);
-    let today = now_local.date_naive();
-    let tomorrow = today + Duration::days(1);
-
-    let end_local = match local_midnight(tz, tomorrow) {
-        Some(t) => t,
-        None => {
-            return err_exit2(format!(
-                "fluxmirror window: cannot resolve local midnight for {tomorrow} in {tz}"
-            ))
-        }
+    let (start_date, week_end_local, start_utc, end_utc) = match week_range(tz) {
+        Ok(r) => r,
+        Err(e) => return err_exit2(format!("fluxmirror window: {e}")),
     };
-    // start is `end - 7 days`. We compute it as midnight on `tomorrow - 7`.
-    let start_date = tomorrow - Duration::days(7);
-    let start_local = match local_midnight(tz, start_date) {
-        Some(t) => t,
-        None => {
-            return err_exit2(format!(
-                "fluxmirror window: cannot resolve local midnight for {start_date} in {tz}"
-            ))
-        }
-    };
-
-    let start_utc = start_local.with_timezone(&Utc);
-    let end_utc = end_local.with_timezone(&Utc);
-
-    let week_end_local = tomorrow - Duration::days(1);
 
     println!(
         "{ws} {we} {start} {end} {start_ms} {end_ms}",
