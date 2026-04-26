@@ -12,30 +12,18 @@ the output template using the user's preferred language (read
 ## Step 0: Load settings
 
 ```bash
-CONFIG_FILE="$HOME/.fluxmirror/config.json"
-
-USER_LANG=""
-USER_TZ=""
-
-if [ -f "$CONFIG_FILE" ] && command -v jq >/dev/null 2>&1; then
-  USER_LANG=$(jq -r '.language // empty' "$CONFIG_FILE")
-  USER_TZ=$(jq -r '.timezone // empty' "$CONFIG_FILE")
+if command -v fluxmirror >/dev/null 2>&1; then
+  USER_LANG=$(fluxmirror config get language 2>/dev/null || echo english)
+  USER_TZ=$(fluxmirror config get timezone 2>/dev/null || echo UTC)
+  DB=$(fluxmirror db-path)
+else
+  # legacy fallback for users on older versions
+  USER_LANG=english
+  USER_TZ="${TZ:-UTC}"
+  DB="${FLUXMIRROR_DB:-$HOME/Library/Application Support/fluxmirror/events.db}"
 fi
-
-if [ -z "$USER_LANG" ]; then
-  SYS=$(echo "${LANG:-en_US.UTF-8}" | cut -d_ -f1)
-  case "$SYS" in
-    ko) USER_LANG="korean" ;;
-    ja) USER_LANG="japanese" ;;
-    zh) USER_LANG="chinese" ;;
-    *)  USER_LANG="english" ;;
-  esac
-fi
-
-if [ -z "$USER_TZ" ]; then
-  USER_TZ=$(readlink /etc/localtime 2>/dev/null | sed 's|.*/zoneinfo/||')
-  [ -z "$USER_TZ" ] && USER_TZ="UTC"
-fi
+if [ -z "$USER_LANG" ]; then USER_LANG=english; fi
+if [ -z "$USER_TZ" ]; then USER_TZ=UTC; fi
 
 echo "Settings: language=$USER_LANG timezone=$USER_TZ"
 ```
@@ -43,27 +31,17 @@ echo "Settings: language=$USER_LANG timezone=$USER_TZ"
 ## Step 1: Extract both windows
 
 ```bash
-DB="${FLUXMIRROR_DB:-$HOME/Library/Application Support/fluxmirror/events.db}"
-
 if [ ! -f "$DB" ]; then
   echo "FluxMirror DB not found. Run an agent session first."
   exit 0
 fi
 
-read TODAY_LOCAL YEST_LOCAL TODAY_START TODAY_END YEST_START YEST_END TODAY_START_MS TODAY_END_MS YEST_START_MS YEST_END_MS <<EOF
-$(python3 -c "
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
-tz=ZoneInfo('$USER_TZ')
-now=datetime.now(tz)
-today_start=now.replace(hour=0,minute=0,second=0,microsecond=0)
-today_end=today_start+timedelta(days=1)
-yest_start=today_start-timedelta(days=1)
-yest_end=today_start
-def u(d): return d.astimezone(ZoneInfo('UTC')).strftime('%Y-%m-%dT%H:%M:%SZ')
-def ms(d): return int(d.astimezone(ZoneInfo('UTC')).timestamp()*1000)
-print(today_start.strftime('%Y-%m-%d'), yest_start.strftime('%Y-%m-%d'), u(today_start), u(today_end), u(yest_start), u(yest_end), ms(today_start), ms(today_end), ms(yest_start), ms(yest_end))
-")
+read TODAY_LOCAL TODAY_START TODAY_END TODAY_START_MS TODAY_END_MS <<EOF
+$(fluxmirror window --tz "$USER_TZ" --period today)
+EOF
+
+read YEST_LOCAL YEST_START YEST_END YEST_START_MS YEST_END_MS <<EOF
+$(fluxmirror window --tz "$USER_TZ" --period yesterday)
 EOF
 
 echo "=== Today ($TODAY_LOCAL): $TODAY_START to $TODAY_END ==="
@@ -74,55 +52,47 @@ WRITE_TOOLS="('Edit','Write','MultiEdit','edit_file','write_file','replace')"
 
 echo ""
 echo "=== TODAY: per-agent calls ==="
-sqlite3 "$DB" "SELECT agent, COUNT(*) FROM agent_events WHERE ts >= '$TODAY_START' AND ts < '$TODAY_END' GROUP BY agent ORDER BY COUNT(*) DESC"
+fluxmirror sqlite --db "$DB" "SELECT agent, COUNT(*) FROM agent_events WHERE ts >= '$TODAY_START' AND ts < '$TODAY_END' GROUP BY agent ORDER BY COUNT(*) DESC"
 
 echo ""
 echo "=== YESTERDAY: per-agent calls ==="
-sqlite3 "$DB" "SELECT agent, COUNT(*) FROM agent_events WHERE ts >= '$YEST_START' AND ts < '$YEST_END' GROUP BY agent ORDER BY COUNT(*) DESC"
+fluxmirror sqlite --db "$DB" "SELECT agent, COUNT(*) FROM agent_events WHERE ts >= '$YEST_START' AND ts < '$YEST_END' GROUP BY agent ORDER BY COUNT(*) DESC"
 
 echo ""
 echo "=== TODAY: edited files ==="
-sqlite3 "$DB" "SELECT detail, COUNT(*) FROM agent_events WHERE ts >= '$TODAY_START' AND ts < '$TODAY_END' AND tool IN $WRITE_TOOLS GROUP BY detail ORDER BY COUNT(*) DESC LIMIT 15"
+fluxmirror sqlite --db "$DB" "SELECT detail, COUNT(*) FROM agent_events WHERE ts >= '$TODAY_START' AND ts < '$TODAY_END' AND tool IN $WRITE_TOOLS GROUP BY detail ORDER BY COUNT(*) DESC LIMIT 15"
 
 echo ""
 echo "=== YESTERDAY: edited files ==="
-sqlite3 "$DB" "SELECT detail, COUNT(*) FROM agent_events WHERE ts >= '$YEST_START' AND ts < '$YEST_END' AND tool IN $WRITE_TOOLS GROUP BY detail ORDER BY COUNT(*) DESC LIMIT 15"
+fluxmirror sqlite --db "$DB" "SELECT detail, COUNT(*) FROM agent_events WHERE ts >= '$YEST_START' AND ts < '$YEST_END' AND tool IN $WRITE_TOOLS GROUP BY detail ORDER BY COUNT(*) DESC LIMIT 15"
 
 echo ""
 echo "=== Continued vs new (today's edited files seen yesterday too) ==="
-sqlite3 "$DB" "
-WITH today_files AS (SELECT DISTINCT detail FROM agent_events WHERE ts >= '$TODAY_START' AND ts < '$TODAY_END' AND tool IN $WRITE_TOOLS),
-     yest_files  AS (SELECT DISTINCT detail FROM agent_events WHERE ts >= '$YEST_START' AND ts < '$YEST_END' AND tool IN $WRITE_TOOLS)
-SELECT 'continued: ' || detail FROM today_files WHERE detail IN (SELECT detail FROM yest_files)
-UNION ALL
-SELECT 'new today: ' || detail FROM today_files WHERE detail NOT IN (SELECT detail FROM yest_files)
-UNION ALL
-SELECT 'dropped: '   || detail FROM yest_files  WHERE detail NOT IN (SELECT detail FROM today_files)
-ORDER BY 1"
+fluxmirror sqlite --db "$DB" "WITH today_files AS (SELECT DISTINCT detail FROM agent_events WHERE ts >= '$TODAY_START' AND ts < '$TODAY_END' AND tool IN $WRITE_TOOLS), yest_files AS (SELECT DISTINCT detail FROM agent_events WHERE ts >= '$YEST_START' AND ts < '$YEST_END' AND tool IN $WRITE_TOOLS) SELECT 'continued: ' || detail FROM today_files WHERE detail IN (SELECT detail FROM yest_files) UNION ALL SELECT 'new today: ' || detail FROM today_files WHERE detail NOT IN (SELECT detail FROM yest_files) UNION ALL SELECT 'dropped: '   || detail FROM yest_files  WHERE detail NOT IN (SELECT detail FROM today_files) ORDER BY 1"
 
 echo ""
 echo "=== Working directories: today ==="
-sqlite3 "$DB" "SELECT cwd, COUNT(*) FROM agent_events WHERE ts >= '$TODAY_START' AND ts < '$TODAY_END' GROUP BY cwd ORDER BY COUNT(*) DESC"
+fluxmirror sqlite --db "$DB" "SELECT cwd, COUNT(*) FROM agent_events WHERE ts >= '$TODAY_START' AND ts < '$TODAY_END' GROUP BY cwd ORDER BY COUNT(*) DESC"
 
 echo ""
 echo "=== Working directories: yesterday ==="
-sqlite3 "$DB" "SELECT cwd, COUNT(*) FROM agent_events WHERE ts >= '$YEST_START' AND ts < '$YEST_END' GROUP BY cwd ORDER BY COUNT(*) DESC"
+fluxmirror sqlite --db "$DB" "SELECT cwd, COUNT(*) FROM agent_events WHERE ts >= '$YEST_START' AND ts < '$YEST_END' GROUP BY cwd ORDER BY COUNT(*) DESC"
 
 echo ""
 echo "=== TODAY: MCP traffic methods ==="
-sqlite3 "$DB" "SELECT method, COUNT(*) FROM events WHERE ts_ms >= $TODAY_START_MS AND ts_ms < $TODAY_END_MS AND method IS NOT NULL GROUP BY method ORDER BY COUNT(*) DESC"
+fluxmirror sqlite --db "$DB" "SELECT method, COUNT(*) FROM events WHERE ts_ms >= $TODAY_START_MS AND ts_ms < $TODAY_END_MS AND method IS NOT NULL GROUP BY method ORDER BY COUNT(*) DESC"
 
 echo ""
 echo "=== YESTERDAY: MCP traffic methods ==="
-sqlite3 "$DB" "SELECT method, COUNT(*) FROM events WHERE ts_ms >= $YEST_START_MS AND ts_ms < $YEST_END_MS AND method IS NOT NULL GROUP BY method ORDER BY COUNT(*) DESC"
+fluxmirror sqlite --db "$DB" "SELECT method, COUNT(*) FROM events WHERE ts_ms >= $YEST_START_MS AND ts_ms < $YEST_END_MS AND method IS NOT NULL GROUP BY method ORDER BY COUNT(*) DESC"
 
 echo ""
 echo "=== TODAY: files touched by multiple agents ==="
-sqlite3 "$DB" "SELECT detail, COUNT(DISTINCT agent) AS agents, GROUP_CONCAT(DISTINCT agent) AS who FROM agent_events WHERE ts >= '$TODAY_START' AND ts < '$TODAY_END' AND tool IN $WRITE_TOOLS AND detail IS NOT NULL GROUP BY detail HAVING agents >= 2 ORDER BY agents DESC LIMIT 10"
+fluxmirror sqlite --db "$DB" "SELECT detail, COUNT(DISTINCT agent) AS agents, GROUP_CONCAT(DISTINCT agent) AS who FROM agent_events WHERE ts >= '$TODAY_START' AND ts < '$TODAY_END' AND tool IN $WRITE_TOOLS AND detail IS NOT NULL GROUP BY detail HAVING agents >= 2 ORDER BY agents DESC LIMIT 10"
 
 echo ""
 echo "=== YESTERDAY: files touched by multiple agents ==="
-sqlite3 "$DB" "SELECT detail, COUNT(DISTINCT agent) AS agents, GROUP_CONCAT(DISTINCT agent) AS who FROM agent_events WHERE ts >= '$YEST_START' AND ts < '$YEST_END' AND tool IN $WRITE_TOOLS AND detail IS NOT NULL GROUP BY detail HAVING agents >= 2 ORDER BY agents DESC LIMIT 10"
+fluxmirror sqlite --db "$DB" "SELECT detail, COUNT(DISTINCT agent) AS agents, GROUP_CONCAT(DISTINCT agent) AS who FROM agent_events WHERE ts >= '$YEST_START' AND ts < '$YEST_END' AND tool IN $WRITE_TOOLS AND detail IS NOT NULL GROUP BY detail HAVING agents >= 2 ORDER BY agents DESC LIMIT 10"
 ```
 
 ## Step 2: Inference

@@ -4,7 +4,7 @@ User argument: {{args}}
 
 If empty, print the current language and stop:
 
-!{python3 -c "import json,os; p=os.path.expanduser('~/.fluxmirror/config.json'); print('Current language:', json.load(open(p)).get('language','unset') if os.path.exists(p) else 'unset')"}
+!{fluxmirror config get language 2>/dev/null || echo unset}
 
 Otherwise normalise the argument with this mapping:
 - korean / ko / kr / 한국어 → korean
@@ -12,21 +12,13 @@ Otherwise normalise the argument with this mapping:
 - japanese / ja / 日本語 → japanese
 - chinese / zh / 中文 → chinese
 
-Then update only the `language` key in `~/.fluxmirror/config.json`,
-preserving any existing `timezone`. Run this shell with NEW_LANG set
-to the normalised value:
+Then update only the `language` key (`fluxmirror config set` preserves
+any existing keys atomically). Run this shell with NEW_LANG set to the
+normalised value:
 
 ```bash
-mkdir -p "$HOME/.fluxmirror"
-[ -f "$HOME/.fluxmirror/config.json" ] || echo '{}' > "$HOME/.fluxmirror/config.json"
-python3 - "$HOME/.fluxmirror/config.json" "<NEW_LANG>" <<'PY'
-import json, sys
-p, lang = sys.argv[1], sys.argv[2]
-with open(p) as f: cfg = json.load(f)
-cfg['language'] = lang
-with open(p, 'w') as f: json.dump(cfg, f, indent=2)
-print(json.dumps(cfg, indent=2))
-PY
+fluxmirror config set language "<NEW_LANG>"
+fluxmirror config show
 ```
 
 Confirm in the new language:

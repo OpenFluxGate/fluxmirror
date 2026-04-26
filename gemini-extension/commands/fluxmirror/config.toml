@@ -1,0 +1,40 @@
+description = "Read / write / inspect FluxMirror config. Usage: [show|get <key>|set <key> <value>|explain]"
+prompt = """
+User arguments: {{args}}
+
+The first token of {{args}} is the operation; default is `show` when
+nothing was supplied. Recognised ops:
+
+- `show` — pretty-print the resolved Config as JSON
+- `get <key>` — print one resolved value (e.g. `get language`,
+  `get wrapper.kind`, `get storage.path`)
+- `set <key> <value>` — write the user-layer value (atomic;
+  preserves all other keys)
+- `explain` — show every key with the layer that defined it
+
+When no args: run `fluxmirror config show`:
+
+!{fluxmirror config show 2>/dev/null || echo 'fluxmirror binary not found on PATH. Install via the latest release first.'}
+
+Otherwise, build the right command from {{args}}. Examples:
+
+```bash
+fluxmirror config get language
+fluxmirror config get wrapper.kind
+fluxmirror config set language korean
+fluxmirror config set timezone Asia/Seoul
+fluxmirror config explain
+```
+
+After a `set`, also call `fluxmirror config show` so the user sees the
+new state. Confirm in their language:
+
+- english: "Saved <key> = <value>."
+- korean:  "저장됨: <key> = <value>."
+- japanese: "保存しました: <key> = <value>."
+- chinese:  "已保存: <key> = <value>."
+
+If `get` returned nothing, tell the user the key is unset and suggest
+the closest valid key (language, timezone, wrapper.kind, storage.path,
+storage.retention_days).
+"""

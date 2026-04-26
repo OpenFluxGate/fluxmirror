@@ -8,8 +8,7 @@ is the period (`today` | `yesterday` | `week`, default `today`).
 
 If no agent name is provided, list known agents and stop:
 
-!{sqlite3 "$HOME/Library/Application Support/fluxmirror/events.db" \
-  "SELECT agent, COUNT(*) FROM agent_events WHERE ts >= datetime('now', '-7 days') GROUP BY agent ORDER BY COUNT(*) DESC"}
+!{fluxmirror sqlite --db "$(fluxmirror db-path)" "SELECT agent, COUNT(*) FROM agent_events WHERE ts >= datetime('now', '-7 days') GROUP BY agent ORDER BY COUNT(*) DESC"}
 
 Otherwise, raw FluxMirror data (the resolution honours the period
 argument; ignore the agent column for now and filter the agent rows

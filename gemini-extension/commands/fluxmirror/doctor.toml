@@ -1,0 +1,18 @@
+description = "Check FluxMirror health (config, db, wrapper, agents, binary)"
+prompt = """
+Run the FluxMirror health check:
+
+!{$HOME/.gemini/extensions/fluxmirror/scripts/report-data.sh doctor}
+
+Show the table verbatim to the user, then add a one-line summary in
+their preferred language describing the overall state:
+
+- english: "All checks passed." / "Some checks need attention."
+- korean:  "모든 점검 통과." / "일부 점검 항목 주의 필요."
+- japanese: "すべてのチェックに合格。" / "一部のチェック項目に注意が必要です。"
+- chinese:  "所有检查均通过。" / "部分检查项需要关注。"
+
+If the binary is missing entirely, instruct the user to upgrade their
+plugin install — the `fluxmirror` binary is auto-downloaded on first
+hook fire, so a fresh agent session usually resolves it.
+"""

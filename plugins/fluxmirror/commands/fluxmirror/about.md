@@ -12,21 +12,12 @@ the output template using the user's preferred language (read
 ## Step 0: Load language preference
 
 ```bash
-CONFIG_FILE="$HOME/.fluxmirror/config.json"
-
-if [ -f "$CONFIG_FILE" ] && command -v jq >/dev/null 2>&1; then
-  USER_LANG=$(jq -r '.language // empty' "$CONFIG_FILE")
+if command -v fluxmirror >/dev/null 2>&1; then
+  USER_LANG=$(fluxmirror config get language 2>/dev/null || echo english)
+else
+  USER_LANG=english
 fi
-
-if [ -z "$USER_LANG" ]; then
-  SYS=$(echo "${LANG:-en_US.UTF-8}" | cut -d_ -f1)
-  case "$SYS" in
-    ko) USER_LANG="korean" ;;
-    ja) USER_LANG="japanese" ;;
-    zh) USER_LANG="chinese" ;;
-    *)  USER_LANG="english" ;;
-  esac
-fi
+if [ -z "$USER_LANG" ]; then USER_LANG=english; fi
 
 echo "Language: $USER_LANG"
 ```

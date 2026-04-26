@@ -36,16 +36,15 @@ the corresponding keyword was not given.
 
 ## Step 1: If both empty, show current and stop
 
-If `$ARGUMENTS` contained neither keyword, just read and display the
-existing config without modifying:
+If `$ARGUMENTS` contained neither keyword, just print the resolved
+config and stop:
 
 ```bash
-CONFIG_FILE="$HOME/.fluxmirror/config.json"
-if [ -f "$CONFIG_FILE" ]; then
+if command -v fluxmirror >/dev/null 2>&1; then
   echo "Current config:"
-  cat "$CONFIG_FILE"
+  fluxmirror config show
 else
-  echo "No config yet. Usage: /fluxmirror:setup language korean timezone KST"
+  echo "fluxmirror binary not found on PATH. Install via the latest release first."
 fi
 ```
 
@@ -53,25 +52,23 @@ Then stop.
 
 ## Step 2: Merge and save
 
+`fluxmirror config set` preserves all unrelated keys atomically — call
+it once per provided value (skip the call if the corresponding string
+is empty):
+
 ```bash
-CONFIG_DIR="$HOME/.fluxmirror"
-CONFIG_FILE="$CONFIG_DIR/config.json"
-mkdir -p "$CONFIG_DIR"
-
-if [ -f "$CONFIG_FILE" ]; then
-  EXISTING=$(cat "$CONFIG_FILE")
-else
-  EXISTING='{}'
+if ! command -v fluxmirror >/dev/null 2>&1; then
+  echo "fluxmirror binary not found on PATH. Install via the latest release first."
+  exit 0
 fi
-
-NEW=$(echo "$EXISTING" | jq --arg lang "$NEW_LANG" --arg tz "$NEW_TZ" '
-  (if $lang != "" then .language = $lang else . end)
-  | (if $tz != "" then .timezone = $tz else . end)
-')
-
-echo "$NEW" > "$CONFIG_FILE"
-echo "Saved to $CONFIG_FILE:"
-cat "$CONFIG_FILE"
+if [ -n "$NEW_LANG" ]; then
+  fluxmirror config set language "$NEW_LANG"
+fi
+if [ -n "$NEW_TZ" ]; then
+  fluxmirror config set timezone "$NEW_TZ"
+fi
+echo "Saved:"
+fluxmirror config show
 ```
 
 ## Step 3: Confirm

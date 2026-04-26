@@ -12,30 +12,18 @@ the output template using the user's preferred language (read
 ## Step 0: Load settings
 
 ```bash
-CONFIG_FILE="$HOME/.fluxmirror/config.json"
-
-USER_LANG=""
-USER_TZ=""
-
-if [ -f "$CONFIG_FILE" ] && command -v jq >/dev/null 2>&1; then
-  USER_LANG=$(jq -r '.language // empty' "$CONFIG_FILE")
-  USER_TZ=$(jq -r '.timezone // empty' "$CONFIG_FILE")
+if command -v fluxmirror >/dev/null 2>&1; then
+  USER_LANG=$(fluxmirror config get language 2>/dev/null || echo english)
+  USER_TZ=$(fluxmirror config get timezone 2>/dev/null || echo UTC)
+  DB=$(fluxmirror db-path)
+else
+  # legacy fallback for users on older versions
+  USER_LANG=english
+  USER_TZ="${TZ:-UTC}"
+  DB="${FLUXMIRROR_DB:-$HOME/Library/Application Support/fluxmirror/events.db}"
 fi
-
-if [ -z "$USER_LANG" ]; then
-  SYS=$(echo "${LANG:-en_US.UTF-8}" | cut -d_ -f1)
-  case "$SYS" in
-    ko) USER_LANG="korean" ;;
-    ja) USER_LANG="japanese" ;;
-    zh) USER_LANG="chinese" ;;
-    *)  USER_LANG="english" ;;
-  esac
-fi
-
-if [ -z "$USER_TZ" ]; then
-  USER_TZ=$(readlink /etc/localtime 2>/dev/null | sed 's|.*/zoneinfo/||')
-  [ -z "$USER_TZ" ] && USER_TZ="UTC"
-fi
+if [ -z "$USER_LANG" ]; then USER_LANG=english; fi
+if [ -z "$USER_TZ" ]; then USER_TZ=UTC; fi
 
 echo "Settings: language=$USER_LANG timezone=$USER_TZ"
 ```
@@ -43,25 +31,13 @@ echo "Settings: language=$USER_LANG timezone=$USER_TZ"
 ## Step 1: Extract data (last 7 days in $USER_TZ)
 
 ```bash
-DB="${FLUXMIRROR_DB:-$HOME/Library/Application Support/fluxmirror/events.db}"
-
 if [ ! -f "$DB" ]; then
   echo "FluxMirror DB not found. Run an agent session first."
   exit 0
 fi
 
 read WEEK_START_LOCAL WEEK_END_LOCAL START_UTC END_UTC START_MS END_MS <<EOF
-$(python3 -c "
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
-tz=ZoneInfo('$USER_TZ')
-now=datetime.now(tz)
-end=(now+timedelta(days=1)).replace(hour=0,minute=0,second=0,microsecond=0)
-start=end-timedelta(days=7)
-su=start.astimezone(ZoneInfo('UTC'))
-eu=end.astimezone(ZoneInfo('UTC'))
-print(start.strftime('%Y-%m-%d'), (end-timedelta(days=1)).strftime('%Y-%m-%d'), su.strftime('%Y-%m-%dT%H:%M:%SZ'), eu.strftime('%Y-%m-%dT%H:%M:%SZ'), int(su.timestamp()*1000), int(eu.timestamp()*1000))
-")
+$(fluxmirror window --tz "$USER_TZ" --period week)
 EOF
 
 echo "=== Range: $WEEK_START_LOCAL .. $WEEK_END_LOCAL ($USER_TZ) ==="
@@ -73,80 +49,31 @@ SHELL_TOOLS="('Bash','run_shell_command')"
 
 echo ""
 echo "=== Daily totals (all 7 days, zero-event days included) ==="
-python3 -c "
-import sqlite3
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
-db=sqlite3.connect('$DB')
-rows=db.execute(\"SELECT ts, agent FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC'\").fetchall()
-tz=ZoneInfo('$USER_TZ')
-now=datetime.now(tz)
-end=(now+timedelta(days=1)).replace(hour=0,minute=0,second=0,microsecond=0)
-start=end-timedelta(days=7)
-days=[]
-cur=start
-while cur < end:
-    days.append(cur.strftime('%Y-%m-%d (%a)'))
-    cur += timedelta(days=1)
-by_day={d: 0 for d in days}
-agents_by_day={d: set() for d in days}
-for ts,agent in rows:
-    dt=datetime.strptime(ts.replace('Z','+0000'),'%Y-%m-%dT%H:%M:%S%z').astimezone(tz)
-    d=dt.strftime('%Y-%m-%d (%a)')
-    if d in by_day:
-        by_day[d] += 1
-        agents_by_day[d].add(agent)
-for d in days:
-    a = ','.join(sorted(agents_by_day[d])) if agents_by_day[d] else '-'
-    print(f'{d} | calls={by_day[d]} | agents={a}')
-active = sum(1 for v in by_day.values() if v > 0)
-print(f'WEEK TOTAL | calls={sum(by_day.values())} | active_days={active}')
-"
+fluxmirror daily-totals --db "$DB" --tz "$USER_TZ" --start "$START_UTC" --end "$END_UTC"
 
 echo ""
 echo "=== Per-agent totals (week) ==="
-sqlite3 "$DB" "SELECT agent, COUNT(*) AS calls, COUNT(DISTINCT session) AS sessions FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' GROUP BY agent ORDER BY calls DESC"
+fluxmirror sqlite --db "$DB" "SELECT agent, COUNT(*) AS calls, COUNT(DISTINCT session) AS sessions FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' GROUP BY agent ORDER BY calls DESC"
 
 echo ""
 echo "=== Top edited files (week) ==="
-sqlite3 "$DB" "SELECT detail, COUNT(*) FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' AND tool IN $WRITE_TOOLS GROUP BY detail ORDER BY COUNT(*) DESC LIMIT 15"
+fluxmirror sqlite --db "$DB" "SELECT detail, COUNT(*) FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' AND tool IN $WRITE_TOOLS GROUP BY detail ORDER BY COUNT(*) DESC LIMIT 15"
 
 echo ""
 echo "=== Working directories (week) ==="
-sqlite3 "$DB" "SELECT cwd, COUNT(*) FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' GROUP BY cwd ORDER BY COUNT(*) DESC"
+fluxmirror sqlite --db "$DB" "SELECT cwd, COUNT(*) FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' GROUP BY cwd ORDER BY COUNT(*) DESC"
 
 echo ""
 echo "=== MCP traffic methods (week) ==="
-sqlite3 "$DB" "SELECT method, COUNT(*) FROM events WHERE ts_ms >= $START_MS AND ts_ms < $END_MS AND method IS NOT NULL GROUP BY method ORDER BY COUNT(*) DESC"
+fluxmirror sqlite --db "$DB" "SELECT method, COUNT(*) FROM events WHERE ts_ms >= $START_MS AND ts_ms < $END_MS AND method IS NOT NULL GROUP BY method ORDER BY COUNT(*) DESC"
 
 echo ""
 echo "=== Files touched by multiple agents (week — collaboration / collision) ==="
-sqlite3 "$DB" "SELECT detail, COUNT(DISTINCT agent) AS agents, GROUP_CONCAT(DISTINCT agent) AS who FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' AND tool IN $WRITE_TOOLS AND detail IS NOT NULL GROUP BY detail HAVING agents >= 2 ORDER BY agents DESC, detail LIMIT 10"
+fluxmirror sqlite --db "$DB" "SELECT detail, COUNT(DISTINCT agent) AS agents, GROUP_CONCAT(DISTINCT agent) AS who FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' AND tool IN $WRITE_TOOLS AND detail IS NOT NULL GROUP BY detail HAVING agents >= 2 ORDER BY agents DESC, detail LIMIT 10"
 
 echo ""
 echo "=== Per-day file counts (new vs edited) ==="
-python3 -c "
-import sqlite3
-from datetime import datetime
-from zoneinfo import ZoneInfo
-db=sqlite3.connect('$DB')
-write_tools={'Edit','Write','MultiEdit','edit_file','write_file','replace'}
-new_file_tools={'Write','write_file'}
-placeholders=','.join(f\"'{t}'\" for t in write_tools)
-rows=db.execute(f\"SELECT ts, tool, detail FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' AND tool IN ({placeholders})\").fetchall()
-tz=ZoneInfo('$USER_TZ')
-by_day_writes={}
-by_day_edits={}
-for ts,tool,detail in rows:
-    dt=datetime.strptime(ts.replace('Z','+0000'),'%Y-%m-%dT%H:%M:%S%z').astimezone(tz)
-    d=dt.strftime('%Y-%m-%d')
-    if tool in new_file_tools:
-        by_day_writes.setdefault(d,set()).add(detail)
-    else:
-        by_day_edits.setdefault(d,set()).add(detail)
-for d in sorted(set(list(by_day_writes)+list(by_day_edits))):
-    print(f'{d} | new_files={len(by_day_writes.get(d,set()))} | edited_files={len(by_day_edits.get(d,set()))}')
-"
+fluxmirror per-day-files --db "$DB" --tz "$USER_TZ" --start "$START_UTC" --end "$END_UTC"
 ```
 
 ## Step 2: Inference

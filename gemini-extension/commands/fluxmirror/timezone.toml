@@ -4,7 +4,7 @@ User argument: {{args}}
 
 If empty, print the current timezone and stop:
 
-!{python3 -c "import json,os; p=os.path.expanduser('~/.fluxmirror/config.json'); print('Current timezone:', json.load(open(p)).get('timezone','unset') if os.path.exists(p) else 'unset')"}
+!{fluxmirror config get timezone 2>/dev/null || echo unset}
 
 Otherwise normalise to IANA:
 - KST / Korean / Korea → Asia/Seoul
@@ -14,20 +14,13 @@ Otherwise normalise to IANA:
 - UTC / GMT → UTC
 - Already-IANA (Asia/Seoul, America/New_York, …) → pass through
 
-Then update only the `timezone` key, preserving any existing
-`language`. Run this shell with NEW_TZ set to the normalised value:
+Then update only the `timezone` key (`fluxmirror config set` preserves
+any existing keys atomically). Run this shell with NEW_TZ set to the
+normalised value:
 
 ```bash
-mkdir -p "$HOME/.fluxmirror"
-[ -f "$HOME/.fluxmirror/config.json" ] || echo '{}' > "$HOME/.fluxmirror/config.json"
-python3 - "$HOME/.fluxmirror/config.json" "<NEW_TZ>" <<'PY'
-import json, sys
-p, tz = sys.argv[1], sys.argv[2]
-with open(p) as f: cfg = json.load(f)
-cfg['timezone'] = tz
-with open(p, 'w') as f: json.dump(cfg, f, indent=2)
-print(json.dumps(cfg, indent=2))
-PY
+fluxmirror config set timezone "<NEW_TZ>"
+fluxmirror config show
 ```
 
 Confirm in the saved language:

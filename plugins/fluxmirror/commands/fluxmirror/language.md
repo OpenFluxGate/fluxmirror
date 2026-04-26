@@ -29,28 +29,27 @@ Set `NORMALIZED_LANG` to the canonical value.
 If `$ARGUMENTS` is empty, just print the current language and stop:
 
 ```bash
-CONFIG_FILE="$HOME/.fluxmirror/config.json"
-if [ -f "$CONFIG_FILE" ]; then
-  CURRENT=$(jq -r '.language // "unset"' "$CONFIG_FILE")
+if command -v fluxmirror >/dev/null 2>&1; then
+  CURRENT=$(fluxmirror config get language 2>/dev/null || echo unset)
+  [ -z "$CURRENT" ] && CURRENT=unset
   echo "Current language: $CURRENT"
 else
-  echo "Current language: unset"
+  echo "Current language: unset (fluxmirror binary not found on PATH)"
 fi
 ```
 
 ## Step 2: Save
 
-Preserve any existing `timezone` key. Only update `language`.
+Update only the `language` key (`fluxmirror config set` preserves any
+existing keys atomically).
 
 ```bash
-CONFIG_DIR="$HOME/.fluxmirror"
-CONFIG_FILE="$CONFIG_DIR/config.json"
-mkdir -p "$CONFIG_DIR"
-[ -f "$CONFIG_FILE" ] || echo '{}' > "$CONFIG_FILE"
-
-NEW=$(jq --arg lang "$NORMALIZED_LANG" '.language = $lang' "$CONFIG_FILE")
-echo "$NEW" > "$CONFIG_FILE"
-cat "$CONFIG_FILE"
+if ! command -v fluxmirror >/dev/null 2>&1; then
+  echo "fluxmirror binary not found on PATH. Install via the latest release first."
+  exit 0
+fi
+fluxmirror config set language "$NORMALIZED_LANG"
+fluxmirror config show
 ```
 
 ## Step 3: Confirm

@@ -21,7 +21,11 @@ token, optional). Default `PERIOD=today`. Allowed periods:
 If `AGENT_NAME` is empty, list available agents and stop:
 
 ```bash
-DB="${FLUXMIRROR_DB:-$HOME/Library/Application Support/fluxmirror/events.db}"
+if command -v fluxmirror >/dev/null 2>&1; then
+  DB=$(fluxmirror db-path)
+else
+  DB="${FLUXMIRROR_DB:-$HOME/Library/Application Support/fluxmirror/events.db}"
+fi
 if [ ! -f "$DB" ]; then
   echo "FluxMirror DB not found. Run an agent session first."
   exit 0
@@ -29,37 +33,25 @@ fi
 echo "Usage: /fluxmirror:agent <agent-name> [today|yesterday|week]"
 echo ""
 echo "Known agents (with call counts in last 7 days):"
-sqlite3 "$DB" "SELECT agent, COUNT(*) FROM agent_events WHERE ts >= datetime('now','-7 days') GROUP BY agent ORDER BY COUNT(*) DESC"
+fluxmirror sqlite --db "$DB" "SELECT agent, COUNT(*) FROM agent_events WHERE ts >= datetime('now','-7 days') GROUP BY agent ORDER BY COUNT(*) DESC"
 exit 0
 ```
 
 ## Step 1: Load settings
 
 ```bash
-CONFIG_FILE="$HOME/.fluxmirror/config.json"
-
-USER_LANG=""
-USER_TZ=""
-
-if [ -f "$CONFIG_FILE" ] && command -v jq >/dev/null 2>&1; then
-  USER_LANG=$(jq -r '.language // empty' "$CONFIG_FILE")
-  USER_TZ=$(jq -r '.timezone // empty' "$CONFIG_FILE")
+if command -v fluxmirror >/dev/null 2>&1; then
+  USER_LANG=$(fluxmirror config get language 2>/dev/null || echo english)
+  USER_TZ=$(fluxmirror config get timezone 2>/dev/null || echo UTC)
+  DB=$(fluxmirror db-path)
+else
+  # legacy fallback for users on older versions
+  USER_LANG=english
+  USER_TZ="${TZ:-UTC}"
+  DB="${FLUXMIRROR_DB:-$HOME/Library/Application Support/fluxmirror/events.db}"
 fi
-
-if [ -z "$USER_LANG" ]; then
-  SYS=$(echo "${LANG:-en_US.UTF-8}" | cut -d_ -f1)
-  case "$SYS" in
-    ko) USER_LANG="korean" ;;
-    ja) USER_LANG="japanese" ;;
-    zh) USER_LANG="chinese" ;;
-    *)  USER_LANG="english" ;;
-  esac
-fi
-
-if [ -z "$USER_TZ" ]; then
-  USER_TZ=$(readlink /etc/localtime 2>/dev/null | sed 's|.*/zoneinfo/||')
-  [ -z "$USER_TZ" ] && USER_TZ="UTC"
-fi
+if [ -z "$USER_LANG" ]; then USER_LANG=english; fi
+if [ -z "$USER_TZ" ]; then USER_TZ=UTC; fi
 
 echo "Settings: language=$USER_LANG timezone=$USER_TZ agent=$AGENT_NAME period=$PERIOD"
 ```
@@ -67,37 +59,28 @@ echo "Settings: language=$USER_LANG timezone=$USER_TZ agent=$AGENT_NAME period=$
 ## Step 2: Resolve window
 
 ```bash
-DB="${FLUXMIRROR_DB:-$HOME/Library/Application Support/fluxmirror/events.db}"
-
 if [ ! -f "$DB" ]; then
   echo "FluxMirror DB not found. Run an agent session first."
   exit 0
 fi
 
-read RANGE_LABEL START_UTC END_UTC START_MS END_MS <<EOF
-$(python3 -c "
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
-tz=ZoneInfo('$USER_TZ')
-now=datetime.now(tz)
-period='$PERIOD'
-if period == 'yesterday':
-    end=now.replace(hour=0,minute=0,second=0,microsecond=0)
-    start=end-timedelta(days=1)
-    label=start.strftime('%Y-%m-%d')
-elif period == 'week':
-    end=(now+timedelta(days=1)).replace(hour=0,minute=0,second=0,microsecond=0)
-    start=end-timedelta(days=7)
-    label=start.strftime('%Y-%m-%d')+'..'+(end-timedelta(days=1)).strftime('%Y-%m-%d')
-else:
-    start=now.replace(hour=0,minute=0,second=0,microsecond=0)
-    end=start+timedelta(days=1)
-    label=start.strftime('%Y-%m-%d')
-su=start.astimezone(ZoneInfo('UTC'))
-eu=end.astimezone(ZoneInfo('UTC'))
-print(label, su.strftime('%Y-%m-%dT%H:%M:%SZ'), eu.strftime('%Y-%m-%dT%H:%M:%SZ'), int(su.timestamp()*1000), int(eu.timestamp()*1000))
-")
+case "$PERIOD" in
+  week)
+    read WS WE START_UTC END_UTC START_MS END_MS <<EOF
+$(fluxmirror window --tz "$USER_TZ" --period week)
 EOF
+    RANGE_LABEL="$WS..$WE"
+    ;;
+  yesterday|today)
+    read RANGE_LABEL START_UTC END_UTC START_MS END_MS <<EOF
+$(fluxmirror window --tz "$USER_TZ" --period "$PERIOD")
+EOF
+    ;;
+  *)
+    echo "unknown period '$PERIOD' (expected today | yesterday | week)" >&2
+    exit 0
+    ;;
+esac
 
 echo "=== Agent: $AGENT_NAME | Period: $PERIOD ($RANGE_LABEL $USER_TZ) ==="
 echo "=== Window: $START_UTC to $END_UTC ==="
@@ -113,48 +96,35 @@ SHELL_TOOLS="('Bash','run_shell_command')"
 
 echo ""
 echo "=== Totals ==="
-sqlite3 "$DB" "SELECT COUNT(*) AS calls, COUNT(DISTINCT session) AS sessions FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' AND agent = '$AGENT_NAME'"
+fluxmirror sqlite --db "$DB" "SELECT COUNT(*) AS calls, COUNT(DISTINCT session) AS sessions FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' AND agent = '$AGENT_NAME'"
 
 echo ""
 echo "=== Tool mix ==="
-sqlite3 "$DB" "SELECT tool, COUNT(*) FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' AND agent = '$AGENT_NAME' GROUP BY tool ORDER BY COUNT(*) DESC"
+fluxmirror sqlite --db "$DB" "SELECT tool, COUNT(*) FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' AND agent = '$AGENT_NAME' GROUP BY tool ORDER BY COUNT(*) DESC"
 
 echo ""
 echo "=== Files written or edited ==="
-sqlite3 "$DB" "SELECT detail, tool, COUNT(*) FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' AND agent = '$AGENT_NAME' AND tool IN $WRITE_TOOLS GROUP BY detail, tool ORDER BY COUNT(*) DESC LIMIT 20"
+fluxmirror sqlite --db "$DB" "SELECT detail, tool, COUNT(*) FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' AND agent = '$AGENT_NAME' AND tool IN $WRITE_TOOLS GROUP BY detail, tool ORDER BY COUNT(*) DESC LIMIT 20"
 
 echo ""
 echo "=== Files only read ==="
-sqlite3 "$DB" "SELECT detail, COUNT(*) FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' AND agent = '$AGENT_NAME' AND tool IN $READ_TOOLS GROUP BY detail ORDER BY COUNT(*) DESC LIMIT 10"
+fluxmirror sqlite --db "$DB" "SELECT detail, COUNT(*) FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' AND agent = '$AGENT_NAME' AND tool IN $READ_TOOLS GROUP BY detail ORDER BY COUNT(*) DESC LIMIT 10"
 
 echo ""
 echo "=== Shell commands ==="
-sqlite3 "$DB" "SELECT substr(ts, 12, 5) AS time_utc, detail FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' AND agent = '$AGENT_NAME' AND tool IN $SHELL_TOOLS ORDER BY ts LIMIT 50"
+fluxmirror sqlite --db "$DB" "SELECT substr(ts, 12, 5) AS time_utc, detail FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' AND agent = '$AGENT_NAME' AND tool IN $SHELL_TOOLS ORDER BY ts LIMIT 50"
 
 echo ""
 echo "=== Working directories ==="
-sqlite3 "$DB" "SELECT cwd, COUNT(*) FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' AND agent = '$AGENT_NAME' GROUP BY cwd ORDER BY COUNT(*) DESC"
+fluxmirror sqlite --db "$DB" "SELECT cwd, COUNT(*) FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' AND agent = '$AGENT_NAME' GROUP BY cwd ORDER BY COUNT(*) DESC"
 
 echo ""
 echo "=== Hour distribution (local) ==="
-python3 -c "
-import sqlite3
-from datetime import datetime
-from zoneinfo import ZoneInfo
-db=sqlite3.connect('$DB')
-rows=db.execute(\"SELECT ts FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' AND agent = '$AGENT_NAME'\").fetchall()
-tz=ZoneInfo('$USER_TZ')
-buckets={}
-for (ts,) in rows:
-    dt=datetime.strptime(ts.replace('Z','+0000'),'%Y-%m-%dT%H:%M:%S%z').astimezone(tz)
-    buckets[dt.hour]=buckets.get(dt.hour,0)+1
-for h in sorted(buckets):
-    print(f'{h:02d}:00 {buckets[h]}')
-"
+fluxmirror histogram --db "$DB" --tz "$USER_TZ" --start "$START_UTC" --end "$END_UTC" --agent "$AGENT_NAME"
 
 echo ""
 echo "=== Sessions ==="
-sqlite3 "$DB" "SELECT session, COUNT(*) AS calls, MIN(ts) AS first, MAX(ts) AS last FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' AND agent = '$AGENT_NAME' GROUP BY session ORDER BY first"
+fluxmirror sqlite --db "$DB" "SELECT session, COUNT(*) AS calls, MIN(ts) AS first, MAX(ts) AS last FROM agent_events WHERE ts >= '$START_UTC' AND ts < '$END_UTC' AND agent = '$AGENT_NAME' GROUP BY session ORDER BY first"
 ```
 
 ## Step 4: Inference
