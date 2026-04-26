@@ -26,8 +26,9 @@ pub struct AboutArgs {
 
 pub fn run(args: AboutArgs) -> ExitCode {
     if !matches!(args.format, ReportFormat::Human) {
+        // M5 ships --format html for the `week` subcommand only.
         eprintln!(
-            "fluxmirror about: --format {} not yet implemented (M1 ships --format human only)",
+            "fluxmirror about: --format {} not yet implemented for this report",
             args.format
         );
         return ExitCode::from(2);

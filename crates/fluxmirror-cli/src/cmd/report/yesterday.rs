@@ -24,8 +24,9 @@ pub struct YesterdayArgs {
 
 pub fn run(args: YesterdayArgs) -> ExitCode {
     if !matches!(args.format, ReportFormat::Human) {
+        // M5 ships --format html for the `week` subcommand only.
         eprintln!(
-            "fluxmirror yesterday: --format {} not yet implemented (M1 ships --format human only)",
+            "fluxmirror yesterday: --format {} not yet implemented for this report",
             args.format
         );
         return ExitCode::from(2);

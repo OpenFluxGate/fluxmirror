@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fluxmirror 주간 다이제스트</title>
+<style>
+
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: #f9fafb;
+  color: #111827;
+  line-height: 1.45;
+  padding: 24px 12px;
+}
+.card {
+  max-width: 960px;
+  margin: 0 auto;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 32px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+.hd h1 { margin: 0; font-size: 1.6rem; color: #1d4ed8; }
+.hd .sub { margin: 4px 0 24px 0; color: #6b7280; font-size: 0.95rem; }
+section { margin-bottom: 28px; }
+section h2 { font-size: 1.05rem; margin: 0 0 12px 0; color: #111827; }
+.axis { margin: 0 0 8px 0; color: #6b7280; font-size: 0.8rem; }
+.grid {
+  display: grid;
+  grid-template-columns: 36px repeat(24, 1fr);
+  gap: 2px;
+}
+.hcell {
+  height: 18px;
+  border-radius: 2px;
+  font-size: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+}
+.hcell.hdr { background: transparent; }
+.hcell.rowlbl { justify-content: flex-start; padding-left: 2px; color: #374151; }
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+@media (max-width: 640px) {
+  .two-col { grid-template-columns: 1fr; }
+  .grid { grid-template-columns: 28px repeat(24, 1fr); }
+}
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #e5e7eb; }
+th { font-weight: 600; background: #f3f4f6; color: #374151; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.item { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 0.85rem; word-break: break-all; }
+.empty { color: #9ca3af; margin: 0; }
+.sm p { font-size: 0.95rem; color: #1f2937; margin: 0; }
+.ft { color: #9ca3af; font-size: 0.75rem; text-align: right; margin-top: 16px; }
+</style>
+</head>
+<body>
+<main class="card">
+<header class="hd">
+<h1>fluxmirror 주간 다이제스트</h1>
+<p class="sub">Apr 21 - Apr 27, 2026 &middot; UTC</p>
+</header>
+<section class="hm">
+<h2>활동 히트맵</h2>
+<p class="axis">시간대 (00 - 23)</p>
+<div class="grid">
+<div class="hcell hdr"></div>
+<div class="hcell hdr">00</div>
+<div class="hcell hdr">01</div>
+<div class="hcell hdr">02</div>
+<div class="hcell hdr">03</div>
+<div class="hcell hdr">04</div>
+<div class="hcell hdr">05</div>
+<div class="hcell hdr">06</div>
+<div class="hcell hdr">07</div>
+<div class="hcell hdr">08</div>
+<div class="hcell hdr">09</div>
+<div class="hcell hdr">10</div>
+<div class="hcell hdr">11</div>
+<div class="hcell hdr">12</div>
+<div class="hcell hdr">13</div>
+<div class="hcell hdr">14</div>
+<div class="hcell hdr">15</div>
+<div class="hcell hdr">16</div>
+<div class="hcell hdr">17</div>
+<div class="hcell hdr">18</div>
+<div class="hcell hdr">19</div>
+<div class="hcell hdr">20</div>
+<div class="hcell hdr">21</div>
+<div class="hcell hdr">22</div>
+<div class="hcell hdr">23</div>
+<div class="hcell rowlbl">월</div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 00:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 01:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 02:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 03:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 04:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 05:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 06:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 07:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 08:00 - 0 calls"></div>
+<div class="hcell" style="background:#93c5fd;" data-count="3" title="월 09:00 - 3 calls"></div>
+<div class="hcell" style="background:#93c5fd;" data-count="5" title="월 10:00 - 5 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 11:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 12:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 13:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 14:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 15:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 16:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 17:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 18:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 19:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 20:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 21:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 22:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="월 23:00 - 0 calls"></div>
+<div class="hcell rowlbl">화</div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 00:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 01:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 02:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 03:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 04:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 05:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 06:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 07:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 08:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 09:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 10:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 11:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 12:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 13:00 - 0 calls"></div>
+<div class="hcell" style="background:#3b82f6;" data-count="7" title="화 14:00 - 7 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 15:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 16:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 17:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 18:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 19:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 20:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 21:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 22:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="화 23:00 - 0 calls"></div>
+<div class="hcell rowlbl">수</div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 00:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 01:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 02:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 03:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 04:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 05:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 06:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 07:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 08:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 09:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 10:00 - 0 calls"></div>
+<div class="hcell" style="background:#dbeafe;" data-count="2" title="수 11:00 - 2 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 12:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 13:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 14:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 15:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 16:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 17:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 18:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 19:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 20:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 21:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 22:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="수 23:00 - 0 calls"></div>
+<div class="hcell rowlbl">목</div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 00:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 01:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 02:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 03:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 04:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 05:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 06:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 07:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 08:00 - 0 calls"></div>
+<div class="hcell" style="background:#93c5fd;" data-count="4" title="목 09:00 - 4 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 10:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 11:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 12:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 13:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 14:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 15:00 - 0 calls"></div>
+<div class="hcell" style="background:#3b82f6;" data-count="6" title="목 16:00 - 6 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 17:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 18:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 19:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 20:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 21:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 22:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="목 23:00 - 0 calls"></div>
+<div class="hcell rowlbl">금</div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 00:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 01:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 02:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 03:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 04:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 05:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 06:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 07:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 08:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 09:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 10:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 11:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 12:00 - 0 calls"></div>
+<div class="hcell" style="background:#dbeafe;" data-count="1" title="금 13:00 - 1 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 14:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 15:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 16:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 17:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 18:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 19:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 20:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 21:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 22:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="금 23:00 - 0 calls"></div>
+<div class="hcell rowlbl">토</div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 00:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 01:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 02:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 03:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 04:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 05:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 06:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 07:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 08:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 09:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 10:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 11:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 12:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 13:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 14:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 15:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 16:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 17:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 18:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 19:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 20:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 21:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 22:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="토 23:00 - 0 calls"></div>
+<div class="hcell rowlbl">일</div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 00:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 01:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 02:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 03:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 04:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 05:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 06:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 07:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 08:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 09:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 10:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 11:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 12:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 13:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 14:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 15:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 16:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 17:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 18:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 19:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 20:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 21:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 22:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="일 23:00 - 0 calls"></div>
+</div>
+</section>
+<section class="two-col">
+<section class="tt">
+<h2>상위 편집 파일</h2>
+<table>
+<thead><tr>
+<th>항목</th><th class="num">횟수</th>
+</tr></thead>
+<tbody>
+<tr><td class="item">src/cmd/report/week.rs</td><td class="num">7</td></tr>
+<tr><td class="item">README.md</td><td class="num">5</td></tr>
+<tr><td class="item">Cargo.toml</td><td class="num">3</td></tr>
+</tbody>
+</table>
+</section>
+<section class="tt">
+<h2>상위 셸 명령</h2>
+<table>
+<thead><tr>
+<th>항목</th><th class="num">횟수</th>
+</tr></thead>
+<tbody>
+<tr><td class="item">cargo test --workspace</td><td class="num">4</td></tr>
+<tr><td class="item">git push origin main</td><td class="num">2</td></tr>
+</tbody>
+</table>
+</section>
+</section>
+<section class="ag">
+<h2>에이전트별 요약</h2>
+<table>
+<thead><tr>
+<th>에이전트</th>
+<th>호출</th>
+<th>세션</th>
+<th>활동 일수</th>
+<th>주요 도구</th>
+</tr></thead>
+<tbody>
+<tr><td>claude-code</td><td class="num">18</td><td class="num">4</td><td class="num">5</td><td>Bash</td></tr>
+<tr><td>gemini-cli</td><td class="num">10</td><td class="num">2</td><td class="num">3</td><td>read_file</td></tr>
+</tbody>
+</table>
+</section>
+<section class="sm">
+<h2>요약</h2>
+<p>지난 7일간 2개 에이전트에서 총 28회 호출이 기록되었습니다. 가장 활발한 요일은 목로 10회였고, 가장 많이 사용된 도구는 Bash(12회)입니다.</p>
+</section>
+<footer class="ft">Generated by fluxmirror SNAPSHOT - 2026-04-27T00:00:00Z</footer>
+</main>
+</body>
+</html>

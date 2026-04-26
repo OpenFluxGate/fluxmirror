@@ -52,8 +52,9 @@ pub struct AgentsArgs {
 
 pub fn run(args: AgentsArgs) -> ExitCode {
     if !matches!(args.format, ReportFormat::Human) {
+        // M5 ships --format html for the `week` subcommand only.
         eprintln!(
-            "fluxmirror agents: --format {} not yet implemented (M1 ships --format human only)",
+            "fluxmirror agents: --format {} not yet implemented for this report",
             args.format
         );
         return ExitCode::from(2);

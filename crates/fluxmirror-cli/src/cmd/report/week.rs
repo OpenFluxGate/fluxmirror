@@ -23,7 +23,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use chrono::{DateTime, Duration, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, Duration, NaiveDate, Timelike, Utc};
 use chrono_tz::Tz;
 use rusqlite::Connection;
 
@@ -31,6 +31,7 @@ use crate::cmd::util::{err_exit2, open_db_readonly, parse_tz};
 use crate::cmd::window::week_range;
 use fluxmirror_core::report::{pack, LangPack};
 
+use super::html::{render_card, AgentRow as HtmlAgentRow, WeekHtmlStats};
 use super::tools::{is_read, is_shell, is_write};
 use super::ReportFormat;
 
@@ -56,15 +57,23 @@ pub struct WeekArgs {
     pub tz: String,
     pub lang: String,
     pub format: ReportFormat,
+    /// Optional output path for `--format html`. When `Some`, the HTML
+    /// document is written to disk and a single confirmation line is
+    /// printed to stdout. Ignored for non-HTML formats.
+    pub out: Option<PathBuf>,
 }
 
 pub fn run(args: WeekArgs) -> ExitCode {
-    if !matches!(args.format, ReportFormat::Human) {
-        eprintln!(
-            "fluxmirror week: --format {} not yet implemented (M1 ships --format human only)",
-            args.format
-        );
-        return ExitCode::from(2);
+    match args.format {
+        ReportFormat::Human => {}
+        ReportFormat::Html => {}
+        ReportFormat::Json | ReportFormat::Markdown => {
+            eprintln!(
+                "fluxmirror week: --format {} not yet implemented (M1 ships --format human only)",
+                args.format
+            );
+            return ExitCode::from(2);
+        }
     }
 
     let tz = match parse_tz(&args.tz) {
@@ -86,9 +95,38 @@ pub fn run(args: WeekArgs) -> ExitCode {
     };
 
     let lp = pack(&args.lang);
+
+    if matches!(args.format, ReportFormat::Html) {
+        let html_stats = build_html_stats(&stats, week_start, week_end, &args.tz);
+        let html = render_card(&html_stats, lp);
+        return emit_html(html, args.out.as_deref());
+    }
+
     let report = render_human(lp, &args.tz, week_start, week_end, &stats);
     print!("{}", report);
     ExitCode::SUCCESS
+}
+
+/// Write the rendered HTML to either stdout or the requested file path.
+/// File writes overwrite an existing path. Stdout writes are byte-exact
+/// (no trailing newline added beyond what the renderer produced).
+fn emit_html(html: String, out: Option<&std::path::Path>) -> ExitCode {
+    match out {
+        None => {
+            print!("{}", html);
+            ExitCode::SUCCESS
+        }
+        Some(path) => match std::fs::write(path, html.as_bytes()) {
+            Ok(()) => {
+                println!("wrote {} ({} bytes)", path.display(), html.len());
+                ExitCode::SUCCESS
+            }
+            Err(e) => err_exit2(format!(
+                "fluxmirror week: writing {}: {e}",
+                path.display()
+            )),
+        },
+    }
 }
 
 /// Per-agent row in the week activity table.
@@ -96,12 +134,20 @@ pub fn run(args: WeekArgs) -> ExitCode {
 pub(crate) struct AgentRow {
     pub calls: u64,
     pub sessions: BTreeSet<String>,
+    /// Tool name -> how many times the agent invoked it. Drives the
+    /// "top tool" column on the HTML card; the human report doesn't
+    /// surface it directly.
+    pub tool_counts: HashMap<String, u64>,
+    /// Distinct local dates this agent had at least one event on. Drives
+    /// the "Active days" column on the HTML card.
+    pub active_dates: BTreeSet<NaiveDate>,
 }
 
 /// All week aggregates. The fields mirror the today report's `DayStats`
 /// for the columns the two share, plus a `daily_calls` map and a
 /// `days_in_window` ordered list driving both the per-day-totals table
-/// and the day-distribution chart.
+/// and the day-distribution chart, and a 24x7 `heatmap` matrix and
+/// `shell_counts` map driving the HTML card.
 #[derive(Debug, Default)]
 pub(crate) struct WeekStats {
     pub total_events: u64,
@@ -119,6 +165,14 @@ pub(crate) struct WeekStats {
     pub reads_total: u64,
     #[allow(dead_code)]
     pub writes_total: u64,
+    /// `[day_of_week][hour_of_day]` calls. day_of_week is 0=Monday..6=Sunday
+    /// (ISO 8601). Drives the HTML card's heatmap; the human report does
+    /// not surface it.
+    pub heatmap: [[u32; 24]; 7],
+    /// Shell-command-class detail snippet (truncated to 80 chars) ->
+    /// invocation count. Drives the HTML card's "Top shell commands"
+    /// table. Empty in the human path.
+    pub shell_counts: HashMap<String, u64>,
 }
 
 /// Build the day list and run the aggregation in one pass over the
@@ -174,6 +228,9 @@ pub(crate) fn collect_week(
         if !session.is_empty() {
             entry.sessions.insert(session);
         }
+        if !tool.is_empty() {
+            *entry.tool_counts.entry(tool.clone()).or_default() += 1;
+        }
 
         if !tool.is_empty() {
             *stats.tool_mix.entry(tool.clone()).or_default() += 1;
@@ -193,25 +250,153 @@ pub(crate) fn collect_week(
             *stats.files_read.entry(detail.clone()).or_default() += 1;
             stats.reads_total += 1;
         } else if is_shell(tool_str) {
-            // shells aren't surfaced in the week report directly but we
-            // still tally them toward total_events / tool_mix.
+            // shells feed the HTML card's "Top shell commands" table.
+            // The human-mode report still ignores the per-command
+            // breakdown (only the total via tool_mix).
+            if !detail.is_empty() {
+                let snippet: String = detail.chars().take(80).collect();
+                *stats.shell_counts.entry(snippet).or_default() += 1;
+            }
         } else if is_write(tool_str) {
             stats.writes_total += 1;
         } else if is_read(tool_str) {
             stats.reads_total += 1;
         }
 
-        // Daily calls bucket — same parse-then-localize pattern as the
-        // hour bucket in today.rs, but bucketed on local date.
+        // Daily calls + heatmap + active-days bucket — all keyed off the
+        // same parse-then-localize step.
         if let Ok(dt) = DateTime::parse_from_rfc3339(&ts) {
-            let local_date = dt.with_timezone(&tz).date_naive();
+            let local = dt.with_timezone(&tz);
+            let local_date = local.date_naive();
             if let Some(c) = stats.daily_calls.get_mut(&local_date) {
                 *c += 1;
+            }
+            entry.active_dates.insert(local_date);
+            // chrono::Weekday::num_days_from_monday() returns 0=Mon..6=Sun
+            // which matches our ISO heatmap row indexing.
+            let dow = local.weekday().num_days_from_monday() as usize;
+            let hour = local.hour() as usize;
+            if dow < 7 && hour < 24 {
+                stats.heatmap[dow][hour] = stats.heatmap[dow][hour].saturating_add(1);
             }
         }
     }
 
     Ok(stats)
+}
+
+/// Distil the human-report `WeekStats` into the data the HTML card needs.
+///
+/// All derived aggregates (heaviest tool, busiest day-of-week, top-10
+/// files / shells, per-agent top tool) live in one place so the renderer
+/// stays a pure formatter.
+pub(crate) fn build_html_stats(
+    stats: &WeekStats,
+    week_start: NaiveDate,
+    week_end: NaiveDate,
+    tz_label: &str,
+) -> WeekHtmlStats {
+    // Heaviest tool across the whole window: highest tool_mix count, ties
+    // resolve alphabetically for determinism.
+    let (heaviest_tool, heaviest_tool_calls) = stats
+        .tool_mix
+        .iter()
+        .max_by(|a, b| a.1.cmp(b.1).then_with(|| b.0.cmp(a.0)))
+        .map(|(t, n)| (t.clone(), *n as u32))
+        .unwrap_or_else(|| (String::new(), 0));
+
+    // Busiest day-of-week: collapse the 24x7 heatmap to a 7-row total,
+    // pick the heaviest. Ties resolve to the earliest weekday.
+    let mut dow_totals = [0u32; 7];
+    for (dow, hours) in stats.heatmap.iter().enumerate() {
+        dow_totals[dow] = hours.iter().sum();
+    }
+    let (busiest_day_dow, busiest_day_calls) = dow_totals
+        .iter()
+        .enumerate()
+        .max_by(|a, b| a.1.cmp(b.1).then_with(|| b.0.cmp(&a.0)))
+        .map(|(i, n)| (i as u8, *n))
+        .unwrap_or((0, 0));
+
+    // Top 10 files (writes only — the card is a "what did you change"
+    // summary, not a "what did you read" one).
+    let mut files: Vec<(String, u32)> = stats
+        .files_edited
+        .iter()
+        .map(|((path, _tool), n)| (path.clone(), *n as u32))
+        .collect();
+    // Aggregate same-path-different-tool rows so the top-10 list stays
+    // tight. (e.g. `Edit` and `Write` of the same file should fold.)
+    let mut folded: BTreeMap<String, u32> = BTreeMap::new();
+    for (path, n) in files.drain(..) {
+        *folded.entry(path).or_insert(0) += n;
+    }
+    let mut top_files: Vec<(String, u32)> = folded.into_iter().collect();
+    top_files.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    top_files.truncate(10);
+
+    let mut top_shells: Vec<(String, u32)> = stats
+        .shell_counts
+        .iter()
+        .map(|(cmd, n)| (cmd.clone(), *n as u32))
+        .collect();
+    top_shells.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    top_shells.truncate(10);
+
+    // Per-agent rows: calls (already aggregated), sessions count, active
+    // days, and the tool with the highest count for THIS agent (ties
+    // alphabetical).
+    let mut agent_summary: Vec<HtmlAgentRow> = stats
+        .agents
+        .iter()
+        .map(|(name, row)| {
+            let top_tool = row
+                .tool_counts
+                .iter()
+                .max_by(|a, b| a.1.cmp(b.1).then_with(|| b.0.cmp(a.0)))
+                .map(|(t, _)| t.clone())
+                .unwrap_or_else(|| "-".to_string());
+            HtmlAgentRow {
+                agent: name.clone(),
+                calls: row.calls,
+                sessions: row.sessions.len() as u64,
+                active_days: row.active_dates.len() as u64,
+                top_tool,
+            }
+        })
+        .collect();
+    agent_summary.sort_by(|a, b| b.calls.cmp(&a.calls).then_with(|| a.agent.cmp(&b.agent)));
+
+    let total_calls = stats.total_events as u32;
+    let total_agents = stats.agents.len();
+
+    // Pre-format the footer here so the renderer stays a pure formatter
+    // and tests can pin the timestamp. Production callers pass through
+    // build_html_stats, so we use chrono::Utc::now() and let the caller
+    // override via the public field if they need determinism.
+    let generated_footer = format!(
+        "Generated by fluxmirror v{} - {}",
+        env!("CARGO_PKG_VERSION"),
+        Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+    );
+
+    let _ = week_end; // included in tz_label-prefixed range header by the renderer
+    WeekHtmlStats {
+        range_start: week_start,
+        range_end: week_end,
+        tz_label: tz_label.to_string(),
+        heatmap: stats.heatmap,
+        agent_summary,
+        top_files,
+        top_shells,
+        busiest_day_dow,
+        busiest_day_calls,
+        heaviest_tool,
+        heaviest_tool_calls,
+        total_calls,
+        total_agents,
+        generated_footer,
+    }
 }
 
 fn render_human(

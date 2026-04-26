@@ -31,8 +31,9 @@ pub struct CompareArgs {
 
 pub fn run(args: CompareArgs) -> ExitCode {
     if !matches!(args.format, ReportFormat::Human) {
+        // M5 ships --format html for the `week` subcommand only.
         eprintln!(
-            "fluxmirror compare: --format {} not yet implemented (M1 ships --format human only)",
+            "fluxmirror compare: --format {} not yet implemented for this report",
             args.format
         );
         return ExitCode::from(2);

@@ -55,6 +55,19 @@ your first real tool call lands.
 `~/.local/share/fluxmirror/events.db` (Linux) /
 `%APPDATA%\fluxmirror\events.db` (Windows).
 
+## Weekly digest card
+
+Generate a single self-contained HTML page summarising the last 7 days
+of activity:
+
+```bash
+fluxmirror week --format html --out ~/Desktop/week.html
+```
+
+Open `~/Desktop/week.html` in a browser. The file embeds all CSS
+inline — no network or server needed. Drop it into a Slack DM, attach
+it to a Notion page, or just keep it as a private journal.
+
 ## Uninstall
 
 Claude Code:

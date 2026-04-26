@@ -255,6 +255,10 @@ struct WeekCliArgs {
     lang: Option<String>,
     #[arg(long, value_enum, default_value_t = ReportFormat::Human)]
     format: ReportFormat,
+    /// Output path for `--format html`. When omitted, the rendered HTML
+    /// is printed to stdout. Ignored for non-HTML formats.
+    #[arg(long)]
+    out: Option<PathBuf>,
 }
 
 /// CLI shape for `fluxmirror agent`. Positional `name` plus optional
@@ -416,6 +420,7 @@ fn main() -> ExitCode {
                 tz,
                 lang,
                 format: args.format,
+                out: args.out,
             })
         }
         Cmd::Agent(args) => {

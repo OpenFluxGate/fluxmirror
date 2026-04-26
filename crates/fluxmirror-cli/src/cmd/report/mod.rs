@@ -17,6 +17,7 @@ pub mod agent;
 pub mod agents;
 pub mod compare;
 pub(crate) mod day;
+pub mod html;
 pub mod today;
 pub(crate) mod tools;
 pub mod week;
@@ -24,15 +25,17 @@ pub mod yesterday;
 
 /// Output format selected by the caller via `--format`.
 ///
-/// `Human` is the only fully-implemented format in M1. The other two
-/// are accepted at the surface so client tooling can rely on the flag
-/// existing; the agents subcommand prints a "not yet implemented" line
-/// for them and exits 2.
+/// `Human` is the fully-implemented default. `Html` is implemented for
+/// the `week` subcommand only (M5 option A — the weekly digest card);
+/// every other report still returns a "not yet implemented" line for
+/// `Html`. `Json` and `Markdown` remain reserved on the surface across
+/// all reports so client tooling can rely on the flag existing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum ReportFormat {
     Human,
     Json,
     Markdown,
+    Html,
 }
 
 impl Default for ReportFormat {
@@ -47,6 +50,7 @@ impl fmt::Display for ReportFormat {
             ReportFormat::Human => f.write_str("human"),
             ReportFormat::Json => f.write_str("json"),
             ReportFormat::Markdown => f.write_str("markdown"),
+            ReportFormat::Html => f.write_str("html"),
         }
     }
 }

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fluxmirror weekly digest</title>
+<style>
+
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: #f9fafb;
+  color: #111827;
+  line-height: 1.45;
+  padding: 24px 12px;
+}
+.card {
+  max-width: 960px;
+  margin: 0 auto;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 32px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+.hd h1 { margin: 0; font-size: 1.6rem; color: #1d4ed8; }
+.hd .sub { margin: 4px 0 24px 0; color: #6b7280; font-size: 0.95rem; }
+section { margin-bottom: 28px; }
+section h2 { font-size: 1.05rem; margin: 0 0 12px 0; color: #111827; }
+.axis { margin: 0 0 8px 0; color: #6b7280; font-size: 0.8rem; }
+.grid {
+  display: grid;
+  grid-template-columns: 36px repeat(24, 1fr);
+  gap: 2px;
+}
+.hcell {
+  height: 18px;
+  border-radius: 2px;
+  font-size: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+}
+.hcell.hdr { background: transparent; }
+.hcell.rowlbl { justify-content: flex-start; padding-left: 2px; color: #374151; }
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+@media (max-width: 640px) {
+  .two-col { grid-template-columns: 1fr; }
+  .grid { grid-template-columns: 28px repeat(24, 1fr); }
+}
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #e5e7eb; }
+th { font-weight: 600; background: #f3f4f6; color: #374151; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.item { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 0.85rem; word-break: break-all; }
+.empty { color: #9ca3af; margin: 0; }
+.sm p { font-size: 0.95rem; color: #1f2937; margin: 0; }
+.ft { color: #9ca3af; font-size: 0.75rem; text-align: right; margin-top: 16px; }
+</style>
+</head>
+<body>
+<main class="card">
+<header class="hd">
+<h1>fluxmirror weekly digest</h1>
+<p class="sub">Apr 21 - Apr 27, 2026 &middot; UTC</p>
+</header>
+<section class="hm">
+<h2>Activity heatmap</h2>
+<p class="axis">Hour of day (00 - 23)</p>
+<div class="grid">
+<div class="hcell hdr"></div>
+<div class="hcell hdr">00</div>
+<div class="hcell hdr">01</div>
+<div class="hcell hdr">02</div>
+<div class="hcell hdr">03</div>
+<div class="hcell hdr">04</div>
+<div class="hcell hdr">05</div>
+<div class="hcell hdr">06</div>
+<div class="hcell hdr">07</div>
+<div class="hcell hdr">08</div>
+<div class="hcell hdr">09</div>
+<div class="hcell hdr">10</div>
+<div class="hcell hdr">11</div>
+<div class="hcell hdr">12</div>
+<div class="hcell hdr">13</div>
+<div class="hcell hdr">14</div>
+<div class="hcell hdr">15</div>
+<div class="hcell hdr">16</div>
+<div class="hcell hdr">17</div>
+<div class="hcell hdr">18</div>
+<div class="hcell hdr">19</div>
+<div class="hcell hdr">20</div>
+<div class="hcell hdr">21</div>
+<div class="hcell hdr">22</div>
+<div class="hcell hdr">23</div>
+<div class="hcell rowlbl">Mon</div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 00:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 01:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 02:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 03:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 04:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 05:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 06:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 07:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 08:00 - 0 calls"></div>
+<div class="hcell" style="background:#93c5fd;" data-count="3" title="Mon 09:00 - 3 calls"></div>
+<div class="hcell" style="background:#93c5fd;" data-count="5" title="Mon 10:00 - 5 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 11:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 12:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 13:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 14:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 15:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 16:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 17:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 18:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 19:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 20:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 21:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 22:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Mon 23:00 - 0 calls"></div>
+<div class="hcell rowlbl">Tue</div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 00:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 01:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 02:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 03:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 04:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 05:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 06:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 07:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 08:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 09:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 10:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 11:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 12:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 13:00 - 0 calls"></div>
+<div class="hcell" style="background:#3b82f6;" data-count="7" title="Tue 14:00 - 7 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 15:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 16:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 17:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 18:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 19:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 20:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 21:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 22:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Tue 23:00 - 0 calls"></div>
+<div class="hcell rowlbl">Wed</div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 00:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 01:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 02:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 03:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 04:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 05:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 06:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 07:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 08:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 09:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 10:00 - 0 calls"></div>
+<div class="hcell" style="background:#dbeafe;" data-count="2" title="Wed 11:00 - 2 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 12:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 13:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 14:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 15:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 16:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 17:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 18:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 19:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 20:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 21:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 22:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Wed 23:00 - 0 calls"></div>
+<div class="hcell rowlbl">Thu</div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 00:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 01:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 02:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 03:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 04:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 05:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 06:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 07:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 08:00 - 0 calls"></div>
+<div class="hcell" style="background:#93c5fd;" data-count="4" title="Thu 09:00 - 4 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 10:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 11:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 12:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 13:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 14:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 15:00 - 0 calls"></div>
+<div class="hcell" style="background:#3b82f6;" data-count="6" title="Thu 16:00 - 6 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 17:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 18:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 19:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 20:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 21:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 22:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Thu 23:00 - 0 calls"></div>
+<div class="hcell rowlbl">Fri</div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 00:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 01:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 02:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 03:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 04:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 05:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 06:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 07:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 08:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 09:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 10:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 11:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 12:00 - 0 calls"></div>
+<div class="hcell" style="background:#dbeafe;" data-count="1" title="Fri 13:00 - 1 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 14:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 15:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 16:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 17:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 18:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 19:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 20:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 21:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 22:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Fri 23:00 - 0 calls"></div>
+<div class="hcell rowlbl">Sat</div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 00:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 01:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 02:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 03:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 04:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 05:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 06:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 07:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 08:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 09:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 10:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 11:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 12:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 13:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 14:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 15:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 16:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 17:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 18:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 19:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 20:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 21:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 22:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sat 23:00 - 0 calls"></div>
+<div class="hcell rowlbl">Sun</div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 00:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 01:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 02:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 03:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 04:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 05:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 06:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 07:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 08:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 09:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 10:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 11:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 12:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 13:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 14:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 15:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 16:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 17:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 18:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 19:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 20:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 21:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 22:00 - 0 calls"></div>
+<div class="hcell" style="background:#f3f4f6;" data-count="0" title="Sun 23:00 - 0 calls"></div>
+</div>
+</section>
+<section class="two-col">
+<section class="tt">
+<h2>Top files (edited)</h2>
+<table>
+<thead><tr>
+<th>Item</th><th class="num">Count</th>
+</tr></thead>
+<tbody>
+<tr><td class="item">src/cmd/report/week.rs</td><td class="num">7</td></tr>
+<tr><td class="item">README.md</td><td class="num">5</td></tr>
+<tr><td class="item">Cargo.toml</td><td class="num">3</td></tr>
+</tbody>
+</table>
+</section>
+<section class="tt">
+<h2>Top shell commands</h2>
+<table>
+<thead><tr>
+<th>Item</th><th class="num">Count</th>
+</tr></thead>
+<tbody>
+<tr><td class="item">cargo test --workspace</td><td class="num">4</td></tr>
+<tr><td class="item">git push origin main</td><td class="num">2</td></tr>
+</tbody>
+</table>
+</section>
+</section>
+<section class="ag">
+<h2>Per-agent summary</h2>
+<table>
+<thead><tr>
+<th>Agent</th>
+<th>Calls</th>
+<th>Sessions</th>
+<th>Active days</th>
+<th>Top tool</th>
+</tr></thead>
+<tbody>
+<tr><td>claude-code</td><td class="num">18</td><td class="num">4</td><td class="num">5</td><td>Bash</td></tr>
+<tr><td>gemini-cli</td><td class="num">10</td><td class="num">2</td><td class="num">3</td><td>read_file</td></tr>
+</tbody>
+</table>
+</section>
+<section class="sm">
+<h2>Summary</h2>
+<p>Across the last 7 days you logged 28 calls across 2 agents. The busiest day was Thu with 10 calls. Heaviest tool: Bash at 12 calls.</p>
+</section>
+<footer class="ft">Generated by fluxmirror SNAPSHOT - 2026-04-27T00:00:00Z</footer>
+</main>
+</body>
+</html>
