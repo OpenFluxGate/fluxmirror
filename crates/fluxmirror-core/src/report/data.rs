@@ -17,8 +17,9 @@ use chrono_tz::Tz;
 use rusqlite::Connection;
 
 use super::dto::{
-    AgentCount, DayRow, FileTouch, HourBucket, MethodCount, NowSnapshot, PathCount, ShellEvent,
-    ToolMixEntry, TodayData, WeekData, WindowRange,
+    AgentCount, AgentTouchCount, ContextEvent, DayRow, FileTouch, HourBucket, MethodCount,
+    NowSnapshot, PathCount, ProvenanceData, ProvenanceEvent, ShellEvent, ToolMixEntry, TodayData,
+    WeekData, WindowRange,
 };
 
 /// Tool names that count as "writes" — the file-mutating action class.
@@ -211,6 +212,162 @@ pub fn collect_now(conn: &Connection) -> Result<Option<NowSnapshot>, String> {
         last_hour_total: hour_total,
         last_hour_agents: build_agents(&hour_agents),
     }))
+}
+
+/// Width of the before/after context window around a file touch.
+const PROVENANCE_WINDOW_MINUTES: i64 = 5;
+
+/// Maximum number of context events kept on each side of a touch.
+const PROVENANCE_CONTEXT_LIMIT: usize = 5;
+
+/// Collect every `agent_events` row whose `detail` equals `path`, plus
+/// the ±5 minute context window around each touch. Returns an empty
+/// `ProvenanceData` (with `total_touches = 0`) when the path was never
+/// touched — the caller decides whether that maps to 200 or 404.
+pub fn collect_provenance(conn: &Connection, path: &str) -> Result<ProvenanceData, String> {
+    let mut data = ProvenanceData {
+        path: path.to_string(),
+        ..Default::default()
+    };
+
+    let touches: Vec<(i64, String, String, String, String, Option<String>)> = {
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, ts, agent, \
+                        COALESCE(tool_canonical, COALESCE(tool, '')) AS tool, \
+                        COALESCE(tool_class, '') AS tool_class, detail \
+                 FROM agent_events WHERE detail = ?1 ORDER BY ts ASC, id ASC",
+            )
+            .map_err(|e| format!("prepare(provenance touches): {e}"))?;
+        let mapped = stmt
+            .query_map([path], |r| {
+                Ok((
+                    r.get::<_, i64>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, String>(3)?,
+                    r.get::<_, String>(4)?,
+                    r.get::<_, Option<String>>(5)?,
+                ))
+            })
+            .map_err(|e| format!("query(provenance touches): {e}"))?;
+        let mut out = Vec::new();
+        for row in mapped {
+            out.push(row.map_err(|e| format!("row(provenance touches): {e}"))?);
+        }
+        out
+    };
+
+    if touches.is_empty() {
+        return Ok(data);
+    }
+
+    data.total_touches = touches.len() as i64;
+
+    let mut per_agent: BTreeMap<String, i64> = BTreeMap::new();
+    for (_, _, agent, _, _, _) in &touches {
+        *per_agent.entry(agent.clone()).or_default() += 1;
+    }
+    let mut agents: Vec<AgentTouchCount> = per_agent
+        .into_iter()
+        .map(|(agent, count)| AgentTouchCount { agent, count })
+        .collect();
+    agents.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.agent.cmp(&b.agent)));
+    data.agents = agents;
+
+    let mut events: Vec<ProvenanceEvent> = Vec::with_capacity(touches.len());
+    for (id, ts, agent, tool, tool_class, detail) in touches {
+        let touch_dt = match DateTime::parse_from_rfc3339(&ts) {
+            Ok(dt) => dt.with_timezone(&Utc),
+            Err(_) => {
+                // Unparseable ts — emit the touch with empty context
+                // rather than failing the whole request.
+                events.push(ProvenanceEvent {
+                    ts,
+                    agent,
+                    tool,
+                    tool_class,
+                    detail,
+                    before_context: Vec::new(),
+                    after_context: Vec::new(),
+                });
+                continue;
+            }
+        };
+        let window_start = touch_dt - Duration::minutes(PROVENANCE_WINDOW_MINUTES);
+        let window_end = touch_dt + Duration::minutes(PROVENANCE_WINDOW_MINUTES);
+        let start_str = window_start.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+        let end_str = window_end.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+
+        let mut before_context: Vec<ContextEvent> = Vec::new();
+        let mut after_context: Vec<ContextEvent> = Vec::new();
+
+        let mut stmt = conn
+            .prepare(
+                "SELECT ts, agent, \
+                        COALESCE(tool_canonical, COALESCE(tool, '')) AS tool, detail \
+                 FROM agent_events \
+                 WHERE id <> ?1 AND ts >= ?2 AND ts <= ?3 \
+                 ORDER BY ts ASC, id ASC",
+            )
+            .map_err(|e| format!("prepare(provenance context): {e}"))?;
+        let mapped = stmt
+            .query_map(
+                rusqlite::params![id, &start_str, &end_str],
+                |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, String>(2)?,
+                        r.get::<_, Option<String>>(3)?,
+                    ))
+                },
+            )
+            .map_err(|e| format!("query(provenance context): {e}"))?;
+        for row in mapped {
+            let (ctx_ts, ctx_agent, ctx_tool, ctx_detail) =
+                row.map_err(|e| format!("row(provenance context): {e}"))?;
+            let ctx_dt = match DateTime::parse_from_rfc3339(&ctx_ts) {
+                Ok(dt) => dt.with_timezone(&Utc),
+                Err(_) => continue,
+            };
+            let event = ContextEvent {
+                ts: ctx_ts,
+                agent: ctx_agent,
+                tool: ctx_tool,
+                detail: ctx_detail,
+            };
+            if ctx_dt < touch_dt {
+                before_context.push(event);
+            } else if ctx_dt > touch_dt {
+                after_context.push(event);
+            }
+        }
+
+        // Keep the events closest to the touch — for `before_context`
+        // that's the tail (most recent), for `after_context` the head
+        // (earliest after the touch).
+        if before_context.len() > PROVENANCE_CONTEXT_LIMIT {
+            let drop = before_context.len() - PROVENANCE_CONTEXT_LIMIT;
+            before_context.drain(0..drop);
+        }
+        if after_context.len() > PROVENANCE_CONTEXT_LIMIT {
+            after_context.truncate(PROVENANCE_CONTEXT_LIMIT);
+        }
+
+        events.push(ProvenanceEvent {
+            ts,
+            agent,
+            tool,
+            tool_class,
+            detail,
+            before_context,
+            after_context,
+        });
+    }
+    data.events = events;
+
+    Ok(data)
 }
 
 /// Best-effort MCP traffic counter — falls back to 0 when the `events`

@@ -140,6 +140,7 @@ export function Week() {
                 count: s.count,
               }))}
               limit={10}
+              linkify={false}
             />
           </div>
         )}
@@ -153,6 +154,7 @@ export function Week() {
           <FileTable
             rows={data.cwds.map((c) => ({ path: c.path, count: c.count }))}
             limit={10}
+            linkify={false}
           />
         </section>
       )}

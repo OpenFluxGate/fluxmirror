@@ -12,7 +12,8 @@ pub mod dto;
 pub mod lang;
 
 pub use dto::{
-    AgentCount, DayRow, FileTouch, HourBucket, MethodCount, NowSnapshot, PathCount, ShellEvent,
-    ToolMixEntry, TodayData, WeekData, WindowRange,
+    AgentCount, AgentTouchCount, ContextEvent, DayRow, FileTouch, HourBucket, MethodCount,
+    NowSnapshot, PathCount, ProvenanceData, ProvenanceEvent, ShellEvent, ToolMixEntry, TodayData,
+    WeekData, WindowRange,
 };
 pub use lang::{pack, LangPack};
