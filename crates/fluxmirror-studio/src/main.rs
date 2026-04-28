@@ -8,6 +8,7 @@
 //! API routes land in M2 onward.
 
 mod embed;
+mod redact_layer;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -88,9 +89,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         db_path: db_path.clone(),
     };
 
+    // Load redaction rules once at boot. The capture path never goes
+    // through this binary; the layer below scrubs only outbound bodies
+    // whose Content-Type tags them as text-shaped (HTML / JSON / plain
+    // text), leaving CSS / JS / image bytes untouched.
+    let redact_cfg = fluxmirror_core::Config::load().unwrap_or_default();
+    let redact_rules = Arc::new(fluxmirror_core::redact::from_config(&redact_cfg));
+
     let app = Router::new()
         .route("/health", get(health))
         .fallback(static_handler)
+        .layer(axum::middleware::from_fn_with_state(
+            redact_rules.clone(),
+            redact_layer::scrub_response,
+        ))
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 

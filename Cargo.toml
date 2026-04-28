@@ -11,6 +11,7 @@ authors = ["rojae"]
 [workspace.dependencies]
 serde_json = "1"
 rusqlite   = { version = "0.34", features = ["bundled"] }
+regex      = "1"
 
 [profile.release]
 strip = true

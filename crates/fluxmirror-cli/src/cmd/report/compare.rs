@@ -11,7 +11,7 @@ use std::process::ExitCode;
 
 use chrono::NaiveDate;
 
-use crate::cmd::util::{err_exit2, open_db_readonly, parse_tz};
+use crate::cmd::util::{err_exit2, open_db_readonly, parse_tz, scrub_for_output};
 use crate::cmd::window::{day_range, today_range};
 use fluxmirror_core::report::{pack, LangPack};
 
@@ -86,7 +86,7 @@ pub fn run(args: CompareArgs) -> ExitCode {
     }
 
     let report = render_human(lp, &args.tz, today_date, yest_date, &today, &yesterday);
-    print!("{}", report);
+    print!("{}", scrub_for_output(&report));
     ExitCode::SUCCESS
 }
 

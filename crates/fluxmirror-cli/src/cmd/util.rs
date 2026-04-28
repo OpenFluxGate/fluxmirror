@@ -68,6 +68,22 @@ pub fn err_exit2(msg: impl AsRef<str>) -> ExitCode {
     ExitCode::from(2)
 }
 
+/// Pattern-scrub a finished report string against the active config's
+/// built-in + user redaction rules. Loads `Config` once per call; failure
+/// to load falls back to `Config::default()` so a corrupt project file
+/// can never silently disable scrubbing on the trusted output surface.
+///
+/// This is the single chokepoint every text-report renderer pipes
+/// stdout through. The HTML cards have a parallel hook in
+/// `cmd::report::html_io::emit_html`. The capture binary path
+/// (`fluxmirror hook` / `fluxmirror proxy`) deliberately does not call
+/// this — `events.db` stays raw.
+pub fn scrub_for_output(text: &str) -> String {
+    let cfg = fluxmirror_core::Config::load().unwrap_or_default();
+    let rules = fluxmirror_core::redact::from_config(&cfg);
+    fluxmirror_core::redact::scrub(text, &rules).into_owned()
+}
+
 #[cfg(test)]
 pub mod test_helpers {
     //! Shared test plumbing: a single global mutex that every cmd test
