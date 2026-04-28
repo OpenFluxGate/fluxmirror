@@ -14,6 +14,7 @@ use fluxmirror_cli::cmd;
 
 use cmd::config::ConfigOp;
 use cmd::report::ReportFormat;
+use cmd::upgrade::UpgradeArgs;
 use cmd::wrapper::WrapperOp;
 use fluxmirror_core::Config;
 
@@ -122,6 +123,25 @@ enum Cmd {
 
     /// Today vs yesterday side-by-side comparison.
     Compare(CompareCliArgs),
+
+    /// Self-update fluxmirror to the latest GitHub release. Use
+    /// --with-studio to also update fluxmirror-studio.
+    Upgrade(UpgradeCliArgs),
+}
+
+#[derive(Args)]
+struct UpgradeCliArgs {
+    /// Also update fluxmirror-studio when it is installed alongside or
+    /// available on PATH.
+    #[arg(long, default_value_t = false, action = clap::ArgAction::SetTrue)]
+    with_studio: bool,
+    /// Verify and download but do not swap the binary on disk.
+    #[arg(long, default_value_t = false, action = clap::ArgAction::SetTrue)]
+    dry_run: bool,
+    /// GitHub repo `owner/name` to poll. Defaults to
+    /// `OpenFluxGate/fluxmirror`.
+    #[arg(long)]
+    asset_repo: Option<String>,
 }
 
 #[derive(Args)]
@@ -529,6 +549,12 @@ fn main() -> ExitCode {
                 out: args.out,
             })
         }
+        Cmd::Upgrade(args) => cmd::upgrade::run(UpgradeArgs {
+            with_studio: args.with_studio,
+            dry_run: args.dry_run,
+            asset_repo: args.asset_repo,
+            current_version: env!("CARGO_PKG_VERSION").to_string(),
+        }),
     }
 }
 

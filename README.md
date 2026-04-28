@@ -363,7 +363,16 @@ fluxmirror sqlite --db "$(fluxmirror db-path)" \
 | Claude Code | `/plugin marketplace update fluxmirror` then `/reload-plugins` (or enable auto-update under `/plugin`) |
 | Qwen Code | `qwen extensions update fluxmirror` |
 | Gemini CLI | `gemini extensions update fluxmirror` |
-| Direct binary | re-download the per-arch asset and overwrite |
+| Direct binary | `fluxmirror upgrade` (capture binary only) |
+| Direct binary + studio | `fluxmirror upgrade --with-studio` |
+
+`fluxmirror upgrade` polls the latest GitHub Release, downloads the
+asset matching the current arch, verifies a `.sha256` companion, and
+atomically swaps the on-disk binary. Pass `--with-studio` to also
+update `fluxmirror-studio` if it lives alongside `fluxmirror` or is on
+your `$PATH`. If the binary path is owned by root (e.g. `/usr/local/bin`),
+the command prints a `sudo` hint instead of escalating itself; SHA
+mismatches abort the swap and leave the existing binary untouched.
 
 ## What it doesn't do (yet)
 

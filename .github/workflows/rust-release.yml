@@ -116,6 +116,24 @@ jobs:
           copy %BIN% artifacts\fluxmirror-proxy-${{ matrix.asset_suffix }}${{ matrix.ext }}
           dir artifacts
 
+      - name: Compute SHA256 companions
+        shell: bash
+        run: |
+          cd artifacts
+          # Only the canonical capture / studio names get .sha256
+          # companions — `fluxmirror upgrade` uses these to verify the
+          # downloaded asset before atomic swap. Legacy alias names
+          # (`fluxmirror-hook-*`, `fluxmirror-proxy-*`) are unchanged.
+          for f in \
+            "fluxmirror-${{ matrix.asset_suffix }}${{ matrix.ext }}" \
+            "fluxmirror-studio-${{ matrix.asset_suffix }}${{ matrix.ext }}"
+          do
+            if [ -f "$f" ]; then
+              shasum -a 256 "$f" > "$f.sha256"
+            fi
+          done
+          ls -la
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
