@@ -19,7 +19,7 @@ use std::process::ExitCode;
 
 use chrono::Utc;
 
-use crate::cmd::util::err_exit2;
+use crate::cmd::util::{err_exit2, scrub_for_output};
 
 /// Pre-formatted footer line. Pinned to the binary version + an UTC
 /// instant so the card's footer reads exactly the same shape as the
@@ -40,7 +40,12 @@ pub fn generated_footer() -> String {
 ///   - `out = Some("-")` → write the HTML to stdout (raw, no path line).
 ///   - `out = Some(path)` → write to `path`, print
 ///     `wrote <abs path> (<n> bytes)` on stdout.
+///
+/// The HTML body is pattern-scrubbed against the active redaction rules
+/// before any byte hits stdout / disk. The capture binary's `events.db`
+/// stays untouched — scrubbing is purely a presentation-layer step.
 pub fn emit_html(subcmd: &str, html: String, out: Option<&Path>) -> ExitCode {
+    let html = scrub_for_output(&html);
     match out {
         None => {
             // Auto-out path: timestamp-suffixed under /tmp.

@@ -25,7 +25,7 @@ use chrono::{DateTime, NaiveDate, Utc};
 use chrono_tz::Tz;
 use rusqlite::Connection;
 
-use crate::cmd::util::{err_exit2, open_db_readonly, parse_tz};
+use crate::cmd::util::{err_exit2, open_db_readonly, parse_tz, scrub_for_output};
 use crate::cmd::window::week_range;
 use fluxmirror_core::report::{pack, LangPack};
 
@@ -80,7 +80,7 @@ pub fn run(args: AgentsArgs) -> ExitCode {
 
     let lp = pack(&args.lang);
     let report = render_human(lp, &args.tz, week_start, week_end, &stats);
-    print!("{}", report);
+    print!("{}", scrub_for_output(&report));
     ExitCode::SUCCESS
 }
 

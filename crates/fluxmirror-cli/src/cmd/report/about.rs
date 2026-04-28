@@ -14,6 +14,8 @@ use std::process::ExitCode;
 use fluxmirror_core::paths;
 use fluxmirror_core::report::{pack, LangPack};
 
+use crate::cmd::util::scrub_for_output;
+
 use super::ReportFormat;
 
 /// CLI args for the about subcommand.
@@ -38,7 +40,7 @@ pub fn run(args: AboutArgs) -> ExitCode {
     let db = args.db.unwrap_or_else(paths::default_db_path);
     let log_path = paths::config_dir().join("hook-errors.log");
     let report = render_human(lp, &db.display().to_string(), &log_path.display().to_string());
-    print!("{}", report);
+    print!("{}", scrub_for_output(&report));
     ExitCode::SUCCESS
 }
 

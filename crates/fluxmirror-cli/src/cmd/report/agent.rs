@@ -23,7 +23,7 @@ use chrono::{DateTime, Duration, NaiveDate, Utc};
 use chrono_tz::Tz;
 use rusqlite::Connection;
 
-use crate::cmd::util::{err_exit2, open_db_readonly, parse_tz};
+use crate::cmd::util::{err_exit2, open_db_readonly, parse_tz, scrub_for_output};
 use crate::cmd::window::{day_range, today_range, week_range};
 use fluxmirror_core::report::{pack, LangPack};
 
@@ -134,7 +134,7 @@ pub fn run(args: AgentArgs) -> ExitCode {
 
     match report {
         Ok(s) => {
-            print!("{}", s);
+            print!("{}", scrub_for_output(&s));
             ExitCode::SUCCESS
         }
         Err(e) => err_exit2(format!("fluxmirror agent: {e}")),

@@ -14,6 +14,7 @@ pub mod errors;
 pub mod event;
 pub mod normalize;
 pub mod paths;
+pub mod redact;
 pub mod report;
 pub mod tz;
 
