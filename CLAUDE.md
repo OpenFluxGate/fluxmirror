@@ -60,42 +60,62 @@ Legend: ✅ shipped · 🟡 partial (core function works; one named gap) · 🗺
 
 ## Current phase
 
-Phase 1 is complete. The original Week 1 PoC (a Java MCP proxy for Claude
-Desktop) and the v0.5.x two-binary layout have both been collapsed into a
-single Rust binary built from a 4-crate workspace:
+Phase 1 (capture) and Phase 2 (binary-driven CLI reports + HTML weekly
+card) are shipped on `main`. Phase 3 is in flight on
+`feature/phase3/base` — see `docs/PHASE3.md`. The capture layer below
+is what existing v0.5.7 users have today; Phase 3 adds a separate
+`fluxmirror-studio` web binary on top without changing any of it.
 
 | Component | Role |
 |---|---|
-| `fluxmirror` (single Rust binary) | kubectl-style subcommands. `fluxmirror hook --kind …` writes one row per tool call to `agent_events`. `fluxmirror proxy …` is the long-running stdio MCP relay used by Claude Desktop, writing JSON-RPC lines to `events`. Plus `init`, `config`, `wrapper`, `doctor`, `db-path`, `window`, `histogram`, `daily-totals`, `per-day-files`, `sqlite`. |
-| `wrappers/{shim.sh, shim.mjs, shim.cmd, router.sh}` | Cross-shell entry points. Each shim downloads the per-arch binary on first invocation, caches it, then execs `fluxmirror hook --kind <claude\|gemini>`. `router.sh` tries shim.sh, falls back to shim.mjs. |
+| `fluxmirror` (capture / CLI binary) | kubectl-style subcommands. `fluxmirror hook --kind …` writes one row per tool call to `agent_events`. `fluxmirror proxy …` is the long-running stdio MCP relay used by Claude Desktop, writing JSON-RPC lines to `events`. Plus `init`, `config`, `wrapper`, `doctor`, `db-path`, `window`, `histogram`, `daily-totals`, `per-day-files`, `sqlite`, and the Phase 2 report subcommands (`today`, `yesterday`, `week`, `compare`, `agent`, `agents`, `about`). |
+| `fluxmirror-studio` (Phase 3 web binary, opt-in) | Separate process. Reads the same SQLite file in read-only mode and exposes a local web dashboard on `127.0.0.1:7090`. Capture-side state is never touched. Frontend is a Vite + React 18 + Tailwind v4 bundle, embedded into the binary at compile time via `include_dir!()`; end users never need Node.js to run it. |
+| `wrappers/{shim.sh, shim.mjs, shim.cmd, router.sh}` | Cross-shell entry points. Each shim downloads the per-arch capture binary on first invocation, caches it, then execs `fluxmirror hook --kind <claude\|gemini>`. `router.sh` tries shim.sh, falls back to shim.mjs. The studio binary is **not** routed through the shims — users install it explicitly when they want it. |
 | `plugins/fluxmirror/commands/fluxmirror/*.md` | `/fluxmirror:*` slash commands for Claude Code / Qwen Code; turn SQLite data into reports. |
 | `gemini-extension/commands/fluxmirror/*.toml` | Same slash command surface for Gemini CLI; delegates to `gemini-extension/scripts/report-data.sh`. |
 | `manifests/source.yaml` + `scripts/build-manifests.sh` | Single source of truth for `hooks.json`. CI guards drift via `--check`. |
 
-The binary has **zero runtime dependencies** (SQLite is statically linked via
-rusqlite's `bundled` feature). The wrapper layer depends on whatever shell
-the OS already provides (bash / node / cmd).
+The capture binary has **zero runtime dependencies** (SQLite is
+statically linked via rusqlite's `bundled` feature). The wrapper layer
+depends on whatever shell the OS already provides (bash / node / cmd).
+The studio binary embeds its frontend at compile time, so it also has
+zero runtime dependencies — Node.js is needed only at developer build
+time.
 
 ## Tech stack
 
-- **Rust** (stable, edition 2021) — single-binary `fluxmirror` built from
-  a 4-crate workspace (`fluxmirror-cli`, `fluxmirror-core`,
-  `fluxmirror-store`, `fluxmirror-proxy`). Deps: `rusqlite` (bundled
-  SQLite), `serde_json`, `clap` (derive), `chrono`, `chrono-tz`,
-  `gethostname`. Released as ~2.2 MB statically-linked artifacts per arch.
+- **Rust** (stable, edition 2021) — 5-crate workspace
+  (`fluxmirror-cli`, `fluxmirror-core`, `fluxmirror-store`,
+  `fluxmirror-proxy`, `fluxmirror-studio` [Phase 3]) producing two
+  binaries: `fluxmirror` (capture / CLI, ~3 MB statically-linked per
+  arch) and `fluxmirror-studio` (web dashboard, ~10 MB embedded
+  bundle). Capture-side deps: `rusqlite` (bundled SQLite),
+  `serde_json`, `clap` (derive), `chrono`, `chrono-tz`, `gethostname`.
+  Studio-side adds: `axum`, `tower-http`, `tokio`, `tracing`,
+  `include_dir`.
+- **Frontend** (Phase 3, build-time only) — `studio-web/` lives at the
+  repo root (sibling to `crates/`). Vite + React 18 + TypeScript +
+  Tailwind v4 + react-router 6 + TanStack Query. Built with `pnpm
+  build`; the resulting `dist/` is baked into the studio binary via
+  `include_dir!()`. End users never need Node.js, pnpm, or any JS
+  toolchain to run the studio binary — those are developer-only deps.
 - **Cross-shell wrapper layer** (`wrappers/{shim.sh, shim.mjs, shim.cmd,
   router.sh}`) — each shim depends on a **single** runtime that the OS
   already provides: `bash + curl` (macOS / Linux / WSL / Git-Bash), or
   `node` ≥ 18, or `cmd.exe` + PowerShell. `fluxmirror init` probes the
-  host and picks one.
-- **GitHub Actions** for CI (3 workflows): workspace test matrix
-  (`ubuntu-latest`, `macos-latest`, `windows-latest`) + manifest drift
-  guard + hook parity test on every PR; cross-arch matrix release on
-  tag push.
+  host and picks one. Shims route the capture binary only; the studio
+  binary is installed and invoked directly by the user.
+- **GitHub Actions** for CI: workspace test matrix
+  (`ubuntu-latest`, `macos-latest`, `windows-latest`) — every job runs
+  `pnpm install && pnpm build` in `studio-web/` first, then `cargo
+  test --workspace` with `FLUXMIRROR_SKIP_WEB_BUILD=1` so the build
+  doesn't double-invoke pnpm. Cross-arch matrix release on tag push
+  emits both binaries per arch.
 
 No JVM, no Gradle, no Java toolchain. No Python or jq at runtime — they were
 removed when the bash fallback path was retired in favour of the auto-download
-wrapper.
+wrapper. Node.js is **build-time only** (frontend bundling); it never runs in
+the user's process.
 
 ## Architecture
 
@@ -111,8 +131,10 @@ Claude Desktop ◀── stdio ──▶ fluxmirror proxy ◀── stdio ──
                                               ~/Library/Application Support/
                                                   fluxmirror/events.db
                                                           │
-                                                          ▼
-                                              /fluxmirror:* slash commands
+                                                          ├──▶ /fluxmirror:* slash commands
+                                                          │
+                                                          └──▶ fluxmirror-studio (Phase 3, opt-in)
+                                                                read-only @ 127.0.0.1:7090
 ```
 
 Both write paths share one SQLite file. Two tables, one per source style:
@@ -283,16 +305,26 @@ Example (Claude Desktop's `~/Library/Application Support/Claude/claude_desktop_c
 
 ## Out of scope (still)
 
-- Redaction / sensitive-data masking (raw shell args and file paths land in the DB unfiltered)
-- Anomaly detection / policy gating (data captured; analysis layer not built — Phase 3)
-- FluxGate integration (per-agent rate control — Phase 3, not a runtime dependency today)
-- Estimated API cost (only call counts are tracked)
-- Shareable HTML / image digest cards (`week` report is text only — Phase 2 M5 candidate)
+In-flight in Phase 3 — not yet shipped, but planned:
+- Redaction / sensitive-data masking (raw shell args and file paths land in the DB unfiltered today; presentation-layer scrub is Phase 3 M7)
+- Estimated API cost (only call counts are tracked today; Phase 3 M6 lands token-usage parsing + pricing lookup)
+- Real `.fluxmirror.toml` parser (Phase 3 M9 replaces the stub)
+- Local web UI (`fluxmirror-studio`, Phase 3 M1–M5)
+- Auto-named work sessions, per-file provenance, time-machine replay (Phase 3 M3–M5)
+- `fluxmirror upgrade` self-update (Phase 3 M8)
+
+Deferred to later phases:
+- Anomaly detection / policy gating (Phase 4)
+- FluxGate integration / per-agent rate control (Phase 5)
+- Multi-user / remote / authenticated `fluxmirror-studio` (Phase 4)
+- Vector embeddings / semantic search (Phase 5)
+- HTTP/SSE MCP transport (Phase 5; proxy is stdio-only today)
+- VS Code / Cursor extension overlay (Phase 5)
 - Windows-native `cmd.exe` shim hardening (only bash and node paths are CI-tested)
-- Real `.fluxmirror.toml` parser (stub; use env vars or `fluxmirror config set` until Phase 2)
-- HTTP/SSE MCP transport (proxy is stdio-only)
-- Web UI, mobile app, backend server
-- Encryption, authentication, multi-device sync
+
+Permanently out of scope:
+- Mobile app, dedicated backend server
+- Encryption / authentication / multi-device sync
 - CRDT-based syncing
 
 ## Project layout (current)
@@ -313,9 +345,18 @@ fluxmirror/
 │   ├── fluxmirror-store/                  EventStore trait + SqliteStore + migrations
 │   │   ├── Cargo.toml
 │   │   └── src/{lib,sqlite}.rs
-│   └── fluxmirror-proxy/                  stdio MCP relay (lib)
+│   ├── fluxmirror-proxy/                  stdio MCP relay (lib)
+│   │   ├── Cargo.toml
+│   │   └── src/{lib,framer,store,writer,child,bridge}.rs
+│   └── fluxmirror-studio/                 [[bin]] fluxmirror-studio — Phase 3 web dashboard
 │       ├── Cargo.toml
-│       └── src/{lib,framer,store,writer,child,bridge}.rs
+│       ├── build.rs                       runs pnpm build on studio-web/ (skippable via env)
+│       └── src/{main,embed}.rs + (api routes land in M2)
+├── studio-web/                            Phase 3 frontend source (sibling to crates/)
+│   ├── package.json + pnpm-lock.yaml      Vite + React 18 + TS + Tailwind v4
+│   ├── vite.config.ts
+│   ├── src/{main,App}.tsx + routes/, components/, lib/
+│   └── dist/                              build artefact, embedded into fluxmirror-studio at compile time (gitignored)
 ├── wrappers/
 │   ├── shim.sh                            bash entry (macOS / Linux / WSL / Git-Bash)
 │   ├── shim.mjs                           Node entry

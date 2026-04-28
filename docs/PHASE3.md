@@ -1,6 +1,6 @@
 # Phase 3 Plan — fluxmirror
 
-> Branch: `feature/phase3`
+> Branch: `feature/phase3/base` (integration) + `feature/phase3/<milestone>` per slice
 > Goal: take fluxmirror from "I run a daily report" to
 > "**this is the tab I open when I want to think about my AI coding.**"
 > Live state (untracked, machine-local) lives at
@@ -96,16 +96,16 @@ Total: 9–10 weeks of focused work (LLM optional adds 1 week).
 
 ## Parallelism
 
-After M1 lands on `feature/phase3`, three tracks can run in parallel
-across cmux panes / worktrees:
+After M1 lands on `feature/phase3/base`, three tracks can run in
+parallel across cmux panes / worktrees:
 
 - **Track A (web stack):** M2 → M3 → M4
 - **Track B (data layer):** M2 → M5 → M6
 - **Track C (underlay):** M7 ‖ M8 ‖ M9 (independent)
 
-Each per-milestone branch lands as a PR into `feature/phase3`. The
-final integration PR `feature/phase3 → main` plus a `v0.6.0` tag
-closes the phase.
+Each per-milestone branch lands as a PR into `feature/phase3/base`.
+The final integration PR `feature/phase3/base → main` plus a `v0.6.0`
+tag closes the phase.
 
 ## UI tone
 

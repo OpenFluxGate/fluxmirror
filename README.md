@@ -9,24 +9,30 @@ A set of `/fluxmirror:*` slash commands (installed by the Claude Code /
 Qwen Code plugin and the Gemini CLI extension) turns the SQLite data
 into daily, weekly, or per-agent reports.
 
-Phase 1 ships **a single `fluxmirror` binary** with a kubectl-style
-subcommand surface — `fluxmirror hook`, `fluxmirror proxy`, `fluxmirror
-init`, `fluxmirror today`, `fluxmirror doctor`, … — replacing the
-previous two-binary layout. The binary is a statically-linked Rust
-program with zero runtime dependencies (SQLite is bundled). A small
-cross-shell wrapper layer (`wrappers/{shim.sh, shim.mjs, shim.cmd,
-router.sh}`) auto-downloads the per-arch binary on first invocation
-and execs it on every call — first call is one-time ~1-2 s, every call
-after is ~30 ms.
+**Two binaries.** Phase 1 + 2 shipped the `fluxmirror` binary — a
+single statically-linked Rust program with a kubectl-style subcommand
+surface (`fluxmirror hook`, `fluxmirror proxy`, `fluxmirror init`,
+`fluxmirror today`, `fluxmirror week`, `fluxmirror doctor`, …) and zero
+runtime dependencies (SQLite bundled). Phase 3 (in flight) adds a
+second, **opt-in** binary — `fluxmirror-studio`, a local web dashboard
+on `127.0.0.1:7090` that reads the same SQLite file in read-only mode.
+You can run capture only, dashboard only, or both; the only thing they
+share is the DB file. A small cross-shell wrapper layer
+(`wrappers/{shim.sh, shim.mjs, shim.cmd, router.sh}`) auto-downloads
+the per-arch capture binary on first invocation and execs it on every
+call — first call is one-time ~1-2 s, every call after is ~30 ms.
+The studio binary is installed and invoked directly by the user, never
+through the wrapper layer.
 
 ## What FluxMirror produces
 
 | # | Output | Status | Notes |
 |---|---|---|---|
-| 1 | Nightly journal | ✅ shipped | `/fluxmirror:today` and `fluxmirror today` produce a one-page activity report in your chosen language. |
-| 2 | Usage tracker | 🟡 partial | Tool-call counts, per-agent and per-tool breakdowns shipped via `/fluxmirror:agents` and `/fluxmirror:week`. Estimated API cost is not yet computed — see roadmap. |
-| 3 | Weekly digest | 🟡 partial | `/fluxmirror:week` ships the data view. The shareable HTML card form is on Phase 2 M5 (TBD). |
-| 4 | Anomaly alerts | 🗺 roadmap | No detection or gating ships in Phase 1 / 2. Events are captured but not analysed. Phase 3 candidate. |
+| 1 | Nightly journal | ✅ shipped | `/fluxmirror:today` and `fluxmirror today` produce a one-page activity report in your chosen language. Also available as HTML via `--html`. |
+| 2 | Usage tracker | 🟡 partial | Tool-call counts, per-agent and per-tool breakdowns shipped via `/fluxmirror:agents` and `/fluxmirror:week`. Estimated API cost lands in Phase 3 M6. |
+| 3 | Weekly digest | ✅ shipped | `/fluxmirror:week --html` produces the shareable HTML card with summary, daily breakdown, highlights, and insights. |
+| 4 | Local web dashboard | 🚧 in flight | Phase 3 ships the `fluxmirror-studio` binary — provenance per file, time-machine replay, auto-named work sessions, cost overlay. Opt-in install. |
+| 5 | Anomaly alerts | 🗺 roadmap | No detection or gating ships in Phase 1 / 2 / 3. Events are captured but not analysed. Phase 4 candidate. |
 
 Legend: ✅ shipped · 🟡 partial (core function works; one named gap) · 🗺 roadmap (not yet implemented)
 
@@ -34,9 +40,9 @@ Legend: ✅ shipped · 🟡 partial (core function works; one named gap) · 🗺
 
 | Value | Status | Notes |
 |---|---|---|
-| Transparency | ✅ | Every tool call is logged to a queryable SQLite DB; reports surface it in plain language. |
-| Control | 🗺 roadmap | No policy engine, no gating, no rate-limiting. Planned for Phase 3 (FluxGate integration). |
-| Memory | 🟡 partial | Raw history is durable and queryable; curation and summarisation tooling beyond the existing reports is roadmap. |
+| Transparency | ✅ | Every tool call is logged to a queryable SQLite DB; CLI + HTML + (Phase 3) web dashboard surface it in plain language. |
+| Control | 🗺 roadmap | No policy engine, no gating, no rate-limiting. Phase 4 introduces heuristic anomaly stories; FluxGate integration is Phase 5. |
+| Memory | 🚧 in flight | Phase 3 adds provenance per file + time-machine replay + auto-named sessions, turning the raw history into something you actually browse. |
 
 ## Why
 

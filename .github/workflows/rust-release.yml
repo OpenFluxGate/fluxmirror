@@ -44,6 +44,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: studio-web/pnpm-lock.yaml
+
+      - name: Build studio-web bundle
+        shell: bash
+        run: |
+          cd studio-web
+          pnpm install --frozen-lockfile
+          pnpm build
+
       - name: Install cross-compile linker (Linux ARM only)
         if: matrix.cross_apt
         run: |
@@ -63,17 +82,22 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('Cargo.lock') }}
           restore-keys: ${{ runner.os }}-${{ matrix.target }}-cargo-
 
-      - name: Build fluxmirror (${{ matrix.target }})
+      - name: Build fluxmirror + fluxmirror-studio (${{ matrix.target }})
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: ${{ matrix.cross_linker }}
-        run: cargo build --release --target ${{ matrix.target }} -p fluxmirror-cli
+          FLUXMIRROR_SKIP_WEB_BUILD: "1"
+        run: |
+          cargo build --release --target ${{ matrix.target }} -p fluxmirror-cli
+          cargo build --release --target ${{ matrix.target }} -p fluxmirror-studio
 
       - name: Stage artifacts (POSIX)
         if: runner.os != 'Windows'
         run: |
           mkdir -p artifacts
           BIN="target/${{ matrix.target }}/release/fluxmirror${{ matrix.ext }}"
+          STUDIO_BIN="target/${{ matrix.target }}/release/fluxmirror-studio${{ matrix.ext }}"
           cp "$BIN" "artifacts/fluxmirror-${{ matrix.asset_suffix }}${{ matrix.ext }}"
+          cp "$STUDIO_BIN" "artifacts/fluxmirror-studio-${{ matrix.asset_suffix }}${{ matrix.ext }}"
           # Phase 1 backwards-compat aliases — same binary, legacy names.
           cp "$BIN" "artifacts/fluxmirror-hook-${{ matrix.asset_suffix }}${{ matrix.ext }}"
           cp "$BIN" "artifacts/fluxmirror-proxy-${{ matrix.asset_suffix }}${{ matrix.ext }}"
@@ -85,7 +109,9 @@ jobs:
         run: |
           mkdir artifacts
           set BIN=target\${{ matrix.target }}\release\fluxmirror${{ matrix.ext }}
+          set STUDIO_BIN=target\${{ matrix.target }}\release\fluxmirror-studio${{ matrix.ext }}
           copy %BIN% artifacts\fluxmirror-${{ matrix.asset_suffix }}${{ matrix.ext }}
+          copy %STUDIO_BIN% artifacts\fluxmirror-studio-${{ matrix.asset_suffix }}${{ matrix.ext }}
           copy %BIN% artifacts\fluxmirror-hook-${{ matrix.asset_suffix }}${{ matrix.ext }}
           copy %BIN% artifacts\fluxmirror-proxy-${{ matrix.asset_suffix }}${{ matrix.ext }}
           dir artifacts
@@ -105,10 +131,15 @@ jobs:
           body: |
             FluxMirror ${{ github.ref_name }}.
 
-            This release ships a single `fluxmirror` binary per arch.
+            Two binaries per arch:
+
+            - `fluxmirror-<arch>` — capture / proxy / CLI reports. Required.
+            - `fluxmirror-studio-<arch>` — local web dashboard at
+              `127.0.0.1:7090`. Optional, opt-in.
+
             The legacy `fluxmirror-hook-<arch>` and `fluxmirror-proxy-<arch>`
-            asset names continue to be published as copies of the same
-            binary so existing wrappers keep working. They will be removed
-            in a future major release.
+            asset names continue to be published as copies of the
+            capture binary so existing wrappers keep working. They will
+            be removed in a future major release.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
