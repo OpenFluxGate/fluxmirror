@@ -18,7 +18,7 @@ plugins/fluxmirror/commands/fluxmirror/about.md
 plugins/fluxmirror/commands/fluxmirror/agent.md
 plugins/fluxmirror/commands/fluxmirror/agents.md
 plugins/fluxmirror/commands/fluxmirror/compare.md
-plugins/fluxmirror/commands/fluxmirror/report-today.md
+plugins/fluxmirror/commands/fluxmirror/today.md
 plugins/fluxmirror/commands/fluxmirror/week.md
 plugins/fluxmirror/commands/fluxmirror/yesterday.md
 gemini-extension/commands/fluxmirror/about.toml
