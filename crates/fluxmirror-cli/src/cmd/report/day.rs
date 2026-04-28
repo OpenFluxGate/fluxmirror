@@ -24,13 +24,13 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-use chrono::{DateTime, NaiveDate, Timelike, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use chrono_tz::Tz;
 use rusqlite::Connection;
 
+use fluxmirror_core::report::data as core_data;
+use fluxmirror_core::report::dto as core_dto;
 use fluxmirror_core::report::LangPack;
-
-use super::tools::{is_read, is_shell, is_write};
 
 /// Maximum rows in the "files written or edited" table.
 pub(crate) const FILES_EDITED_LIMIT: usize = 20;
@@ -38,7 +38,10 @@ pub(crate) const FILES_EDITED_LIMIT: usize = 20;
 pub(crate) const FILES_READ_LIMIT: usize = 10;
 /// Maximum width (chars) of the bar in the hour-distribution chart.
 const HOUR_BAR_WIDTH: u32 = 30;
-/// Truncation length for shell-command detail strings.
+/// Truncation length for shell-command detail strings. The cut now
+/// happens in `fluxmirror-core::report::data`; the constant stays so
+/// existing tests can pin the limit.
+#[allow(dead_code)]
 const SHELL_DETAIL_MAX_CHARS: usize = 80;
 /// Below this number of total events, emit the "limited activity" line
 /// and exit 0. Threshold is 1 so any non-empty window renders the full
@@ -100,14 +103,12 @@ pub(crate) struct AgentRow {
 
 /// Run the whole day-aggregation pipeline against the connection.
 ///
-/// Pulls every `agent_events` row in the window plus the matching
-/// `events` rows for MCP traffic and folds them into one `DayStats`.
-/// Each loop classifies the row exactly once and updates the relevant
-/// maps in-place — single pass over the data.
-///
-/// `agent_filter`, when `Some(name)`, restricts the aggregation to rows
-/// where `agent = ?name`. Used by the `agent` subcommand to scope the
-/// same report to a single agent without a separate code path.
+/// Thin wrapper around [`fluxmirror_core::report::data::collect_today`]:
+/// the SQL pass and aggregation live in core so the studio JSON API
+/// and the CLI text/HTML reports share the same extraction code. The
+/// adapter below repacks the canonical [`core_dto::TodayData`] into the
+/// CLI's renderer-friendly map-based [`DayStats`] so the existing
+/// renderer call sites stay unchanged.
 pub(crate) fn collect_day(
     conn: &Connection,
     tz: Tz,
@@ -115,168 +116,66 @@ pub(crate) fn collect_day(
     end: DateTime<Utc>,
     agent_filter: Option<&str>,
 ) -> Result<DayStats, String> {
-    let start_str = start.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-    let end_str = end.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-    let start_ms = start.timestamp_millis();
-    let end_ms = end.timestamp_millis();
-
-    let mut day = DayStats::default();
-
-    // Pass 1 — every agent_events row in the window. We collect the
-    // (ts, agent, session, tool, detail, cwd) tuples upfront so the
-    // optional agent filter fork only affects the SQL prepare/query
-    // pair; the row-handling loop below stays branchless. Pulling all
-    // matching rows for a single day's worth of events is fine — even
-    // a heavy day stays well under 10k rows.
-    let row_t = |r: &rusqlite::Row<'_>| {
-        Ok((
-            r.get::<_, String>(0)?, // ts
-            r.get::<_, String>(1)?, // agent
-            r.get::<_, String>(2)?, // session
-            r.get::<_, String>(3)?, // tool
-            r.get::<_, String>(4)?, // detail
-            r.get::<_, String>(5)?, // cwd
-        ))
+    let range = core_dto::WindowRange {
+        start_utc: start,
+        end_utc: end,
+        anchor_date: start.with_timezone(&tz).date_naive(),
+        tz: tz.name().to_string(),
     };
-    let collected: Vec<(String, String, String, String, String, String)> = match agent_filter {
-        Some(agent) => {
-            let mut stmt = conn
-                .prepare(
-                    "SELECT ts, agent, COALESCE(session, '') AS session, \
-                            COALESCE(tool, '') AS tool, COALESCE(detail, '') AS detail, \
-                            COALESCE(cwd, '') AS cwd \
-                     FROM agent_events WHERE ts >= ?1 AND ts < ?2 AND agent = ?3",
-                )
-                .map_err(|e| format!("prepare(events): {e}"))?;
-            let mapped = stmt
-                .query_map([&start_str, &end_str, agent], row_t)
-                .map_err(|e| format!("query(events): {e}"))?;
-            let mut out = Vec::new();
-            for row in mapped {
-                out.push(row.map_err(|e| format!("row(events): {e}"))?);
-            }
-            out
-        }
-        None => {
-            let mut stmt = conn
-                .prepare(
-                    "SELECT ts, agent, COALESCE(session, '') AS session, \
-                            COALESCE(tool, '') AS tool, COALESCE(detail, '') AS detail, \
-                            COALESCE(cwd, '') AS cwd \
-                     FROM agent_events WHERE ts >= ?1 AND ts < ?2",
-                )
-                .map_err(|e| format!("prepare(events): {e}"))?;
-            let mapped = stmt
-                .query_map([&start_str, &end_str], row_t)
-                .map_err(|e| format!("query(events): {e}"))?;
-            let mut out = Vec::new();
-            for row in mapped {
-                out.push(row.map_err(|e| format!("row(events): {e}"))?);
-            }
-            out
-        }
-    };
-
-    for (ts, agent, session, tool, detail, cwd) in collected {
-
-        day.total_events += 1;
-
-        // Agent stats.
-        let entry = day.agents.entry(agent).or_default();
-        entry.calls += 1;
-        if !session.is_empty() {
-            entry.sessions.insert(session);
-        }
-
-        // Tool mix.
-        if !tool.is_empty() {
-            *day.tool_mix.entry(tool.clone()).or_default() += 1;
-        }
-
-        // CWD distribution.
-        if !cwd.is_empty() {
-            *day.cwds.entry(cwd).or_default() += 1;
-        }
-
-        // Files / shell classification — write-class with detail goes
-        // into files_edited; read-class with detail goes into files_read;
-        // shell-class regardless of detail goes into the shell table.
-        let tool_str = tool.as_str();
-        if is_write(tool_str) && !detail.is_empty() {
-            *day
-                .files_edited
-                .entry((detail.clone(), tool.clone()))
-                .or_default() += 1;
-            day.writes_total += 1;
-            day.distinct_files.insert(detail.clone());
-        } else if is_read(tool_str) && !detail.is_empty() {
-            *day.files_read.entry(detail.clone()).or_default() += 1;
-            day.reads_total += 1;
-            day.distinct_files.insert(detail.clone());
-        } else if is_shell(tool_str) {
-            // Shell rows: keep ts (for chronological order), the local
-            // HH:MM rendering, and a truncated detail.
-            if let Ok(dt) = DateTime::parse_from_rfc3339(&ts) {
-                let dt_utc = dt.with_timezone(&Utc);
-                let local = dt_utc.with_timezone(&tz);
-                let time_local = format!("{:02}:{:02}", local.hour(), local.minute());
-                day.shells.push(ShellRow {
-                    time_local,
-                    detail: truncate_chars(&detail, SHELL_DETAIL_MAX_CHARS),
-                    ts_utc: dt_utc,
-                });
-            }
-        } else if is_write(tool_str) {
-            // Write-class but empty detail: still counts toward the
-            // edit-to-read ratio.
-            day.writes_total += 1;
-        } else if is_read(tool_str) {
-            day.reads_total += 1;
-        }
-
-        // Hour-of-day bucket. Mirrors the histogram subcommand: parse
-        // the RFC 3339 timestamp, convert to the user TZ, bucket on
-        // local hour. Rows that fail to parse are silently skipped to
-        // match histogram's behaviour.
-        if let Ok(dt) = DateTime::parse_from_rfc3339(&ts) {
-            let local = dt.with_timezone(&tz);
-            let h = local.hour() as usize;
-            day.hours[h] = day.hours[h].saturating_add(1);
-        }
-    }
-
-    // Sort shell rows chronologically.
-    day.shells.sort_by_key(|s| s.ts_utc);
-
-    // Pass 2 — MCP traffic from the `events` table. Best-effort: a
-    // missing `events` table on a legacy DB shouldn't kill the report.
-    // We only run this when no agent filter is in effect — the events
-    // table doesn't carry an agent column so filtering it would be
-    // ambiguous, and the agent subcommand explicitly scopes to one
-    // agent's tool calls only.
-    if agent_filter.is_none() {
-        if let Ok(mut stmt) = conn.prepare(
-            "SELECT method FROM events \
-             WHERE ts_ms >= ?1 AND ts_ms < ?2 AND method IS NOT NULL",
-        ) {
-            let rows = stmt.query_map([&start_ms, &end_ms], |r| r.get::<_, String>(0));
-            if let Ok(rows) = rows {
-                for row in rows.flatten() {
-                    if !row.is_empty() {
-                        *day.mcp_methods.entry(row).or_default() += 1;
-                    }
-                }
-            }
-        }
-    }
-
-    Ok(day)
+    let data = core_data::collect_today(conn, &tz, range, agent_filter)?;
+    Ok(today_data_to_day_stats(data))
 }
 
-/// Truncate a string to at most `max` Unicode characters, appending
-/// nothing — the caller can decide whether to add an ellipsis. We use
-/// char-count rather than byte-count so multi-byte code points (CJK,
-/// emoji) don't get sliced mid-codepoint.
+/// Adapt the canonical DTO to the renderer-friendly map-based
+/// [`DayStats`]. Pure repacking — no extra IO.
+fn today_data_to_day_stats(data: core_dto::TodayData) -> DayStats {
+    let mut day = DayStats::default();
+    day.total_events = data.total_events;
+    day.writes_total = data.writes_total;
+    day.reads_total = data.reads_total;
+    day.distinct_files = data.distinct_files.into_iter().collect();
+
+    for a in data.agents {
+        let mut row = AgentRow::default();
+        row.calls = a.calls;
+        row.sessions = a.sessions.into_iter().collect();
+        day.agents.insert(a.agent, row);
+    }
+    for f in data.files_edited {
+        day.files_edited.insert((f.path, f.tool), f.count);
+    }
+    for f in data.files_read {
+        day.files_read.insert(f.path, f.count);
+    }
+    for s in data.shells {
+        day.shells.push(ShellRow {
+            time_local: s.time_local,
+            detail: s.detail,
+            ts_utc: s.ts_utc,
+        });
+    }
+    day.shells.sort_by_key(|s| s.ts_utc);
+    for c in data.cwds {
+        day.cwds.insert(c.path, c.count);
+    }
+    for m in data.mcp_methods {
+        day.mcp_methods.insert(m.method, m.count);
+    }
+    for t in data.tool_mix {
+        day.tool_mix.insert(t.tool, t.count);
+    }
+    for h in data.hours {
+        if (h.hour as usize) < 24 {
+            day.hours[h.hour as usize] = h.count;
+        }
+    }
+    day
+}
+
+/// Truncate a string to at most `max` Unicode characters. Retained as
+/// a test helper after the SQL pass moved to `fluxmirror-core` —
+/// existing tests still pin its CJK-safe behaviour.
+#[cfg(test)]
 fn truncate_chars(s: &str, max: usize) -> String {
     if s.chars().count() <= max {
         return s.to_string();

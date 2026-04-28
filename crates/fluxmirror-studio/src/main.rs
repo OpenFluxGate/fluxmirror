@@ -3,29 +3,25 @@
 //! Runs as a separate process from the `fluxmirror` capture binary.
 //! Read-only SQLite. Localhost-bound by default. Single-user.
 //!
-//! Phase 3 M1 deliverable: boots, opens the DB read-only, exposes a
-//! tiny health endpoint, serves the embedded Vite SPA bundle. Real
-//! API routes land in M2 onward.
+//! Phase 3 M2 deliverable: boots, opens the DB read-only, exposes
+//! `/health` plus `/api/today`, `/api/week`, `/api/now`, and serves
+//! the embedded Vite SPA bundle as a fallback for everything else.
+//! The router and handlers live in the sibling library so integration
+//! tests can build the same wiring. M7 layers a content-type-aware
+//! redaction middleware on top of that router for outbound bodies.
 
-mod embed;
 mod redact_layer;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use axum::{
-    body::Body,
-    extract::State,
-    http::{header, StatusCode, Uri},
-    response::{IntoResponse, Response},
-    routing::get,
-    Router,
-};
 use clap::Parser;
 use rusqlite::{Connection, OpenFlags};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
+
+use fluxmirror_studio::{build_router, AppState};
 
 #[derive(Parser, Debug)]
 #[command(version, about = "fluxmirror local web dashboard")]
@@ -47,12 +43,6 @@ struct Args {
     /// Reserved for the real .fluxmirror.toml parser landing in M9.
     #[arg(long)]
     config: Option<PathBuf>,
-}
-
-#[derive(Clone)]
-struct AppState {
-    db: Arc<Mutex<Connection>>,
-    db_path: PathBuf,
 }
 
 #[tokio::main]
@@ -96,15 +86,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let redact_cfg = fluxmirror_core::Config::load().unwrap_or_default();
     let redact_rules = Arc::new(fluxmirror_core::redact::from_config(&redact_cfg));
 
-    let app = Router::new()
-        .route("/health", get(health))
-        .fallback(static_handler)
+    let app = build_router(state)
         .layer(axum::middleware::from_fn_with_state(
             redact_rules.clone(),
             redact_layer::scrub_response,
         ))
-        .layer(TraceLayer::new_for_http())
-        .with_state(state);
+        .layer(TraceLayer::new_for_http());
 
     let addr: SocketAddr = format!("{}:{}", args.host, args.port).parse()?;
     let listener = tokio::net::TcpListener::bind(addr).await?;
@@ -115,47 +102,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_graceful_shutdown(shutdown_signal())
         .await?;
     Ok(())
-}
-
-async fn health(State(state): State<AppState>) -> impl IntoResponse {
-    let agent_events: i64 = {
-        let db = state.db.lock().expect("db mutex poisoned");
-        db.query_row("SELECT COUNT(*) FROM agent_events", [], |row| row.get(0))
-            .unwrap_or(0)
-    };
-    let proxy_events: i64 = {
-        let db = state.db.lock().expect("db mutex poisoned");
-        db.query_row("SELECT COUNT(*) FROM events", [], |row| row.get(0))
-            .unwrap_or(0)
-    };
-    axum::Json(serde_json::json!({
-        "status": "ok",
-        "version": env!("CARGO_PKG_VERSION"),
-        "db": state.db_path.display().to_string(),
-        "agent_events": agent_events,
-        "proxy_events": proxy_events,
-    }))
-}
-
-/// Serve embedded Vite assets, falling back to index.html for SPA routes.
-async fn static_handler(uri: Uri) -> Response {
-    let path = uri.path();
-
-    if let Some((bytes, mime)) = embed::lookup(path) {
-        return Response::builder()
-            .status(StatusCode::OK)
-            .header(header::CONTENT_TYPE, mime)
-            .header(header::CACHE_CONTROL, "public, max-age=3600")
-            .body(Body::from(bytes))
-            .expect("static response build");
-    }
-
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
-        .header(header::CACHE_CONTROL, "no-cache")
-        .body(Body::from(embed::index_html()))
-        .expect("index response build")
 }
 
 async fn shutdown_signal() {

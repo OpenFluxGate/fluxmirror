@@ -1,12 +1,18 @@
 // fluxmirror-core::report — small string surface used by the
-// `fluxmirror <report>` subcommands.
+// `fluxmirror <report>` subcommands plus the canonical data model
+// shared by every consumer of the SQLite store.
 //
-// Phase 2 M1 ships a hand-rolled language pack rather than a full
-// templating engine: every report has a fixed structure, the only thing
-// that varies per language is a handful of column headers, titles and
-// fixed strings. Pulling in a templating crate (handlebars / askama)
-// would be more code than the current four packs combined.
+// `lang` is the hand-rolled language pack (no templating crate). `dto`
+// holds the public report DTOs. `data` holds the SQL aggregators that
+// produce them — the CLI text/HTML reports and the studio JSON API
+// both go through `data`, so the SQL queries are not duplicated.
 
+pub mod data;
+pub mod dto;
 pub mod lang;
 
+pub use dto::{
+    AgentCount, DayRow, FileTouch, HourBucket, MethodCount, NowSnapshot, PathCount, ShellEvent,
+    ToolMixEntry, TodayData, WeekData, WindowRange,
+};
 pub use lang::{pack, LangPack};

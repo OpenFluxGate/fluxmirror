@@ -389,6 +389,7 @@ dependencies = [
  "chrono-tz",
  "gethostname",
  "regex",
+ "rusqlite",
  "serde",
  "serde_json",
  "tempfile",

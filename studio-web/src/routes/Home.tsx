@@ -1,4 +1,13 @@
+// Home — landing dashboard. Surfaces the latest event ("Now"), a
+// today summary tile, and a this-week heatmap row pulled from the
+// shared API. Sessions and recent-replay sit as a placeholder for M3.
+
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+
+import { fetchNow, fetchToday, fetchWeek } from '../lib/api'
+import { HeatmapBar } from '../components/HeatmapBar'
+import { StatTile } from '../components/StatTile'
 
 interface Health {
   status: string
@@ -16,6 +25,9 @@ async function fetchHealth(): Promise<Health> {
 
 export function Home() {
   const health = useQuery({ queryKey: ['health'], queryFn: fetchHealth })
+  const now = useQuery({ queryKey: ['now'], queryFn: fetchNow })
+  const today = useQuery({ queryKey: ['today'], queryFn: fetchToday })
+  const week = useQuery({ queryKey: ['week'], queryFn: fetchWeek })
 
   return (
     <div className="space-y-8">
@@ -24,46 +36,121 @@ export function Home() {
           Your AI coding, in one tab.
         </h1>
         <p className="mt-2 text-sm text-[var(--color-muted)]">
-          fluxmirror-studio is the read-only dashboard over your local
-          fluxmirror SQLite store. Pages land in M2 — for now this is a
-          health check.
+          Read-only dashboard over your local fluxmirror SQLite store.
         </p>
       </section>
 
       <section>
         <h2 className="text-xs uppercase tracking-wider text-[var(--color-muted)] mb-3">
-          status
+          now
         </h2>
         <div className="rounded border border-[var(--color-border)] bg-[var(--color-panel)] p-4 font-mono text-sm">
-          {health.isPending && <span>loading…</span>}
-          {health.isError && (
+          {now.isPending && <span>loading…</span>}
+          {now.isError && (
             <span className="text-[var(--color-redact)]">
-              {String(health.error)}
+              {String(now.error)}
             </span>
           )}
-          {health.data && (
+          {!now.isPending && !now.isError && now.data === null && (
+            <span className="text-[var(--color-muted)]">
+              no events captured yet — run any agent to populate.
+            </span>
+          )}
+          {now.data && (
             <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1">
-              <dt className="text-[var(--color-muted)]">status</dt>
-              <dd>{health.data.status}</dd>
-              <dt className="text-[var(--color-muted)]">version</dt>
-              <dd>{health.data.version}</dd>
-              <dt className="text-[var(--color-muted)]">db</dt>
-              <dd className="break-all">{health.data.db}</dd>
-              <dt className="text-[var(--color-muted)]">agent_events</dt>
-              <dd>{health.data.agent_events.toLocaleString()}</dd>
-              <dt className="text-[var(--color-muted)]">proxy_events</dt>
-              <dd>{health.data.proxy_events.toLocaleString()}</dd>
+              <dt className="text-[var(--color-muted)]">latest</dt>
+              <dd>{new Date(now.data.latest_ts_utc).toLocaleString()}</dd>
+              <dt className="text-[var(--color-muted)]">agent</dt>
+              <dd>{now.data.latest_agent}</dd>
+              <dt className="text-[var(--color-muted)]">tool</dt>
+              <dd>{now.data.latest_tool || '—'}</dd>
+              <dt className="text-[var(--color-muted)]">detail</dt>
+              <dd className="break-all">{now.data.latest_detail || '—'}</dd>
+              <dt className="text-[var(--color-muted)]">cwd</dt>
+              <dd className="break-all">{now.data.latest_cwd || '—'}</dd>
+              <dt className="text-[var(--color-muted)]">last hour</dt>
+              <dd>
+                {now.data.last_hour_total.toLocaleString()} call(s) ·{' '}
+                {now.data.last_hour_agents.length} agent(s)
+              </dd>
             </dl>
           )}
         </div>
       </section>
 
-      <section className="text-xs text-[var(--color-muted)]">
-        <p>
-          The capture binary keeps writing to{' '}
-          <code className="font-mono">events.db</code>. This studio reads
-          the same file, separately.
+      <section>
+        <h2 className="text-xs uppercase tracking-wider text-[var(--color-muted)] mb-3">
+          today
+        </h2>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <StatTile
+            label="total calls"
+            value={today.data?.total_events.toLocaleString() ?? '—'}
+            hint={today.data?.date}
+          />
+          <StatTile
+            label="agents"
+            value={today.data?.agents.length ?? '—'}
+          />
+          <StatTile
+            label="files touched"
+            value={today.data?.distinct_files.length.toLocaleString() ?? '—'}
+          />
+          <StatTile
+            label="shell cmds"
+            value={today.data?.shells.length ?? '—'}
+          />
+        </div>
+        <p className="mt-3 text-xs text-[var(--color-muted)]">
+          Open the{' '}
+          <Link to="/today" className="text-[var(--color-accent)]">
+            today
+          </Link>{' '}
+          page for the full report.
         </p>
+      </section>
+
+      <section>
+        <h2 className="text-xs uppercase tracking-wider text-[var(--color-muted)] mb-3">
+          this week
+        </h2>
+        {week.data ? (
+          <HeatmapBar
+            rows={week.data.daily.map((d) => ({
+              label: d.date.slice(5),
+              count: d.calls,
+            }))}
+            ariaLabel="Calls per day this week"
+          />
+        ) : (
+          <p className="text-xs text-[var(--color-muted)]">loading…</p>
+        )}
+        <p className="mt-3 text-xs text-[var(--color-muted)]">
+          Open the{' '}
+          <Link to="/week" className="text-[var(--color-accent)]">
+            week
+          </Link>{' '}
+          page for the full rollup.
+        </p>
+      </section>
+
+      <section>
+        <h2 className="text-xs uppercase tracking-wider text-[var(--color-muted)] mb-3">
+          recent sessions
+        </h2>
+        <p className="text-xs text-[var(--color-muted)]">
+          Per-session timelines land in M3.
+        </p>
+      </section>
+
+      <section className="text-xs text-[var(--color-muted)]">
+        {health.data && (
+          <p>
+            db: <code className="font-mono">{health.data.db}</code> ·{' '}
+            {health.data.agent_events.toLocaleString()} agent events ·{' '}
+            {health.data.proxy_events.toLocaleString()} proxy events
+          </p>
+        )}
       </section>
     </div>
   )
