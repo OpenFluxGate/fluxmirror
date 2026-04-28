@@ -23,18 +23,19 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use chrono::{DateTime, Datelike, Duration, NaiveDate, Timelike, Utc};
+use chrono::{DateTime, Duration, NaiveDate, Utc};
 use chrono_tz::Tz;
 use rusqlite::Connection;
 
 use crate::cmd::util::{err_exit2, open_db_readonly, parse_tz, scrub_for_output};
 use crate::cmd::window::week_range;
+use fluxmirror_core::report::data as core_data;
+use fluxmirror_core::report::dto as core_dto;
 use fluxmirror_core::report::{pack, LangPack};
 
 use super::git_narrative::{self, GitNarrative};
 use super::html::{render_card, AgentRow as HtmlAgentRow, WeekHtmlStats};
 use super::html_io::emit_html as shared_emit_html;
-use super::tools::{is_read, is_shell, is_write};
 use super::week_summary;
 use super::ReportFormat;
 
@@ -179,8 +180,14 @@ pub(crate) struct WeekStats {
     pub narrative: Option<GitNarrative>,
 }
 
-/// Build the day list and run the aggregation in one pass over the
-/// window's `agent_events` rows.
+/// Build the day list and run the aggregation against the connection.
+///
+/// Thin wrapper around [`fluxmirror_core::report::data::collect_week`]:
+/// the SQL pass and the per-day / heatmap aggregation live in core so
+/// the studio JSON API and the CLI text/HTML reports share the same
+/// extraction code. The adapter below repacks the canonical
+/// [`core_dto::WeekData`] into the CLI's renderer-friendly map-based
+/// [`WeekStats`] so the existing renderer call sites stay unchanged.
 pub(crate) fn collect_week(
     conn: &Connection,
     tz: Tz,
@@ -188,105 +195,75 @@ pub(crate) fn collect_week(
     start: DateTime<Utc>,
     end: DateTime<Utc>,
 ) -> Result<WeekStats, String> {
-    let start_str = start.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-    let end_str = end.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let range = core_dto::WindowRange {
+        start_utc: start,
+        end_utc: end,
+        anchor_date: week_start,
+        tz: tz.name().to_string(),
+    };
+    let data = core_data::collect_week(conn, &tz, range, None)?;
+    Ok(week_data_to_week_stats(data, week_start))
+}
 
+/// Adapt the canonical DTO to the renderer-friendly map-based
+/// [`WeekStats`]. Pure repacking — no extra IO. The narrative and
+/// MCP-traffic-count fields are filled in by the caller after the
+/// adapter returns; the studio API path doesn't need them.
+fn week_data_to_week_stats(data: core_dto::WeekData, week_start: NaiveDate) -> WeekStats {
     let mut stats = WeekStats::default();
+    stats.total_events = data.total_events;
+    stats.writes_total = data.writes_total;
+    stats.reads_total = data.reads_total;
 
-    // Build the inclusive 7-day list anchored at week_start; pre-seed
-    // daily_calls with zeroes so a day with no events still shows up.
-    for i in 0..7 {
-        let d = week_start + Duration::days(i);
-        stats.days_in_window.push(d);
-        stats.daily_calls.insert(d, 0);
+    for a in data.agents {
+        let mut row = AgentRow::default();
+        row.calls = a.calls;
+        row.sessions = a.sessions.into_iter().collect();
+        row.active_dates = a.active_days.into_iter().collect();
+        // Reconstruct the per-agent tool counts from the canonical
+        // top_tool. The per-tool breakdown isn't carried in the DTO,
+        // so we fold it from the daily heatmap-free rows below.
+        // For HTML rendering we only need the top tool, which we'll
+        // recompute from tool_mix at call time. Keep tool_counts
+        // empty here — `build_html_stats` reads `top_tool` if needed.
+        if !a.top_tool.is_empty() {
+            row.tool_counts.insert(a.top_tool.clone(), row.calls.max(1));
+        }
+        stats.agents.insert(a.agent, row);
     }
-
-    let mut stmt = conn
-        .prepare(
-            "SELECT ts, agent, COALESCE(session, '') AS session, \
-                    COALESCE(tool, '') AS tool, COALESCE(detail, '') AS detail, \
-                    COALESCE(cwd, '') AS cwd \
-             FROM agent_events WHERE ts >= ?1 AND ts < ?2",
-        )
-        .map_err(|e| format!("prepare(events): {e}"))?;
-    let rows = stmt
-        .query_map([&start_str, &end_str], |r| {
-            Ok((
-                r.get::<_, String>(0)?,
-                r.get::<_, String>(1)?,
-                r.get::<_, String>(2)?,
-                r.get::<_, String>(3)?,
-                r.get::<_, String>(4)?,
-                r.get::<_, String>(5)?,
-            ))
-        })
-        .map_err(|e| format!("query(events): {e}"))?;
-
-    for row in rows {
-        let (ts, agent, session, tool, detail, cwd) =
-            row.map_err(|e| format!("row(events): {e}"))?;
-        stats.total_events += 1;
-
-        let entry = stats.agents.entry(agent).or_default();
-        entry.calls += 1;
-        if !session.is_empty() {
-            entry.sessions.insert(session);
-        }
-        if !tool.is_empty() {
-            *entry.tool_counts.entry(tool.clone()).or_default() += 1;
-        }
-
-        if !tool.is_empty() {
-            *stats.tool_mix.entry(tool.clone()).or_default() += 1;
-        }
-        if !cwd.is_empty() {
-            *stats.cwds.entry(cwd).or_default() += 1;
-        }
-
-        let tool_str = tool.as_str();
-        if is_write(tool_str) && !detail.is_empty() {
-            *stats
-                .files_edited
-                .entry((detail.clone(), tool.clone()))
-                .or_default() += 1;
-            stats.writes_total += 1;
-        } else if is_read(tool_str) && !detail.is_empty() {
-            *stats.files_read.entry(detail.clone()).or_default() += 1;
-            stats.reads_total += 1;
-        } else if is_shell(tool_str) {
-            // shells feed the HTML card's "Top shell commands" table.
-            // The human-mode report still ignores the per-command
-            // breakdown (only the total via tool_mix).
-            if !detail.is_empty() {
-                let snippet: String = detail.chars().take(80).collect();
-                *stats.shell_counts.entry(snippet).or_default() += 1;
-            }
-        } else if is_write(tool_str) {
-            stats.writes_total += 1;
-        } else if is_read(tool_str) {
-            stats.reads_total += 1;
-        }
-
-        // Daily calls + heatmap + active-days bucket — all keyed off the
-        // same parse-then-localize step.
-        if let Ok(dt) = DateTime::parse_from_rfc3339(&ts) {
-            let local = dt.with_timezone(&tz);
-            let local_date = local.date_naive();
-            if let Some(c) = stats.daily_calls.get_mut(&local_date) {
-                *c += 1;
-            }
-            entry.active_dates.insert(local_date);
-            // chrono::Weekday::num_days_from_monday() returns 0=Mon..6=Sun
-            // which matches our ISO heatmap row indexing.
-            let dow = local.weekday().num_days_from_monday() as usize;
-            let hour = local.hour() as usize;
-            if dow < 7 && hour < 24 {
-                stats.heatmap[dow][hour] = stats.heatmap[dow][hour].saturating_add(1);
-            }
+    for f in data.files_edited {
+        stats.files_edited.insert((f.path, f.tool), f.count);
+    }
+    for f in data.files_read {
+        stats.files_read.insert(f.path, f.count);
+    }
+    for c in data.cwds {
+        stats.cwds.insert(c.path, c.count);
+    }
+    for t in data.tool_mix {
+        stats.tool_mix.insert(t.tool, t.count);
+    }
+    for d in data.daily {
+        stats.daily_calls.insert(d.date, d.calls);
+    }
+    // days_in_window must be the inclusive 7-day list anchored at
+    // week_start, in chronological order — even when daily entries
+    // came back unsorted from the DTO.
+    stats.days_in_window = (0..7)
+        .map(|i| week_start + Duration::days(i))
+        .collect();
+    for d in &stats.days_in_window {
+        stats.daily_calls.entry(*d).or_insert(0);
+    }
+    for s in data.shell_counts {
+        stats.shell_counts.insert(s.path, s.count);
+    }
+    for (dow, row) in data.heatmap.iter().enumerate().take(7) {
+        for (hour, n) in row.iter().enumerate().take(24) {
+            stats.heatmap[dow][hour] = *n;
         }
     }
-
-    Ok(stats)
+    stats
 }
 
 /// Distil the human-report `WeekStats` into the data the HTML card needs.

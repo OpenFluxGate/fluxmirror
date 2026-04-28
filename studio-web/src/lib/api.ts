@@ -1,0 +1,116 @@
+// Typed fetch helpers for the fluxmirror-studio JSON API.
+//
+// The interfaces below mirror the serde-derived DTOs in
+// `fluxmirror-core::report::dto`. Keep them in lockstep — adding a
+// field on the Rust side without updating these breaks autocomplete
+// silently in the IDE but never breaks the runtime (extra JSON keys
+// are tolerated).
+
+export interface AgentCount {
+  agent: string
+  calls: number
+  sessions: string[]
+  active_days: string[] // YYYY-MM-DD
+  top_tool: string
+}
+
+export interface FileTouch {
+  path: string
+  tool: string
+  count: number
+}
+
+export interface PathCount {
+  path: string
+  count: number
+}
+
+export interface ToolMixEntry {
+  tool: string
+  count: number
+}
+
+export interface MethodCount {
+  method: string
+  count: number
+}
+
+export interface ShellEvent {
+  time_local: string // HH:MM
+  detail: string
+  ts_utc: string // ISO 8601
+}
+
+export interface HourBucket {
+  hour: number // 0..=23
+  count: number
+}
+
+export interface DayRow {
+  date: string // YYYY-MM-DD
+  calls: number
+}
+
+export interface TodayData {
+  date: string // YYYY-MM-DD
+  tz: string
+  total_events: number
+  agents: AgentCount[]
+  files_edited: FileTouch[]
+  files_read: PathCount[]
+  shells: ShellEvent[]
+  cwds: PathCount[]
+  mcp_methods: MethodCount[]
+  tool_mix: ToolMixEntry[]
+  hours: HourBucket[]
+  writes_total: number
+  reads_total: number
+  distinct_files: string[]
+}
+
+export interface WeekData {
+  range_start: string // YYYY-MM-DD
+  range_end: string // YYYY-MM-DD
+  tz: string
+  total_events: number
+  agents: AgentCount[]
+  files_edited: FileTouch[]
+  files_read: PathCount[]
+  cwds: PathCount[]
+  tool_mix: ToolMixEntry[]
+  daily: DayRow[]
+  heatmap: number[][] // 7 × 24
+  shell_counts: PathCount[]
+  mcp_count: number
+  writes_total: number
+  reads_total: number
+}
+
+export interface NowSnapshot {
+  latest_ts_utc: string
+  latest_agent: string
+  latest_tool: string
+  latest_detail: string
+  latest_cwd: string
+  last_hour_total: number
+  last_hour_agents: AgentCount[]
+}
+
+async function getJson<T>(path: string): Promise<T> {
+  const res = await fetch(path)
+  if (!res.ok) {
+    let body = ''
+    try {
+      body = await res.text()
+    } catch {
+      // ignored — error body is best-effort context
+    }
+    throw new Error(`${path} → ${res.status}${body ? `: ${body}` : ''}`)
+  }
+  return (await res.json()) as T
+}
+
+export const fetchToday = (): Promise<TodayData> => getJson('/api/today')
+export const fetchWeek = (): Promise<WeekData> => getJson('/api/week')
+export const fetchNow = (): Promise<NowSnapshot | null> =>
+  getJson<NowSnapshot | null>('/api/now')
