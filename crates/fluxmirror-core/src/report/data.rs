@@ -12,14 +12,14 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-use chrono::{DateTime, Datelike, Duration, NaiveDate, Timelike, Utc};
+use chrono::{DateTime, Datelike, Duration, NaiveDate, TimeZone, Timelike, Utc};
 use chrono_tz::Tz;
 use rusqlite::Connection;
 
 use super::dto::{
     AgentCount, AgentTouchCount, ContextEvent, DayRow, FileTouch, HourBucket, MethodCount,
-    NowSnapshot, PathCount, ProvenanceData, ProvenanceEvent, ShellEvent, ToolMixEntry, TodayData,
-    WeekData, WindowRange,
+    MinuteBucket, NowSnapshot, PathCount, ProvenanceData, ProvenanceEvent, ReplayDay, ReplayEvent,
+    ReplaySnapshot, ShellEvent, ToolMixEntry, TodayData, WeekData, WindowRange,
 };
 
 /// Tool names that count as "writes" — the file-mutating action class.
@@ -368,6 +368,247 @@ pub fn collect_provenance(conn: &Connection, path: &str) -> Result<ProvenanceDat
     data.events = events;
 
     Ok(data)
+}
+
+/// Maximum number of `last_n_events` returned by [`collect_replay_snapshot`].
+const REPLAY_LAST_N: usize = 5;
+
+/// Trailing window (in seconds) used by [`collect_replay_snapshot`] to
+/// build the per-minute agent + tool histograms and to scope the
+/// "active_file" lookup.
+const REPLAY_MINUTE_WINDOW_SECS: i64 = 60;
+
+/// Collect every event in the local day and bucket it into 1440
+/// per-minute slots. Used by the studio's `/replay/<date>` page.
+///
+/// Sort: events ascending by `ts`. Minute buckets are always exactly
+/// 1440 entries (`minute = 0..=1439`) so the heatmap renderer doesn't
+/// need a length check.
+pub fn collect_replay_day(
+    conn: &Connection,
+    tz: &Tz,
+    date: NaiveDate,
+) -> Result<ReplayDay, String> {
+    let (start_utc, end_utc) = local_day_bounds(tz, date)?;
+    let start_str = start_utc.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let end_str = end_utc.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT ts, agent, \
+                    COALESCE(tool_canonical, COALESCE(tool, '')) AS tool, \
+                    COALESCE(tool_class, '') AS tool_class, detail \
+             FROM agent_events WHERE ts >= ?1 AND ts < ?2 \
+             ORDER BY ts ASC, id ASC",
+        )
+        .map_err(|e| format!("prepare(replay day): {e}"))?;
+    let mapped = stmt
+        .query_map([&start_str, &end_str], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, Option<String>>(4)?,
+            ))
+        })
+        .map_err(|e| format!("query(replay day): {e}"))?;
+
+    let mut events: Vec<ReplayEvent> = Vec::new();
+    let mut counts = vec![0u32; 1440];
+    for row in mapped {
+        let (ts, agent, tool, tool_class, detail) =
+            row.map_err(|e| format!("row(replay day): {e}"))?;
+        if let Ok(dt) = DateTime::parse_from_rfc3339(&ts) {
+            let local = dt.with_timezone(tz);
+            // Defensive: events across the boundary (DST jumps, leap
+            // seconds) should still bucket into a sane minute index.
+            if local.date_naive() == date {
+                let idx = local.hour() as usize * 60 + local.minute() as usize;
+                if idx < counts.len() {
+                    counts[idx] = counts[idx].saturating_add(1);
+                }
+            }
+        }
+        events.push(ReplayEvent {
+            ts,
+            agent,
+            tool,
+            tool_class,
+            detail,
+        });
+    }
+
+    let minute_buckets: Vec<MinuteBucket> = counts
+        .into_iter()
+        .enumerate()
+        .map(|(i, c)| MinuteBucket {
+            minute: i as u16,
+            count: c.min(u16::MAX as u32) as u16,
+        })
+        .collect();
+
+    Ok(ReplayDay {
+        date: date.format("%Y-%m-%d").to_string(),
+        events,
+        minute_buckets,
+    })
+}
+
+/// Live-state snapshot at a single instant during replay.
+///
+/// `active_file` is the most recent file path written or edited within
+/// the trailing 60 seconds (and inside the local day). `last_n_events`
+/// returns up to 5 events at or before `ts`, oldest-first. The two
+/// histograms are over the trailing 60 seconds clamped to the local
+/// day; both use the canonical "count desc, key asc" sort.
+pub fn collect_replay_snapshot(
+    conn: &Connection,
+    tz: &Tz,
+    date: NaiveDate,
+    ts: DateTime<Utc>,
+) -> Result<ReplaySnapshot, String> {
+    let (day_start, day_end) = local_day_bounds(tz, date)?;
+    // Clamp `ts` into the day so callers passing an out-of-range scrub
+    // position still get a deterministic answer rather than an empty
+    // snapshot one second past midnight.
+    let clamped_ts = ts.clamp(day_start, day_end - Duration::seconds(1));
+    let window_start = (clamped_ts - Duration::seconds(REPLAY_MINUTE_WINDOW_SECS)).max(day_start);
+    let upper_inclusive = clamped_ts;
+
+    let upper_str = upper_inclusive.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let window_start_str = window_start.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let day_start_str = day_start.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+
+    // Trailing 60s window: drives both histograms and the active-file
+    // lookup, all in a single SQL pass.
+    let window_events: Vec<ReplayEvent> = {
+        let mut stmt = conn
+            .prepare(
+                "SELECT ts, agent, \
+                        COALESCE(tool_canonical, COALESCE(tool, '')) AS tool, \
+                        COALESCE(tool_class, '') AS tool_class, detail \
+                 FROM agent_events WHERE ts >= ?1 AND ts <= ?2 \
+                 ORDER BY ts ASC, id ASC",
+            )
+            .map_err(|e| format!("prepare(replay snapshot window): {e}"))?;
+        let mapped = stmt
+            .query_map([&window_start_str, &upper_str], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, String>(3)?,
+                    r.get::<_, Option<String>>(4)?,
+                ))
+            })
+            .map_err(|e| format!("query(replay snapshot window): {e}"))?;
+        let mut out = Vec::new();
+        for row in mapped {
+            let (ts2, agent, tool, tool_class, detail) =
+                row.map_err(|e| format!("row(replay snapshot window): {e}"))?;
+            out.push(ReplayEvent {
+                ts: ts2,
+                agent,
+                tool,
+                tool_class,
+                detail,
+            });
+        }
+        out
+    };
+
+    let mut agent_counts: BTreeMap<String, RawAgent> = BTreeMap::new();
+    let mut tool_counts: HashMap<String, u64> = HashMap::new();
+    for ev in &window_events {
+        let entry = agent_counts.entry(ev.agent.clone()).or_default();
+        entry.calls += 1;
+        if !ev.tool.is_empty() {
+            *entry.tool_counts.entry(ev.tool.clone()).or_default() += 1;
+            *tool_counts.entry(ev.tool.clone()).or_default() += 1;
+        }
+    }
+
+    let mut active_file: Option<String> = None;
+    for ev in window_events.iter().rev() {
+        if !is_write(&ev.tool) {
+            continue;
+        }
+        if let Some(d) = &ev.detail {
+            if !d.is_empty() {
+                active_file = Some(d.clone());
+                break;
+            }
+        }
+    }
+
+    // last_n_events: 5 most recent events at-or-before ts within the
+    // local day. SQL pulls them DESC; we reverse to oldest-first so the
+    // frontend list reads top-to-bottom in time order.
+    let last_n_events: Vec<ReplayEvent> = {
+        let mut stmt = conn
+            .prepare(
+                "SELECT ts, agent, \
+                        COALESCE(tool_canonical, COALESCE(tool, '')) AS tool, \
+                        COALESCE(tool_class, '') AS tool_class, detail \
+                 FROM agent_events WHERE ts >= ?1 AND ts <= ?2 \
+                 ORDER BY ts DESC, id DESC LIMIT ?3",
+            )
+            .map_err(|e| format!("prepare(replay snapshot last_n): {e}"))?;
+        let limit = REPLAY_LAST_N as i64;
+        let mapped = stmt
+            .query_map(
+                rusqlite::params![&day_start_str, &upper_str, limit],
+                |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, String>(2)?,
+                        r.get::<_, String>(3)?,
+                        r.get::<_, Option<String>>(4)?,
+                    ))
+                },
+            )
+            .map_err(|e| format!("query(replay snapshot last_n): {e}"))?;
+        let mut out = Vec::new();
+        for row in mapped {
+            let (ts2, agent, tool, tool_class, detail) =
+                row.map_err(|e| format!("row(replay snapshot last_n): {e}"))?;
+            out.push(ReplayEvent {
+                ts: ts2,
+                agent,
+                tool,
+                tool_class,
+                detail,
+            });
+        }
+        out.reverse();
+        out
+    };
+
+    Ok(ReplaySnapshot {
+        at: upper_inclusive.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+        active_file,
+        last_n_events,
+        agent_minute_mix: build_agents(&agent_counts),
+        tool_minute_mix: build_tool_mix(&tool_counts),
+    })
+}
+
+/// Resolve a local-tz day to the UTC bounds `[start, end)`. Used by the
+/// replay collectors so the SQL window is a single contiguous range
+/// regardless of how DST shifts on the date.
+fn local_day_bounds(tz: &Tz, date: NaiveDate) -> Result<(DateTime<Utc>, DateTime<Utc>), String> {
+    let next = date + Duration::days(1);
+    let start_local = tz
+        .with_ymd_and_hms(date.year(), date.month(), date.day(), 0, 0, 0)
+        .single()
+        .ok_or_else(|| format!("cannot resolve local midnight for {date} in {tz}"))?;
+    let end_local = tz
+        .with_ymd_and_hms(next.year(), next.month(), next.day(), 0, 0, 0)
+        .single()
+        .ok_or_else(|| format!("cannot resolve local midnight for {next} in {tz}"))?;
+    Ok((start_local.with_timezone(&Utc), end_local.with_timezone(&Utc)))
 }
 
 /// Best-effort MCP traffic counter — falls back to 0 when the `events`
