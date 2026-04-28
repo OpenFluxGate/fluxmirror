@@ -172,3 +172,63 @@ pub struct NowSnapshot {
     /// when the most recent event is older than 60 minutes.
     pub last_hour_agents: Vec<AgentCount>,
 }
+
+/// Full provenance timeline for a single file path. Returned by the
+/// studio's `/api/file?path=…` endpoint and rendered on the
+/// `/file/<path>` page. When the path has no rows in `agent_events`
+/// every list is empty and `total_touches` is zero — callers can use
+/// that to render an empty-state without a separate 404 path.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ProvenanceData {
+    /// User-supplied file path. Echoed back so the frontend can render
+    /// the title without keeping the original query param around.
+    pub path: String,
+    /// Total `agent_events` rows where `detail = path`.
+    pub total_touches: i64,
+    /// Per-agent touch counts, sorted by count desc with the agent
+    /// name as deterministic tiebreak.
+    pub agents: Vec<AgentTouchCount>,
+    /// Each row from `agent_events` matching the path, in chronological
+    /// order, decorated with the immediate before/after context window.
+    pub events: Vec<ProvenanceEvent>,
+}
+
+/// Per-agent touch count for a single path.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentTouchCount {
+    pub agent: String,
+    pub count: i64,
+}
+
+/// A single `agent_events` row that touched the path, plus the events
+/// the agent emitted in the ±5 minute window around the touch.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProvenanceEvent {
+    /// ISO 8601 UTC timestamp of the touch.
+    pub ts: String,
+    pub agent: String,
+    /// Canonicalised tool name (e.g. `Edit`, `Read`, `Bash`). Empty
+    /// when the row's `tool_canonical` column is null.
+    pub tool: String,
+    /// Tool family (`Write`, `Read`, `Shell`, …). Empty when the row's
+    /// `tool_class` column is null.
+    pub tool_class: String,
+    pub detail: Option<String>,
+    /// Up to 5 events strictly before the touch within the 5-minute
+    /// window, sorted by ts ascending.
+    pub before_context: Vec<ContextEvent>,
+    /// Up to 5 events strictly after the touch within the 5-minute
+    /// window, sorted by ts ascending.
+    pub after_context: Vec<ContextEvent>,
+}
+
+/// One row of provenance context (an event near a touch). Lighter
+/// shape than [`ProvenanceEvent`] — context events do not recurse and
+/// carry only the fields the timeline card renders.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContextEvent {
+    pub ts: String,
+    pub agent: String,
+    pub tool: String,
+    pub detail: Option<String>,
+}

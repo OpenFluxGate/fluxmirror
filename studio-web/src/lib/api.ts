@@ -96,6 +96,41 @@ export interface NowSnapshot {
   last_hour_agents: AgentCount[]
 }
 
+export interface AgentTouchCount {
+  agent: string
+  count: number
+}
+
+export interface ContextEvent {
+  ts: string
+  agent: string
+  tool: string
+  detail: string | null
+}
+
+export interface ProvenanceEvent {
+  ts: string
+  agent: string
+  tool: string
+  tool_class: string
+  detail: string | null
+  before_context: ContextEvent[]
+  after_context: ContextEvent[]
+}
+
+export interface ProvenanceData {
+  path: string
+  total_touches: number
+  agents: AgentTouchCount[]
+  events: ProvenanceEvent[]
+}
+
+export interface GitCommit {
+  hash: string
+  ts: string
+  subject: string
+}
+
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(path)
   if (!res.ok) {
@@ -114,3 +149,9 @@ export const fetchToday = (): Promise<TodayData> => getJson('/api/today')
 export const fetchWeek = (): Promise<WeekData> => getJson('/api/week')
 export const fetchNow = (): Promise<NowSnapshot | null> =>
   getJson<NowSnapshot | null>('/api/now')
+
+export const getFile = (path: string): Promise<ProvenanceData> =>
+  getJson<ProvenanceData>(`/api/file?path=${encodeURIComponent(path)}`)
+
+export const getFileGit = (path: string): Promise<GitCommit[]> =>
+  getJson<GitCommit[]>(`/api/file/git?path=${encodeURIComponent(path)}`)

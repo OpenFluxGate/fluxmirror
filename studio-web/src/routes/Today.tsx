@@ -156,6 +156,7 @@ export function Today() {
             </h2>
             <FileTable
               rows={data.cwds.map((c) => ({ path: c.path, count: c.count }))}
+              linkify={false}
             />
           </div>
         )}
@@ -179,6 +180,7 @@ export function Today() {
               path: m.method,
               count: m.count,
             }))}
+            linkify={false}
           />
         </section>
       )}
