@@ -232,3 +232,72 @@ pub struct ContextEvent {
     pub tool: String,
     pub detail: Option<String>,
 }
+
+/// Lifecycle classification for a clustered work session. Drives the
+/// session list badge and the verb-prefix on the auto-generated name.
+/// Order is stable and the variant strings are the JSON payload —
+/// renames break the frontend and persisted snapshots.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum SessionLifecycle {
+    /// `git tag` + `git push` Bash detail in window.
+    Shipping,
+    /// Edit-heavy on a small file set (≤3 distinct files).
+    Building,
+    /// Edit-heavy across many files (cleanup pass).
+    Polishing,
+    /// 5+ identical `cargo test` / `pytest` / `npm test` / `go test` runs.
+    Testing,
+    /// Read-heavy (Read > Edit*2) with at least one shell call.
+    Investigating,
+    /// Mostly Bash chores, no real work signature.
+    Idle,
+}
+
+/// One auto-named work session. Returned by `/api/sessions` (events
+/// elided) and `/api/session/:id` (events populated).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Session {
+    /// 8-character lowercase hex digest of `format!("{start}|{end}")`.
+    /// Stable across runs given the same start/end timestamps.
+    pub id: String,
+    /// ISO 8601 UTC timestamp of the first event in the cluster.
+    pub start: String,
+    /// ISO 8601 UTC timestamp of the last event in the cluster.
+    pub end: String,
+    /// Distinct agent names that emitted at least one event in the
+    /// session, sorted ascending.
+    pub agents: Vec<String>,
+    pub event_count: i64,
+    /// Most-frequent `cwd` field in the cluster. `None` when every row
+    /// had an empty cwd.
+    pub dominant_cwd: Option<String>,
+    /// Up to five most-touched file paths (Edit/Write tools), sorted by
+    /// touch count desc with the path as deterministic tiebreak.
+    pub top_files: Vec<String>,
+    /// Tool counts for the cluster, sorted by count desc with the tool
+    /// name as deterministic tiebreak.
+    pub tool_mix: Vec<ToolMixEntry>,
+    pub lifecycle: SessionLifecycle,
+    /// Heuristic name of the form `<Verb>: <Object> (<Tail>)`. Same
+    /// inputs always produce the same name.
+    pub name: String,
+    /// Per-event timeline. Empty in the list endpoint, populated in
+    /// the detail endpoint. `serde` always emits the field so the
+    /// TypeScript shape is invariant across endpoints.
+    #[serde(default)]
+    pub events: Vec<SessionEvent>,
+}
+
+/// One event inside a session's timeline. Lighter than
+/// [`ProvenanceEvent`] — sessions do not carry per-event context.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionEvent {
+    /// ISO 8601 UTC timestamp.
+    pub ts: String,
+    pub agent: String,
+    /// Raw tool name as stored in `agent_events.tool`. Empty when the
+    /// row's tool column is null.
+    pub tool: String,
+    pub detail: Option<String>,
+}

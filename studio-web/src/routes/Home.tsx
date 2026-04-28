@@ -1,13 +1,14 @@
 // Home — landing dashboard. Surfaces the latest event ("Now"), a
-// today summary tile, and a this-week heatmap row pulled from the
-// shared API. Sessions and recent-replay sit as a placeholder for M3.
+// today summary tile, this week's heatmap, and the most recent
+// auto-named work sessions.
 
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 
-import { fetchNow, fetchToday, fetchWeek } from '../lib/api'
+import { fetchNow, fetchToday, fetchWeek, getSessions } from '../lib/api'
 import { HeatmapBar } from '../components/HeatmapBar'
 import { StatTile } from '../components/StatTile'
+import { LifecycleBadge, formatDuration } from './Sessions'
 
 interface Health {
   status: string
@@ -23,11 +24,21 @@ async function fetchHealth(): Promise<Health> {
   return res.json()
 }
 
+// Trailing window the home dashboard polls for sessions. Matches the
+// week heatmap above so the cards line up.
+const HOME_SESSIONS_DAYS = 7
+const HOME_SESSIONS_LIMIT = 5
+
 export function Home() {
   const health = useQuery({ queryKey: ['health'], queryFn: fetchHealth })
   const now = useQuery({ queryKey: ['now'], queryFn: fetchNow })
   const today = useQuery({ queryKey: ['today'], queryFn: fetchToday })
   const week = useQuery({ queryKey: ['week'], queryFn: fetchWeek })
+  const homeRange = buildHomeRange(HOME_SESSIONS_DAYS)
+  const sessions = useQuery({
+    queryKey: ['sessions', homeRange.from, homeRange.to],
+    queryFn: () => getSessions(homeRange.from, homeRange.to),
+  })
 
   return (
     <div className="space-y-8">
@@ -138,8 +149,51 @@ export function Home() {
         <h2 className="text-xs uppercase tracking-wider text-[var(--color-muted)] mb-3">
           recent sessions
         </h2>
-        <p className="text-xs text-[var(--color-muted)]">
-          Per-session timelines land in M3.
+        {sessions.isPending && (
+          <p className="text-xs text-[var(--color-muted)]">loading…</p>
+        )}
+        {sessions.isError && (
+          <p className="text-xs text-[var(--color-redact)]">
+            failed to load /api/sessions: {String(sessions.error)}
+          </p>
+        )}
+        {sessions.data && sessions.data.length === 0 && (
+          <p className="text-xs text-[var(--color-muted)]">
+            no sessions in the trailing 7 days yet.
+          </p>
+        )}
+        {sessions.data && sessions.data.length > 0 && (
+          <ul className="space-y-2">
+            {sessions.data.slice(-HOME_SESSIONS_LIMIT).reverse().map((s) => (
+              <li
+                key={s.id}
+                className="rounded border border-[var(--color-border)] bg-[var(--color-panel)] px-3 py-2 text-sm"
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <Link
+                    to={`/session/${s.id}`}
+                    className="font-mono text-[var(--color-accent)] hover:underline break-all"
+                  >
+                    {s.name}
+                  </Link>
+                  <LifecycleBadge lifecycle={s.lifecycle} />
+                </div>
+                <p className="mt-1 text-xs text-[var(--color-muted)] font-mono tabular-nums">
+                  {new Date(s.start).toLocaleString()} ·{' '}
+                  {formatDuration(s.start, s.end)} ·{' '}
+                  {s.event_count.toLocaleString()} events ·{' '}
+                  {s.agents.join(', ')}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-3 text-xs text-[var(--color-muted)]">
+          Open the{' '}
+          <Link to="/sessions" className="text-[var(--color-accent)]">
+            sessions
+          </Link>{' '}
+          page for the full list.
         </p>
       </section>
 
@@ -154,4 +208,20 @@ export function Home() {
       </section>
     </div>
   )
+}
+
+function buildHomeRange(days: number): { from: string; to: string } {
+  const today = new Date()
+  const tomorrow = new Date(today)
+  tomorrow.setDate(today.getDate() + 1)
+  const from = new Date(tomorrow)
+  from.setDate(tomorrow.getDate() - days)
+  return { from: ymd(from), to: ymd(tomorrow) }
+}
+
+function ymd(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
