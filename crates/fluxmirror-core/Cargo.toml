@@ -13,6 +13,7 @@ chrono      = { version = "0.4", default-features = false, features = ["clock", 
 chrono-tz   = { version = "0.10" }
 serde       = { version = "1", features = ["derive"] }
 serde_json  = { workspace = true }
+toml        = { version = "0.8", default-features = false, features = ["parse"] }
 gethostname = "0.4"
 
 [dev-dependencies]

@@ -5,7 +5,7 @@
 //   1. compiled-in defaults     (Config::default)
 //   2. inferred                 (locale → language, system → timezone)
 //   3. user file                (~/.fluxmirror/config.json)
-//   4. project file             (./.fluxmirror.toml)   [STEP 8 finishes parser]
+//   4. project file             (./.fluxmirror.toml — Phase 3 M9)
 //   5. environment variables    (FLUXMIRROR_*)
 //   6. CLI flags                (applied by callers, after `load()`)
 //
@@ -148,6 +148,33 @@ pub struct WrapperConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
+pub struct StudioConfig {
+    pub port: u16,
+    pub host: String,
+    pub enable_llm_naming: bool,
+}
+
+impl Default for StudioConfig {
+    fn default() -> Self {
+        Self {
+            port: 7090,
+            host: "127.0.0.1".into(),
+            enable_llm_naming: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct RedactionConfig {
+    /// Extra regex patterns layered on top of the built-in set. The
+    /// strings are validated as `regex::Regex` at load time by the
+    /// redaction layer; this struct only stores them.
+    pub patterns: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
 pub struct Config {
     pub schema_version: u32,
     pub language: Language,
@@ -156,8 +183,8 @@ pub struct Config {
     pub self_noise: SelfNoiseConfig,
     pub agents: AgentsConfig,
     pub wrapper: WrapperConfig,
-    // Phase 2/3 slots intentionally absent until they ship:
-    //   pub daemon, forward, redaction, telemetry
+    pub redaction: RedactionConfig,
+    pub studio: StudioConfig,
 }
 
 impl Default for Config {
@@ -170,6 +197,8 @@ impl Default for Config {
             self_noise: SelfNoiseConfig::default(),
             agents: AgentsConfig::default(),
             wrapper: WrapperConfig::default(),
+            redaction: RedactionConfig::default(),
+            studio: StudioConfig::default(),
         }
     }
 }
@@ -217,14 +246,15 @@ impl Config {
             }
         }
 
-        // Layer 4: project file (TOML)
+        // Layer 4: project file (TOML). Missing keys silently fall through
+        // to the user-file / inferred / default value already in `cfg`.
         let pp = Self::project_path();
         if pp.exists() {
             let s = fs::read_to_string(&pp)?;
-            // TODO STEP 8: real TOML parse via the `toml` crate. STEP 2
-            // intentionally avoids the extra dep so the boundary is
-            // already defined when STEP 8 fills it in.
-            let _ = s;
+            if !s.trim().is_empty() {
+                let project: ProjectToml = toml::from_str(&s)?;
+                project.merge_into(&mut cfg);
+            }
         }
 
         // Layer 5: environment variables
@@ -260,6 +290,64 @@ impl Config {
             .path
             .clone()
             .unwrap_or_else(crate::paths::default_db_path)
+    }
+}
+
+/// On-disk schema for `./.fluxmirror.toml`. Every field is optional so a
+/// project file may set just one or two values without nulling the rest.
+/// Unknown keys are accepted (forward-compat — older binaries should not
+/// reject newer config files outright).
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct ProjectToml {
+    language: Option<String>,
+    timezone: Option<String>,
+    db_path: Option<PathBuf>,
+    redaction: Option<RedactionToml>,
+    studio: Option<StudioToml>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct RedactionToml {
+    patterns: Vec<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct StudioToml {
+    port: Option<u16>,
+    host: Option<String>,
+    enable_llm_naming: Option<bool>,
+}
+
+impl ProjectToml {
+    fn merge_into(self, cfg: &mut Config) {
+        if let Some(lang) = self.language {
+            cfg.language = Language::from_locale(&lang);
+        }
+        if let Some(tz) = self.timezone {
+            cfg.timezone = tz;
+        }
+        if let Some(path) = self.db_path {
+            cfg.storage.path = Some(path);
+        }
+        if let Some(red) = self.redaction {
+            if !red.patterns.is_empty() {
+                cfg.redaction.patterns = red.patterns;
+            }
+        }
+        if let Some(studio) = self.studio {
+            if let Some(port) = studio.port {
+                cfg.studio.port = port;
+            }
+            if let Some(host) = studio.host {
+                cfg.studio.host = host;
+            }
+            if let Some(flag) = studio.enable_llm_naming {
+                cfg.studio.enable_llm_naming = flag;
+            }
+        }
     }
 }
 
@@ -380,5 +468,149 @@ mod tests {
         assert_eq!(w.kind, WrapperKind::Auto);
         assert!(w.path.is_none());
         assert!(!w.auto_detected);
+    }
+
+    #[test]
+    fn studio_config_defaults() {
+        let s = StudioConfig::default();
+        assert_eq!(s.port, 7090);
+        assert_eq!(s.host, "127.0.0.1");
+        assert!(!s.enable_llm_naming);
+    }
+
+    #[test]
+    fn redaction_config_defaults_empty() {
+        assert!(RedactionConfig::default().patterns.is_empty());
+    }
+
+    fn parse_project(s: &str) -> ProjectToml {
+        toml::from_str(s).expect("parse project toml")
+    }
+
+    #[test]
+    fn project_toml_empty_string_does_not_override() {
+        let mut cfg = Config::default();
+        let project = parse_project("");
+        project.merge_into(&mut cfg);
+        assert_eq!(cfg, Config::default());
+    }
+
+    #[test]
+    fn project_toml_overrides_top_level_keys() {
+        let mut cfg = Config::default();
+        let project = parse_project(
+            r#"
+language = "korean"
+timezone = "Asia/Seoul"
+db_path = "/custom/events.db"
+"#,
+        );
+        project.merge_into(&mut cfg);
+        assert_eq!(cfg.language, Language::Korean);
+        assert_eq!(cfg.timezone, "Asia/Seoul");
+        assert_eq!(cfg.storage.path, Some(PathBuf::from("/custom/events.db")));
+    }
+
+    #[test]
+    fn project_toml_overrides_studio_subtable() {
+        let mut cfg = Config::default();
+        let project = parse_project(
+            r#"
+[studio]
+port = 8088
+host = "0.0.0.0"
+enable_llm_naming = true
+"#,
+        );
+        project.merge_into(&mut cfg);
+        assert_eq!(cfg.studio.port, 8088);
+        assert_eq!(cfg.studio.host, "0.0.0.0");
+        assert!(cfg.studio.enable_llm_naming);
+    }
+
+    #[test]
+    fn project_toml_partial_studio_keeps_defaults() {
+        let mut cfg = Config::default();
+        let project = parse_project(r#"[studio]
+port = 9090
+"#);
+        project.merge_into(&mut cfg);
+        assert_eq!(cfg.studio.port, 9090);
+        // host left at default
+        assert_eq!(cfg.studio.host, "127.0.0.1");
+        assert!(!cfg.studio.enable_llm_naming);
+    }
+
+    #[test]
+    fn project_toml_redaction_patterns_appended() {
+        let mut cfg = Config::default();
+        let project = parse_project(
+            r#"
+[redaction]
+patterns = ["my-token-[a-z0-9]{16}", "internal-id-\\d+"]
+"#,
+        );
+        project.merge_into(&mut cfg);
+        assert_eq!(cfg.redaction.patterns.len(), 2);
+        assert_eq!(cfg.redaction.patterns[0], "my-token-[a-z0-9]{16}");
+    }
+
+    #[test]
+    fn project_toml_bad_input_returns_error_not_panic() {
+        let r: std::result::Result<ProjectToml, toml::de::Error> =
+            toml::from_str("language = 7\n[studio\nport = 'not-a-number'");
+        assert!(r.is_err());
+    }
+
+    #[test]
+    fn load_project_file_overrides_user_file_and_inferred() {
+        let _lock = crate::test_lock::env_lock();
+        let tmp = tempfile::tempdir().unwrap();
+        let _h = EnvGuard::set("HOME", tmp.path().to_str().unwrap());
+        let _u = EnvGuard::unset("USERPROFILE");
+        let _l = EnvGuard::set("LANG", "en_US.UTF-8");
+        let _fl = EnvGuard::unset("FLUXMIRROR_LANGUAGE");
+        let _ft = EnvGuard::unset("FLUXMIRROR_TIMEZONE");
+        let _fd = EnvGuard::unset("FLUXMIRROR_DB");
+
+        let prev = std::env::current_dir().unwrap();
+        std::env::set_current_dir(tmp.path()).unwrap();
+        std::fs::write(
+            tmp.path().join(".fluxmirror.toml"),
+            "language = \"japanese\"\ntimezone = \"Asia/Tokyo\"\n",
+        )
+        .unwrap();
+
+        let c = Config::load().unwrap();
+        std::env::set_current_dir(prev).unwrap();
+
+        assert_eq!(c.language, Language::Japanese);
+        assert_eq!(c.timezone, "Asia/Tokyo");
+    }
+
+    #[test]
+    fn env_var_beats_project_file() {
+        let _lock = crate::test_lock::env_lock();
+        let tmp = tempfile::tempdir().unwrap();
+        let _h = EnvGuard::set("HOME", tmp.path().to_str().unwrap());
+        let _u = EnvGuard::unset("USERPROFILE");
+        let _l = EnvGuard::unset("LANG");
+        let _fl = EnvGuard::set("FLUXMIRROR_LANGUAGE", "chinese");
+        let _ft = EnvGuard::unset("FLUXMIRROR_TIMEZONE");
+        let _fd = EnvGuard::unset("FLUXMIRROR_DB");
+
+        let prev = std::env::current_dir().unwrap();
+        std::env::set_current_dir(tmp.path()).unwrap();
+        std::fs::write(
+            tmp.path().join(".fluxmirror.toml"),
+            "language = \"japanese\"\n",
+        )
+        .unwrap();
+
+        let c = Config::load().unwrap();
+        std::env::set_current_dir(prev).unwrap();
+
+        // env layer (Chinese) wins over project file (Japanese).
+        assert_eq!(c.language, Language::Chinese);
     }
 }

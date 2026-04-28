@@ -7,6 +7,7 @@ use std::fmt;
 pub enum Error {
     Io(std::io::Error),
     Json(serde_json::Error),
+    Toml(toml::de::Error),
     Config(String),
     BadTimezone(String),
 }
@@ -16,6 +17,7 @@ impl fmt::Display for Error {
         match self {
             Error::Io(e) => write!(f, "io error: {e}"),
             Error::Json(e) => write!(f, "json error: {e}"),
+            Error::Toml(e) => write!(f, "toml error: {e}"),
             Error::Config(s) => write!(f, "config error: {s}"),
             Error::BadTimezone(s) => write!(f, "bad timezone: {s}"),
         }
@@ -27,6 +29,7 @@ impl std::error::Error for Error {
         match self {
             Error::Io(e) => Some(e),
             Error::Json(e) => Some(e),
+            Error::Toml(e) => Some(e),
             Error::Config(_) | Error::BadTimezone(_) => None,
         }
     }
@@ -41,6 +44,12 @@ impl From<std::io::Error> for Error {
 impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Self {
         Error::Json(e)
+    }
+}
+
+impl From<toml::de::Error> for Error {
+    fn from(e: toml::de::Error) -> Self {
+        Error::Toml(e)
     }
 }
 
