@@ -163,6 +163,33 @@ export interface Session {
   events: SessionEvent[]
 }
 
+export interface ReplayEvent {
+  ts: string // ISO 8601 UTC
+  agent: string
+  tool: string
+  tool_class: string
+  detail: string | null
+}
+
+export interface MinuteBucket {
+  minute: number // 0..1439
+  count: number
+}
+
+export interface ReplayDay {
+  date: string // YYYY-MM-DD
+  events: ReplayEvent[]
+  minute_buckets: MinuteBucket[] // 1440 entries
+}
+
+export interface ReplaySnapshot {
+  at: string // ISO 8601 UTC
+  active_file: string | null
+  last_n_events: ReplayEvent[]
+  agent_minute_mix: AgentCount[]
+  tool_minute_mix: ToolMixEntry[]
+}
+
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(path)
   if (!res.ok) {
@@ -201,3 +228,14 @@ export const getSessions = (
 
 export const getSession = (id: string): Promise<Session> =>
   getJson<Session>(`/api/session/${encodeURIComponent(id)}`)
+
+export const getReplay = (date: string): Promise<ReplayDay> =>
+  getJson<ReplayDay>(`/api/replay/${encodeURIComponent(date)}`)
+
+export const getReplaySnapshot = (
+  date: string,
+  ts: string,
+): Promise<ReplaySnapshot> =>
+  getJson<ReplaySnapshot>(
+    `/api/replay/${encodeURIComponent(date)}/at?ts=${encodeURIComponent(ts)}`,
+  )

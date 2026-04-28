@@ -301,3 +301,69 @@ pub struct SessionEvent {
     pub tool: String,
     pub detail: Option<String>,
 }
+
+/// Full per-day timeline used by the studio's `/replay/<date>` page.
+/// `events` is every `agent_events` row that fell inside the local day,
+/// sorted by `ts` ascending. `minute_buckets` is a fixed-length
+/// 1440-entry vector — one slot per minute of the local day,
+/// zero-filled for empty minutes — so the heatmap renderer can index by
+/// minute without bounds checks.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ReplayDay {
+    /// Local date the timeline anchors on, formatted `YYYY-MM-DD`.
+    pub date: String,
+    /// All events in the local day, chronological. `tool` and
+    /// `tool_class` mirror the `agent_events` columns so the snapshot
+    /// view can re-use the same row shape.
+    pub events: Vec<ReplayEvent>,
+    /// Exactly 1440 entries (`minute = 0..=1439`). Empty minutes are
+    /// still present with `count = 0` so the renderer can drive a
+    /// fixed-grid heatmap.
+    pub minute_buckets: Vec<MinuteBucket>,
+}
+
+/// One row of the replay timeline. Lighter than [`ProvenanceEvent`] —
+/// no context windows are carried; the snapshot endpoint slices out a
+/// rolling list of these on demand.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReplayEvent {
+    /// ISO 8601 UTC timestamp of the event (RFC 3339).
+    pub ts: String,
+    pub agent: String,
+    /// Canonicalised tool name (e.g. `Edit`, `Read`, `Bash`). Empty
+    /// when the row's `tool_canonical` column is null.
+    pub tool: String,
+    /// Tool family (`Write`, `Read`, `Shell`, …). Empty when the row's
+    /// `tool_class` column is null.
+    pub tool_class: String,
+    pub detail: Option<String>,
+}
+
+/// One cell of the 24-hour minute heatmap.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct MinuteBucket {
+    /// `0..=1439`. Minute zero is local-midnight on the anchor date.
+    pub minute: u16,
+    pub count: u16,
+}
+
+/// Live state at a specific instant during replay. Returned by the
+/// `/api/replay/:date/at?ts=…` route as the scrubber moves; the
+/// frontend coalesces requests so at most one is in flight.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ReplaySnapshot {
+    /// Echoed back so the frontend can sanity-check the response
+    /// matches the most recently requested ts (older replies are
+    /// dropped).
+    pub at: String,
+    /// Most recent file path written or edited within the previous
+    /// minute, if any. `None` when no write-class event happened in
+    /// that window.
+    pub active_file: Option<String>,
+    /// Up to five most recent events at or before `at`, oldest first.
+    pub last_n_events: Vec<ReplayEvent>,
+    /// Per-agent call counts in the trailing 60 seconds.
+    pub agent_minute_mix: Vec<AgentCount>,
+    /// Per-tool call counts in the trailing 60 seconds.
+    pub tool_minute_mix: Vec<ToolMixEntry>,
+}
