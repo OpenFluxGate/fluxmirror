@@ -11,6 +11,7 @@ pub mod histogram;
 pub mod daily_totals;
 pub mod per_day_files;
 pub mod sqlite;
+pub mod upgrade;
 pub mod util;
 
 pub mod report;

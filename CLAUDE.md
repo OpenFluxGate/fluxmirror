@@ -68,7 +68,7 @@ is what existing v0.5.7 users have today; Phase 3 adds a separate
 
 | Component | Role |
 |---|---|
-| `fluxmirror` (capture / CLI binary) | kubectl-style subcommands. `fluxmirror hook --kind …` writes one row per tool call to `agent_events`. `fluxmirror proxy …` is the long-running stdio MCP relay used by Claude Desktop, writing JSON-RPC lines to `events`. Plus `init`, `config`, `wrapper`, `doctor`, `db-path`, `window`, `histogram`, `daily-totals`, `per-day-files`, `sqlite`, and the Phase 2 report subcommands (`today`, `yesterday`, `week`, `compare`, `agent`, `agents`, `about`). |
+| `fluxmirror` (capture / CLI binary) | kubectl-style subcommands. `fluxmirror hook --kind …` writes one row per tool call to `agent_events`. `fluxmirror proxy …` is the long-running stdio MCP relay used by Claude Desktop, writing JSON-RPC lines to `events`. Plus `init`, `config`, `wrapper`, `doctor`, `db-path`, `window`, `histogram`, `daily-totals`, `per-day-files`, `sqlite`, the Phase 2 report subcommands (`today`, `yesterday`, `week`, `compare`, `agent`, `agents`, `about`), and `upgrade` (Phase 3 M8 self-update). |
 | `fluxmirror-studio` (Phase 3 web binary, opt-in) | Separate process. Reads the same SQLite file in read-only mode and exposes a local web dashboard on `127.0.0.1:7090`. Capture-side state is never touched. Frontend is a Vite + React 18 + Tailwind v4 bundle, embedded into the binary at compile time via `include_dir!()`; end users never need Node.js to run it. |
 | `wrappers/{shim.sh, shim.mjs, shim.cmd, router.sh}` | Cross-shell entry points. Each shim downloads the per-arch capture binary on first invocation, caches it, then execs `fluxmirror hook --kind <claude\|gemini>`. `router.sh` tries shim.sh, falls back to shim.mjs. The studio binary is **not** routed through the shims — users install it explicitly when they want it. |
 | `plugins/fluxmirror/commands/fluxmirror/*.md` | `/fluxmirror:*` slash commands for Claude Code / Qwen Code; turn SQLite data into reports. |
@@ -311,7 +311,6 @@ In-flight in Phase 3 — not yet shipped, but planned:
 - Real `.fluxmirror.toml` parser (Phase 3 M9 replaces the stub)
 - Local web UI (`fluxmirror-studio`, Phase 3 M1–M5)
 - Auto-named work sessions, per-file provenance, time-machine replay (Phase 3 M3–M5)
-- `fluxmirror upgrade` self-update (Phase 3 M8)
 
 Deferred to later phases:
 - Anomaly detection / policy gating (Phase 4)
