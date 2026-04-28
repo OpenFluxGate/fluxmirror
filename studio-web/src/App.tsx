@@ -4,6 +4,8 @@ import { Layout } from './components/Layout'
 import { File } from './routes/File'
 import { Home } from './routes/Home'
 import { NotFound } from './routes/NotFound'
+import { SessionDetail } from './routes/Session'
+import { Sessions } from './routes/Sessions'
 import { Today } from './routes/Today'
 import { Week } from './routes/Week'
 
@@ -26,6 +28,8 @@ export default function App() {
             <Route index element={<Home />} />
             <Route path="today" element={<Today />} />
             <Route path="week" element={<Week />} />
+            <Route path="sessions" element={<Sessions />} />
+            <Route path="session/:id" element={<SessionDetail />} />
             <Route path="file/*" element={<File />} />
             <Route path="*" element={<NotFound />} />
           </Route>

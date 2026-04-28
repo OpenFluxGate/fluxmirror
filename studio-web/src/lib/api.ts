@@ -131,6 +131,38 @@ export interface GitCommit {
   subject: string
 }
 
+// Heuristic session lifecycle. Lowercase variant strings match the
+// `serde(rename_all = "lowercase")` annotation on the Rust enum.
+export type SessionLifecycle =
+  | 'shipping'
+  | 'building'
+  | 'polishing'
+  | 'testing'
+  | 'investigating'
+  | 'idle'
+
+export interface SessionEvent {
+  ts: string
+  agent: string
+  tool: string
+  detail: string | null
+}
+
+export interface Session {
+  id: string
+  start: string
+  end: string
+  agents: string[]
+  event_count: number
+  dominant_cwd: string | null
+  top_files: string[]
+  tool_mix: ToolMixEntry[]
+  lifecycle: SessionLifecycle
+  name: string
+  // Empty for the list endpoint; populated for the detail endpoint.
+  events: SessionEvent[]
+}
+
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(path)
   if (!res.ok) {
@@ -155,3 +187,17 @@ export const getFile = (path: string): Promise<ProvenanceData> =>
 
 export const getFileGit = (path: string): Promise<GitCommit[]> =>
   getJson<GitCommit[]>(`/api/file/git?path=${encodeURIComponent(path)}`)
+
+export const getSessions = (
+  from?: string,
+  to?: string,
+): Promise<Session[]> => {
+  const params = new URLSearchParams()
+  if (from) params.set('from', from)
+  if (to) params.set('to', to)
+  const qs = params.toString()
+  return getJson<Session[]>(qs ? `/api/sessions?${qs}` : '/api/sessions')
+}
+
+export const getSession = (id: string): Promise<Session> =>
+  getJson<Session>(`/api/session/${encodeURIComponent(id)}`)
