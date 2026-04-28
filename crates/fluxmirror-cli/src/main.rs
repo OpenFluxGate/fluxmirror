@@ -222,10 +222,19 @@ struct TodayCliArgs {
     /// Defaults to the configured language.
     #[arg(long)]
     lang: Option<String>,
-    /// Output format. M1 ships `human`; `json` and `markdown` are
-    /// reserved on the surface.
+    /// Output format. `human` (default), `html` (M5.4); `json` and
+    /// `markdown` are reserved on the surface.
     #[arg(long, value_enum, default_value_t = ReportFormat::Human)]
     format: ReportFormat,
+    /// Shorthand for `--format html`. When both are given, `--format`
+    /// wins.
+    #[arg(long, default_value_t = false, action = clap::ArgAction::SetTrue)]
+    html: bool,
+    /// Output path for `--format html`. `-` routes to stdout. When
+    /// omitted, the rendered HTML is written to a timestamped file
+    /// under `/tmp` and the path is printed on stdout.
+    #[arg(long)]
+    out: Option<PathBuf>,
 }
 
 /// CLI shape for `fluxmirror yesterday`. Identical to `today` — the
@@ -241,6 +250,10 @@ struct YesterdayCliArgs {
     lang: Option<String>,
     #[arg(long, value_enum, default_value_t = ReportFormat::Human)]
     format: ReportFormat,
+    #[arg(long, default_value_t = false, action = clap::ArgAction::SetTrue)]
+    html: bool,
+    #[arg(long)]
+    out: Option<PathBuf>,
 }
 
 /// CLI shape for `fluxmirror week`. Same defaulting pattern as the day
@@ -255,8 +268,14 @@ struct WeekCliArgs {
     lang: Option<String>,
     #[arg(long, value_enum, default_value_t = ReportFormat::Human)]
     format: ReportFormat,
-    /// Output path for `--format html`. When omitted, the rendered HTML
-    /// is printed to stdout. Ignored for non-HTML formats.
+    /// Shorthand for `--format html`. When both are given, `--format`
+    /// wins.
+    #[arg(long, default_value_t = false, action = clap::ArgAction::SetTrue)]
+    html: bool,
+    /// Output path for `--format html`. `-` routes to stdout. When
+    /// omitted, the rendered HTML is written to a timestamped file
+    /// under `/tmp` and the path is printed on stdout. Ignored for
+    /// non-HTML formats.
     #[arg(long)]
     out: Option<PathBuf>,
     /// Skip the "Shipped this week" git-narrative section entirely.
@@ -284,6 +303,15 @@ struct AgentCliArgs {
     lang: Option<String>,
     #[arg(long, value_enum, default_value_t = ReportFormat::Human)]
     format: ReportFormat,
+    /// Shorthand for `--format html`. When both are given, `--format`
+    /// wins.
+    #[arg(long, default_value_t = false, action = clap::ArgAction::SetTrue)]
+    html: bool,
+    /// Output path for `--format html`. `-` routes to stdout. When
+    /// omitted, the rendered HTML is written to a timestamped file
+    /// under `/tmp` and the path is printed on stdout.
+    #[arg(long)]
+    out: Option<PathBuf>,
 }
 
 /// CLI shape for `fluxmirror about`. The DB path is reported but not
@@ -302,6 +330,9 @@ struct AboutCliArgs {
     lang: Option<String>,
     #[arg(long, value_enum, default_value_t = ReportFormat::Human)]
     format: ReportFormat,
+    /// Accepted for surface uniformity; about doesn't ship HTML in M5.4.
+    #[arg(long, default_value_t = false, action = clap::ArgAction::SetTrue)]
+    html: bool,
 }
 
 /// CLI shape for `fluxmirror compare`. Same defaulting pattern as the
@@ -317,6 +348,15 @@ struct CompareCliArgs {
     lang: Option<String>,
     #[arg(long, value_enum, default_value_t = ReportFormat::Human)]
     format: ReportFormat,
+    /// Shorthand for `--format html`. When both are given, `--format`
+    /// wins.
+    #[arg(long, default_value_t = false, action = clap::ArgAction::SetTrue)]
+    html: bool,
+    /// Output path for `--format html`. `-` routes to stdout. When
+    /// omitted, the rendered HTML is written to a timestamped file
+    /// under `/tmp` and the path is printed on stdout.
+    #[arg(long)]
+    out: Option<PathBuf>,
 }
 
 #[derive(Copy, Clone, ValueEnum)]
@@ -398,11 +438,13 @@ fn main() -> ExitCode {
             let lang = args
                 .lang
                 .unwrap_or_else(|| cfg.language.as_str().to_string());
+            let format = resolve_format(args.format, args.html);
             cmd::report::today::run(cmd::report::today::TodayArgs {
                 db,
                 tz,
                 lang,
-                format: args.format,
+                format,
+                out: args.out,
             })
         }
         Cmd::Yesterday(args) => {
@@ -412,11 +454,13 @@ fn main() -> ExitCode {
             let lang = args
                 .lang
                 .unwrap_or_else(|| cfg.language.as_str().to_string());
+            let format = resolve_format(args.format, args.html);
             cmd::report::yesterday::run(cmd::report::yesterday::YesterdayArgs {
                 db,
                 tz,
                 lang,
-                format: args.format,
+                format,
+                out: args.out,
             })
         }
         Cmd::Week(args) => {
@@ -426,11 +470,12 @@ fn main() -> ExitCode {
             let lang = args
                 .lang
                 .unwrap_or_else(|| cfg.language.as_str().to_string());
+            let format = resolve_format(args.format, args.html);
             cmd::report::week::run(cmd::report::week::WeekArgs {
                 db,
                 tz,
                 lang,
-                format: args.format,
+                format,
                 out: args.out,
                 no_git_narrative: args.no_git_narrative,
             })
@@ -442,13 +487,15 @@ fn main() -> ExitCode {
             let lang = args
                 .lang
                 .unwrap_or_else(|| cfg.language.as_str().to_string());
+            let format = resolve_format(args.format, args.html);
             cmd::report::agent::run(cmd::report::agent::AgentArgs {
                 db,
                 tz,
                 lang,
-                format: args.format,
+                format,
                 agent_name: args.name,
                 period: args.period,
+                out: args.out,
             })
         }
         Cmd::About(args) => {
@@ -459,10 +506,11 @@ fn main() -> ExitCode {
             // `--tz` is accepted for flag uniformity with the other reports
             // but has no effect inside `about` (no time-window data).
             let _tz = args.tz;
+            let format = resolve_format(args.format, args.html);
             cmd::report::about::run(cmd::report::about::AboutArgs {
                 db: args.db,
                 lang,
-                format: args.format,
+                format,
             })
         }
         Cmd::Compare(args) => {
@@ -472,12 +520,25 @@ fn main() -> ExitCode {
             let lang = args
                 .lang
                 .unwrap_or_else(|| cfg.language.as_str().to_string());
+            let format = resolve_format(args.format, args.html);
             cmd::report::compare::run(cmd::report::compare::CompareArgs {
                 db,
                 tz,
                 lang,
-                format: args.format,
+                format,
+                out: args.out,
             })
         }
+    }
+}
+
+/// Reconcile `--format` and `--html`. When the user passes both, the
+/// explicit `--format` wins; `--html` only fires when no `--format`
+/// override was supplied. The clap default for `--format` is `Human`,
+/// so `--html` alone resolves to `Html`.
+fn resolve_format(explicit: ReportFormat, html_shorthand: bool) -> ReportFormat {
+    match (explicit, html_shorthand) {
+        (ReportFormat::Human, true) => ReportFormat::Html,
+        (other, _) => other,
     }
 }

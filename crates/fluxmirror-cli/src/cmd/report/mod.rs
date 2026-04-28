@@ -19,6 +19,8 @@ pub mod compare;
 pub(crate) mod day;
 pub mod git_narrative;
 pub mod html;
+pub(crate) mod html_day;
+pub(crate) mod html_io;
 pub mod today;
 pub(crate) mod tools;
 pub mod week;

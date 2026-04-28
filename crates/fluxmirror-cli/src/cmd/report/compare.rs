@@ -16,6 +16,8 @@ use crate::cmd::window::{day_range, today_range};
 use fluxmirror_core::report::{pack, LangPack};
 
 use super::day::{collect_day, DayStats};
+use super::html_day::render_compare_card;
+use super::html_io::{emit_html, generated_footer};
 use super::ReportFormat;
 
 /// Threshold (percent) at which the Δ column gets an arrow indicator.
@@ -27,16 +29,19 @@ pub struct CompareArgs {
     pub tz: String,
     pub lang: String,
     pub format: ReportFormat,
+    pub out: Option<PathBuf>,
 }
 
 pub fn run(args: CompareArgs) -> ExitCode {
-    if !matches!(args.format, ReportFormat::Human) {
-        // M5 ships --format html for the `week` subcommand only.
-        eprintln!(
-            "fluxmirror compare: --format {} not yet implemented for this report",
-            args.format
-        );
-        return ExitCode::from(2);
+    match args.format {
+        ReportFormat::Human | ReportFormat::Html => {}
+        ReportFormat::Json | ReportFormat::Markdown => {
+            eprintln!(
+                "fluxmirror compare: --format {} not yet implemented for this report",
+                args.format
+            );
+            return ExitCode::from(2);
+        }
     }
 
     let tz = match parse_tz(&args.tz) {
@@ -66,6 +71,20 @@ pub fn run(args: CompareArgs) -> ExitCode {
     };
 
     let lp = pack(&args.lang);
+
+    if matches!(args.format, ReportFormat::Html) {
+        let html = render_compare_card(
+            &today,
+            &yesterday,
+            today_date,
+            yest_date,
+            &args.tz,
+            lp,
+            &generated_footer(),
+        );
+        return emit_html("compare", html, args.out.as_deref());
+    }
+
     let report = render_human(lp, &args.tz, today_date, yest_date, &today, &yesterday);
     print!("{}", report);
     ExitCode::SUCCESS

@@ -28,6 +28,10 @@ use crate::cmd::window::{day_range, today_range, week_range};
 use fluxmirror_core::report::{pack, LangPack};
 
 use super::day::{collect_day, DayStats};
+use super::html_day::{
+    render_agent_day_card, render_agent_week_card, AgentWeekHtmlInput, DayCardKind,
+};
+use super::html_io::{emit_html, generated_footer};
 use super::tools::{is_read, is_shell, is_write};
 use super::ReportFormat;
 
@@ -72,16 +76,19 @@ pub struct AgentArgs {
     pub format: ReportFormat,
     pub agent_name: String,
     pub period: AgentPeriod,
+    pub out: Option<PathBuf>,
 }
 
 pub fn run(args: AgentArgs) -> ExitCode {
-    if !matches!(args.format, ReportFormat::Human) {
-        // M5 ships --format html for the `week` subcommand only.
-        eprintln!(
-            "fluxmirror agent: --format {} not yet implemented for this report",
-            args.format
-        );
-        return ExitCode::from(2);
+    match args.format {
+        ReportFormat::Human | ReportFormat::Html => {}
+        ReportFormat::Json | ReportFormat::Markdown => {
+            eprintln!(
+                "fluxmirror agent: --format {} not yet implemented for this report",
+                args.format
+            );
+            return ExitCode::from(2);
+        }
     }
     if args.agent_name.is_empty() {
         eprintln!("fluxmirror agent: <name> argument is required");
@@ -98,6 +105,10 @@ pub fn run(args: AgentArgs) -> ExitCode {
     };
 
     let lp = pack(&args.lang);
+
+    if matches!(args.format, ReportFormat::Html) {
+        return run_html(&conn, tz, &args, lp);
+    }
 
     let report = match args.period {
         AgentPeriod::Today => render_day_period(
@@ -128,6 +139,125 @@ pub fn run(args: AgentArgs) -> ExitCode {
         }
         Err(e) => err_exit2(format!("fluxmirror agent: {e}")),
     }
+}
+
+/// HTML emission entry. Forks on `period`: today / yesterday share the
+/// daily card, week routes through the per-agent week aggregate.
+fn run_html(conn: &Connection, tz: Tz, args: &AgentArgs, lp: &LangPack) -> ExitCode {
+    let footer = generated_footer();
+    let html = match args.period {
+        AgentPeriod::Today => match today_range(tz) {
+            Ok((date, start, end)) => match collect_day(conn, tz, start, end, Some(&args.agent_name)) {
+                Ok(day) => render_agent_day_card(
+                    &day,
+                    date,
+                    &args.tz,
+                    DayCardKind::Today,
+                    &args.agent_name,
+                    lp,
+                    &footer,
+                ),
+                Err(e) => return err_exit2(format!("fluxmirror agent: {e}")),
+            },
+            Err(e) => return err_exit2(format!("fluxmirror agent: {e}")),
+        },
+        AgentPeriod::Yesterday => match day_range(tz, -1) {
+            Ok((date, start, end)) => match collect_day(conn, tz, start, end, Some(&args.agent_name)) {
+                Ok(day) => render_agent_day_card(
+                    &day,
+                    date,
+                    &args.tz,
+                    DayCardKind::Yesterday,
+                    &args.agent_name,
+                    lp,
+                    &footer,
+                ),
+                Err(e) => return err_exit2(format!("fluxmirror agent: {e}")),
+            },
+            Err(e) => return err_exit2(format!("fluxmirror agent: {e}")),
+        },
+        AgentPeriod::Week => match week_range(tz) {
+            Ok((week_start, week_end, start, end)) => {
+                match collect_week_for_agent(conn, tz, week_start, &args.agent_name, start, end) {
+                    Ok(stats) => render_agent_week_html(&stats, &args.agent_name, week_start, week_end, &args.tz, lp, &footer),
+                    Err(e) => return err_exit2(format!("fluxmirror agent: {e}")),
+                }
+            }
+            Err(e) => return err_exit2(format!("fluxmirror agent: {e}")),
+        },
+    };
+    emit_html("agent", html, args.out.as_deref())
+}
+
+/// Compose the `AgentWeekHtmlInput` from the per-agent week aggregate
+/// and pass it to the renderer. Lives here so the renderer stays free
+/// of HashMap / sort details.
+fn render_agent_week_html(
+    stats: &AgentWeekStats,
+    agent: &str,
+    week_start: NaiveDate,
+    week_end: NaiveDate,
+    tz_label: &str,
+    lp: &LangPack,
+    footer: &str,
+) -> String {
+    let mut daily: Vec<(NaiveDate, u64)> = stats
+        .days_in_window
+        .iter()
+        .map(|d| (*d, stats.daily_calls.get(d).copied().unwrap_or(0)))
+        .collect();
+    // Already chronological since days_in_window is built in order, but
+    // be explicit for safety.
+    daily.sort_by_key(|(d, _)| *d);
+
+    let mut top_files: Vec<(String, u64)> = {
+        let mut folded: std::collections::BTreeMap<String, u64> =
+            std::collections::BTreeMap::new();
+        for ((path, _tool), n) in &stats.files_edited {
+            *folded.entry(path.clone()).or_insert(0) += *n;
+        }
+        folded.into_iter().collect()
+    };
+    top_files.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    top_files.truncate(10);
+
+    let mut top_reads: Vec<(String, u64)> = stats
+        .files_read
+        .iter()
+        .map(|(p, n)| (p.clone(), *n))
+        .collect();
+    top_reads.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    top_reads.truncate(10);
+
+    let mut tool_mix: Vec<(String, u64)> = stats
+        .tool_mix
+        .iter()
+        .map(|(t, n)| (t.clone(), *n))
+        .collect();
+    tool_mix.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+
+    let mut cwds: Vec<(String, u64)> = stats
+        .cwds
+        .iter()
+        .map(|(c, n)| (c.clone(), *n))
+        .collect();
+    cwds.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    cwds.truncate(10);
+
+    let input = AgentWeekHtmlInput {
+        agent,
+        range_start: week_start,
+        range_end: week_end,
+        tz_label,
+        total_calls: stats.total_events,
+        sessions: stats.sessions.len() as u64,
+        daily_calls: &daily,
+        top_files: &top_files,
+        top_reads: &top_reads,
+        tool_mix: &tool_mix,
+        cwds: &cwds,
+    };
+    render_agent_week_card(&input, lp, footer)
 }
 
 /// Render a today / yesterday report scoped to one agent.
@@ -164,16 +294,16 @@ fn render_week_period(
 /// agent in scope) and skips MCP traffic, but otherwise mirrors the
 /// global `WeekStats` struct in `cmd::report::week`.
 #[derive(Debug, Default)]
-struct AgentWeekStats {
-    total_events: u64,
-    files_edited: HashMap<(String, String), u64>,
-    files_read: HashMap<String, u64>,
-    cwds: HashMap<String, u64>,
-    tool_mix: HashMap<String, u64>,
-    sessions: BTreeSet<String>,
-    shell_count: u64,
-    days_in_window: Vec<NaiveDate>,
-    daily_calls: HashMap<NaiveDate, u64>,
+pub(crate) struct AgentWeekStats {
+    pub(crate) total_events: u64,
+    pub(crate) files_edited: HashMap<(String, String), u64>,
+    pub(crate) files_read: HashMap<String, u64>,
+    pub(crate) cwds: HashMap<String, u64>,
+    pub(crate) tool_mix: HashMap<String, u64>,
+    pub(crate) sessions: BTreeSet<String>,
+    pub(crate) shell_count: u64,
+    pub(crate) days_in_window: Vec<NaiveDate>,
+    pub(crate) daily_calls: HashMap<NaiveDate, u64>,
 }
 
 fn collect_week_for_agent(

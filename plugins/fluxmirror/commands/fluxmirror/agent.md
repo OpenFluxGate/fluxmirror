@@ -1,6 +1,6 @@
 ---
-description: Single-agent filtered report. Usage: <claude-code|qwen-code|gemini-cli> [--period today|yesterday|week]
-argument-hint: <claude-code|qwen-code|gemini-cli> [--period today|yesterday|week]
+description: Single-agent filtered report. Usage: <claude-code|qwen-code|gemini-cli> [--period today|yesterday|week] [--html]
+argument-hint: <claude-code|qwen-code|gemini-cli> [--period today|yesterday|week] [--html] [--out PATH]
 ---
 
 Run the binary with the user's arguments and forward its output verbatim,

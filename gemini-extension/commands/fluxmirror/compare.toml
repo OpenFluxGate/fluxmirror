@@ -1,6 +1,6 @@
 description = "Compare today vs yesterday side-by-side from FluxMirror SQLite"
 prompt = """
-!{fluxmirror compare}
+!{fluxmirror compare {{args}}}
 
 Now add a 2-3 sentence business summary of what changed today vs yesterday
 and why it matters. Base it on the side-by-side diff above.

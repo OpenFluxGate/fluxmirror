@@ -3,6 +3,9 @@
 // Mechanically a copy of `today` with `day_offset = -1`. The shared
 // engine in `cmd::report::day` does the aggregation and rendering; this
 // module only picks the window and the localized title flavour.
+//
+// M5.4 adds `--format html` so the day-shaped digest card is available
+// for yesterday as well.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -12,6 +15,8 @@ use crate::cmd::window::day_range;
 use fluxmirror_core::report::pack;
 
 use super::day::{collect_day, render_human, DayLabel};
+use super::html_day::{render_day_card, DayCardKind};
+use super::html_io::{emit_html, generated_footer};
 use super::ReportFormat;
 
 /// Args for `cmd::report::yesterday::run`. Same shape as `TodayArgs`.
@@ -20,16 +25,19 @@ pub struct YesterdayArgs {
     pub tz: String,
     pub lang: String,
     pub format: ReportFormat,
+    pub out: Option<PathBuf>,
 }
 
 pub fn run(args: YesterdayArgs) -> ExitCode {
-    if !matches!(args.format, ReportFormat::Human) {
-        // M5 ships --format html for the `week` subcommand only.
-        eprintln!(
-            "fluxmirror yesterday: --format {} not yet implemented for this report",
-            args.format
-        );
-        return ExitCode::from(2);
+    match args.format {
+        ReportFormat::Human | ReportFormat::Html => {}
+        ReportFormat::Json | ReportFormat::Markdown => {
+            eprintln!(
+                "fluxmirror yesterday: --format {} not yet implemented for this report",
+                args.format
+            );
+            return ExitCode::from(2);
+        }
     }
 
     let tz = match parse_tz(&args.tz) {
@@ -51,6 +59,19 @@ pub fn run(args: YesterdayArgs) -> ExitCode {
     };
 
     let lp = pack(&args.lang);
+
+    if matches!(args.format, ReportFormat::Html) {
+        let html = render_day_card(
+            &day,
+            target_date,
+            &args.tz,
+            DayCardKind::Yesterday,
+            lp,
+            &generated_footer(),
+        );
+        return emit_html("yesterday", html, args.out.as_deref());
+    }
+
     let report = render_human(lp, &args.tz, target_date, &day, DayLabel::Yesterday);
     print!("{}", report);
     ExitCode::SUCCESS

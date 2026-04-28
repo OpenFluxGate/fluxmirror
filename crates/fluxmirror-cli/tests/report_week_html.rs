@@ -385,15 +385,19 @@ fn english_snapshot_hash_is_stable() {
 
 #[test]
 fn cli_format_html_writes_doctype_to_stdout() {
-    // End-to-end: spawn the binary against an empty DB, ask for HTML,
-    // and confirm we get a complete document on stdout. The empty-DB
-    // path still emits the full skeleton (with the empty-summary line).
+    // End-to-end: spawn the binary against an empty DB, ask for HTML
+    // routed through the `--out -` stdout sentinel, and confirm we get
+    // a complete document on stdout. The empty-DB path still emits the
+    // full skeleton (with the empty-summary line).
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("events.db");
     let _store = fluxmirror_store::SqliteStore::open(&path).unwrap();
 
     let output = Command::new(env!("CARGO_BIN_EXE_fluxmirror"))
-        .args(["week", "--tz", "UTC", "--lang", "english", "--format", "html"])
+        .args([
+            "week", "--tz", "UTC", "--lang", "english", "--format", "html",
+            "--out", "-",
+        ])
         .arg("--db")
         .arg(&path)
         .output()
@@ -444,9 +448,11 @@ fn cli_format_html_with_out_writes_file_and_prints_confirmation() {
 
 #[test]
 fn cli_other_reports_reject_html_with_exit_two() {
-    // M5 only ships --format html for `week`. The other six reports
-    // must keep returning exit 2 with a "not yet implemented" line.
-    for sub in &["today", "yesterday", "agents", "compare", "about"] {
+    // M5.4 ships --format html for week / today / yesterday / agent /
+    // compare. `agents` and `about` are roster / metadata views with
+    // low value as standalone HTML cards, so they keep returning exit
+    // 2 with a "not yet implemented" line.
+    for sub in &["agents", "about"] {
         let output = Command::new(env!("CARGO_BIN_EXE_fluxmirror"))
             .args([sub, "--lang", "english", "--format", "html"])
             .output()

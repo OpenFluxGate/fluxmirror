@@ -300,6 +300,45 @@ pub struct LangPack {
     pub html_mcp_none: &'static str,
     pub html_mcp_light: &'static str,
     pub html_mcp_active: &'static str,
+
+    // ----- M5.4 daily / per-agent / compare HTML cards ---------------
+    /// Title for the today HTML card. Rendered as
+    /// `# {html_today_title} (YYYY-MM-DD <tz>)`.
+    pub html_today_title: &'static str,
+    /// Title for the yesterday HTML card.
+    pub html_yesterday_title: &'static str,
+    /// Empty-window line for the today HTML card.
+    pub html_today_no_data: &'static str,
+    /// Empty-window line for the yesterday HTML card.
+    pub html_yesterday_no_data: &'static str,
+    /// "Shell timeline" section heading on day-shaped cards.
+    pub html_section_shell_timeline: &'static str,
+    /// "Tool mix" section heading on day-shaped cards.
+    pub html_section_tool_mix: &'static str,
+    /// "Working directories" section heading on day-shaped cards.
+    pub html_section_cwds: &'static str,
+    /// "Hour distribution" section heading on day-shaped cards.
+    pub html_section_hours: &'static str,
+    /// "Files only read" section heading on day-shaped cards.
+    pub html_section_files_read: &'static str,
+    /// Day-card summary line; placeholders `{calls}` `{agents}` `{hour}`
+    /// `{hour_calls}` `{tool}` `{tool_calls}`.
+    pub html_day_summary_template: &'static str,
+    /// Fallback summary line for an empty single day.
+    pub html_day_summary_empty: &'static str,
+    /// Agent-card title prefix; rendered before the period title with the
+    /// raw agent name, e.g. "{agent}: Today's Work".
+    pub html_agent_card_title_template: &'static str,
+    /// Compare-card title.
+    pub html_compare_title: &'static str,
+    /// Compare-card "Today" column heading.
+    pub html_compare_today_label: &'static str,
+    /// Compare-card "Yesterday" column heading.
+    pub html_compare_yesterday_label: &'static str,
+    /// Compare-card "Δ" column heading.
+    pub html_compare_delta_label: &'static str,
+    /// Compare-card empty-data line (both days had zero events).
+    pub html_compare_no_data: &'static str,
 }
 
 const ENGLISH: LangPack = LangPack {
@@ -439,6 +478,23 @@ const ENGLISH: LangPack = LangPack {
     html_mcp_none: "none - proxy not active",
     html_mcp_light: "light ({n} msgs)",
     html_mcp_active: "active ({n} msgs)",
+    html_today_title: "Today's Work",
+    html_yesterday_title: "Yesterday's Work",
+    html_today_no_data: "No agent activity recorded today.",
+    html_yesterday_no_data: "No agent activity recorded yesterday.",
+    html_section_shell_timeline: "Shell timeline",
+    html_section_tool_mix: "Tool mix",
+    html_section_cwds: "Working directories",
+    html_section_hours: "Hour distribution",
+    html_section_files_read: "Files only read",
+    html_day_summary_template: "{calls} calls across {agents} agents. Busiest hour: {hour} ({hour_calls} calls). Heaviest tool: {tool} ({tool_calls} calls).",
+    html_day_summary_empty: "No agent activity recorded in this window.",
+    html_agent_card_title_template: "{agent}: {title}",
+    html_compare_title: "Today vs Yesterday",
+    html_compare_today_label: "Today",
+    html_compare_yesterday_label: "Yesterday",
+    html_compare_delta_label: "Δ",
+    html_compare_no_data: "No agent activity recorded on either day.",
 };
 
 const KOREAN: LangPack = LangPack {
@@ -578,6 +634,23 @@ const KOREAN: LangPack = LangPack {
     html_mcp_none: "없음 - 프록시 비활성",
     html_mcp_light: "가벼움 ({n}건)",
     html_mcp_active: "활발 ({n}건)",
+    html_today_title: "오늘의 작업",
+    html_yesterday_title: "어제의 작업",
+    html_today_no_data: "오늘 기록된 에이전트 활동이 없습니다.",
+    html_yesterday_no_data: "어제 기록된 에이전트 활동이 없습니다.",
+    html_section_shell_timeline: "셸 명령 타임라인",
+    html_section_tool_mix: "도구 분포",
+    html_section_cwds: "작업 디렉터리",
+    html_section_hours: "시간대 분포",
+    html_section_files_read: "읽기만 한 파일",
+    html_day_summary_template: "{agents}개 에이전트에서 {calls}회 호출. 가장 활발한 시간: {hour} ({hour_calls}회). 가장 많이 쓴 도구: {tool} ({tool_calls}회).",
+    html_day_summary_empty: "이 구간에 기록된 에이전트 활동이 없습니다.",
+    html_agent_card_title_template: "{agent}: {title}",
+    html_compare_title: "오늘 vs 어제",
+    html_compare_today_label: "오늘",
+    html_compare_yesterday_label: "어제",
+    html_compare_delta_label: "변화",
+    html_compare_no_data: "오늘과 어제 모두 활동이 없습니다.",
 };
 
 const JAPANESE: LangPack = LangPack {
@@ -717,6 +790,23 @@ const JAPANESE: LangPack = LangPack {
     html_mcp_none: "なし - プロキシ非稼働",
     html_mcp_light: "軽い ({n} 件)",
     html_mcp_active: "活発 ({n} 件)",
+    html_today_title: "本日の作業",
+    html_yesterday_title: "昨日の作業",
+    html_today_no_data: "本日記録されたエージェント活動はありません。",
+    html_yesterday_no_data: "昨日記録されたエージェント活動はありません。",
+    html_section_shell_timeline: "シェルコマンド タイムライン",
+    html_section_tool_mix: "ツール構成",
+    html_section_cwds: "作業ディレクトリ",
+    html_section_hours: "時間帯分布",
+    html_section_files_read: "閲覧のみのファイル",
+    html_day_summary_template: "{agents} 個のエージェントで {calls} 回呼び出し。最も活発な時間: {hour} ({hour_calls} 回)。最も使われたツール: {tool} ({tool_calls} 回)。",
+    html_day_summary_empty: "この期間に記録されたエージェント活動はありません。",
+    html_agent_card_title_template: "{agent}: {title}",
+    html_compare_title: "本日 vs 昨日",
+    html_compare_today_label: "本日",
+    html_compare_yesterday_label: "昨日",
+    html_compare_delta_label: "Δ",
+    html_compare_no_data: "本日と昨日のいずれも活動が記録されていません。",
 };
 
 const CHINESE: LangPack = LangPack {
@@ -856,6 +946,23 @@ const CHINESE: LangPack = LangPack {
     html_mcp_none: "无 - 代理未启用",
     html_mcp_light: "轻量 ({n} 条)",
     html_mcp_active: "活跃 ({n} 条)",
+    html_today_title: "今日工作",
+    html_yesterday_title: "昨日工作",
+    html_today_no_data: "今日没有记录到代理活动。",
+    html_yesterday_no_data: "昨日没有记录到代理活动。",
+    html_section_shell_timeline: "Shell 命令时间线",
+    html_section_tool_mix: "工具分布",
+    html_section_cwds: "工作目录",
+    html_section_hours: "时间分布",
+    html_section_files_read: "仅读取文件",
+    html_day_summary_template: "{agents} 个代理共调用 {calls} 次。最活跃时段: {hour} ({hour_calls} 次)。使用最多的工具: {tool} ({tool_calls} 次)。",
+    html_day_summary_empty: "此区间没有记录到代理活动。",
+    html_agent_card_title_template: "{agent}: {title}",
+    html_compare_title: "今日 vs 昨日",
+    html_compare_today_label: "今日",
+    html_compare_yesterday_label: "昨日",
+    html_compare_delta_label: "Δ",
+    html_compare_no_data: "今日和昨日都没有记录到活动。",
 };
 
 /// Resolve a language code (or canonical name) to a `LangPack`.

@@ -1,6 +1,6 @@
 description = "Summarize yesterday's AI agent activity from FluxMirror SQLite"
 prompt = """
-!{fluxmirror yesterday}
+!{fluxmirror yesterday {{args}}}
 
 Now add a 2-3 sentence business summary of what was accomplished yesterday.
 Base it on the file edits, shell commands, and time clusters above.

@@ -33,6 +33,7 @@ use fluxmirror_core::report::{pack, LangPack};
 
 use super::git_narrative::{self, GitNarrative};
 use super::html::{render_card, AgentRow as HtmlAgentRow, WeekHtmlStats};
+use super::html_io::emit_html as shared_emit_html;
 use super::tools::{is_read, is_shell, is_write};
 use super::week_summary;
 use super::ReportFormat;
@@ -119,34 +120,12 @@ pub fn run(args: WeekArgs) -> ExitCode {
     if matches!(args.format, ReportFormat::Html) {
         let html_stats = build_html_stats(&stats, week_start, week_end, &args.tz, mcp_count, lp);
         let html = render_card(&html_stats, lp);
-        return emit_html(html, args.out.as_deref());
+        return shared_emit_html("week", html, args.out.as_deref());
     }
 
     let report = render_human(lp, &args.tz, week_start, week_end, &stats);
     print!("{}", report);
     ExitCode::SUCCESS
-}
-
-/// Write the rendered HTML to either stdout or the requested file path.
-/// File writes overwrite an existing path. Stdout writes are byte-exact
-/// (no trailing newline added beyond what the renderer produced).
-fn emit_html(html: String, out: Option<&std::path::Path>) -> ExitCode {
-    match out {
-        None => {
-            print!("{}", html);
-            ExitCode::SUCCESS
-        }
-        Some(path) => match std::fs::write(path, html.as_bytes()) {
-            Ok(()) => {
-                println!("wrote {} ({} bytes)", path.display(), html.len());
-                ExitCode::SUCCESS
-            }
-            Err(e) => err_exit2(format!(
-                "fluxmirror week: writing {}: {e}",
-                path.display()
-            )),
-        },
-    }
 }
 
 /// Per-agent row in the week activity table.
