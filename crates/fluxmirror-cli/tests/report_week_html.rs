@@ -199,6 +199,7 @@ fn fixture_stats() -> WeekHtmlStats {
         daily_breakdown,
         highlights,
         insights,
+        cost: None,
     }
 }
 

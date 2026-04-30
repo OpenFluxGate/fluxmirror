@@ -31,8 +31,9 @@ use crate::cmd::util::{err_exit2, open_db_readonly, parse_tz, scrub_for_output};
 use crate::cmd::window::week_range;
 use fluxmirror_core::report::data as core_data;
 use fluxmirror_core::report::dto as core_dto;
-use fluxmirror_core::report::{pack, LangPack};
+use fluxmirror_core::report::{pack, CostSummary, LangPack};
 
+use super::cost::render_cost;
 use super::git_narrative::{self, GitNarrative};
 use super::html::{render_card, AgentRow as HtmlAgentRow, WeekHtmlStats};
 use super::html_io::emit_html as shared_emit_html;
@@ -178,6 +179,8 @@ pub(crate) struct WeekStats {
     /// renderer and `build_html_stats`. `None` when the user passed
     /// `--no-git-narrative` or collection was otherwise skipped.
     pub narrative: Option<GitNarrative>,
+    /// Cost overlay (M6).
+    pub cost: Option<CostSummary>,
 }
 
 /// Build the day list and run the aggregation against the connection.
@@ -214,6 +217,7 @@ fn week_data_to_week_stats(data: core_dto::WeekData, week_start: NaiveDate) -> W
     stats.total_events = data.total_events;
     stats.writes_total = data.writes_total;
     stats.reads_total = data.reads_total;
+    stats.cost = data.cost;
 
     for a in data.agents {
         let mut row = AgentRow::default();
@@ -386,6 +390,7 @@ pub(crate) fn build_html_stats(
         daily_breakdown,
         highlights,
         insights,
+        cost: stats.cost.clone(),
     }
 }
 
@@ -441,6 +446,9 @@ fn render_human(
     render_tool_mix(&mut out, lp, stats);
     render_cwds(&mut out, lp, stats);
     render_day_distribution(&mut out, lp, stats);
+    if let Some(cost) = stats.cost.as_ref() {
+        render_cost(&mut out, lp, cost);
+    }
     render_narrative(&mut out, lp, stats);
     render_insights(&mut out, lp, stats);
 

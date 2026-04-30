@@ -12,8 +12,9 @@
 // cheaper to maintain than a build-time templating dep.
 
 use chrono::NaiveDate;
-use fluxmirror_core::report::LangPack;
+use fluxmirror_core::report::{CostSummary, LangPack};
 
+use super::cost::format_usd;
 use super::git_narrative::GitNarrative;
 use super::week_summary::{
     ratio_mode_label, DailyRow, DayTheme, Highlights, Insights, WeekSummary,
@@ -71,6 +72,8 @@ pub struct WeekHtmlStats {
     pub highlights: Highlights,
     /// 4 neutral bullets answering "what does this week say about me?".
     pub insights: Insights,
+    /// Cost overlay (M6). `None` when scoped by agent.
+    pub cost: Option<CostSummary>,
 }
 
 /// Escape a string for safe HTML text/attribute interpolation.
@@ -661,7 +664,34 @@ fn render_summary(out: &mut String, stats: &WeekHtmlStats, lp: &LangPack) {
         )
     };
     out.push_str(&format!("<p>{}</p>\n", html_escape(&body)));
+
+    if let Some(cost) = stats.cost.as_ref() {
+        render_cost_row(out, lp, cost);
+    }
+
     out.push_str("</section>\n");
+}
+
+/// Append the cost line to the existing summary `<section>`. Renders
+/// `<p class="cost">Cost (estimate): $1.23 — 21% estimated</p>` and
+/// drops the trailing clause when the entire signal is real (or zero).
+pub(super) fn render_cost_row(out: &mut String, lp: &LangPack, cost: &CostSummary) {
+    if cost.total_usd == 0.0 && cost.by_agent.is_empty() {
+        return;
+    }
+    let mut line = format!(
+        "{}: ${}",
+        html_escape(lp.cost_heading),
+        format_usd(cost.total_usd)
+    );
+    if cost.estimate_share > 0.0 {
+        let pct = (cost.estimate_share * 100.0).round() as u64;
+        line.push_str(&format!(
+            " &mdash; {}",
+            html_escape(&lp.cost_estimate_note.replace("{pct}", &pct.to_string()))
+        ));
+    }
+    out.push_str(&format!("<p class=\"cost\">{}</p>\n", line));
 }
 
 /// Inline CSS for the card. Conservative palette: one accent blue plus a
@@ -837,6 +867,7 @@ mod tests {
             daily_breakdown: Vec::new(),
             highlights: Highlights::default(),
             insights: Insights::default(),
+            cost: None,
         }
     }
 

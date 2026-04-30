@@ -30,7 +30,9 @@ use rusqlite::Connection;
 
 use fluxmirror_core::report::data as core_data;
 use fluxmirror_core::report::dto as core_dto;
-use fluxmirror_core::report::LangPack;
+use fluxmirror_core::report::{CostSummary, LangPack};
+
+use super::cost::render_cost;
 
 /// Maximum rows in the "files written or edited" table.
 pub(crate) const FILES_EDITED_LIMIT: usize = 20;
@@ -92,6 +94,8 @@ pub(crate) struct DayStats {
     /// non-empty detail. Used by `compare` for the diff column; today
     /// and yesterday don't surface it directly.
     pub distinct_files: BTreeSet<String>,
+    /// Cost overlay (M6). `None` for agent-filtered windows.
+    pub cost: Option<CostSummary>,
 }
 
 /// Per-agent row in the activity stats table.
@@ -134,6 +138,7 @@ fn today_data_to_day_stats(data: core_dto::TodayData) -> DayStats {
     day.writes_total = data.writes_total;
     day.reads_total = data.reads_total;
     day.distinct_files = data.distinct_files.into_iter().collect();
+    day.cost = data.cost;
 
     for a in data.agents {
         let mut row = AgentRow::default();
@@ -238,6 +243,9 @@ pub(crate) fn render_human(
     render_mcp(&mut out, lp, day);
     render_tool_mix(&mut out, lp, day);
     render_hours(&mut out, lp, day);
+    if let Some(cost) = day.cost.as_ref() {
+        render_cost(&mut out, lp, cost);
+    }
     render_insights(&mut out, lp, day);
 
     out

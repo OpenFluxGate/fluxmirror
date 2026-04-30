@@ -159,6 +159,7 @@ fn html_fixture_with_narrative(narrative: Option<GitNarrative>) -> WeekHtmlStats
         daily_breakdown: Vec::new(),
         highlights: Highlights::default(),
         insights: Insights::default(),
+        cost: None,
     }
 }
 

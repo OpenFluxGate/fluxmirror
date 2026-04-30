@@ -8,6 +8,11 @@ import { useQuery } from '@tanstack/react-query'
 
 import { fetchToday, type TodayData } from '../lib/api'
 import { AgentBar } from '../components/AgentBar'
+import {
+  CostBlock,
+  formatCostUsd,
+  formatEstimateHint,
+} from '../components/CostBlock'
 import { FileTable } from '../components/FileTable'
 import { HeatmapBar } from '../components/HeatmapBar'
 import { StatTile } from '../components/StatTile'
@@ -72,8 +77,25 @@ export function Today() {
           label="files touched"
           value={data.distinct_files.length.toLocaleString()}
         />
-        <StatTile label="edit / read" value={editRatio} />
+        {data.cost ? (
+          <StatTile
+            label="cost (estimate)"
+            value={formatCostUsd(data.cost.total_usd)}
+            hint={formatEstimateHint(data.cost.estimate_share)}
+          />
+        ) : (
+          <StatTile label="edit / read" value={editRatio} />
+        )}
       </section>
+
+      {data.cost && (
+        <section>
+          <h2 className="text-xs uppercase tracking-wider text-[var(--color-muted)] mb-3">
+            cost breakdown
+          </h2>
+          <CostBlock cost={data.cost} />
+        </section>
+      )}
 
       <section>
         <h2 className="text-xs uppercase tracking-wider text-[var(--color-muted)] mb-3">

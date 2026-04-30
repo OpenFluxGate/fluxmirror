@@ -339,6 +339,23 @@ pub struct LangPack {
     pub html_compare_delta_label: &'static str,
     /// Compare-card empty-data line (both days had zero events).
     pub html_compare_no_data: &'static str,
+
+    // ----- M6 cost overlay --------------------------------------------
+    /// "Cost" section heading (text + html).
+    pub cost_heading: &'static str,
+    /// "Total" label preceding the USD figure.
+    pub cost_total_label: &'static str,
+    /// Note appended when `estimate_share > 0`. `{pct}` placeholder is
+    /// the integer percentage of dollars attributed to the heuristic
+    /// bucket (rounded to the nearest whole number, 1..=100).
+    pub cost_estimate_note: &'static str,
+    /// Column headers: Agent | Tokens in | Tokens out | USD.
+    pub cost_columns: [&'static str; 4],
+    /// Single-character marker appended to estimated rows (the cost
+    /// figure for a row whose tokens were entirely heuristic). Renders
+    /// as `*` in every language; carried in the lang pack so a future
+    /// translation that wants a different sigil only edits one place.
+    pub cost_estimate_marker: &'static str,
 }
 
 const ENGLISH: LangPack = LangPack {
@@ -495,6 +512,11 @@ const ENGLISH: LangPack = LangPack {
     html_compare_yesterday_label: "Yesterday",
     html_compare_delta_label: "Δ",
     html_compare_no_data: "No agent activity recorded on either day.",
+    cost_heading: "Cost (estimate)",
+    cost_total_label: "Total",
+    cost_estimate_note: "{pct}% of this figure is estimated from non-MCP agent activity.",
+    cost_columns: ["Agent", "Tokens in", "Tokens out", "USD"],
+    cost_estimate_marker: "*",
 };
 
 const KOREAN: LangPack = LangPack {
@@ -651,6 +673,11 @@ const KOREAN: LangPack = LangPack {
     html_compare_yesterday_label: "어제",
     html_compare_delta_label: "변화",
     html_compare_no_data: "오늘과 어제 모두 활동이 없습니다.",
+    cost_heading: "비용 (추정)",
+    cost_total_label: "합계",
+    cost_estimate_note: "이 금액의 {pct}%는 MCP 외 에이전트 활동을 기반으로 추정한 값입니다.",
+    cost_columns: ["에이전트", "입력 토큰", "출력 토큰", "USD"],
+    cost_estimate_marker: "*",
 };
 
 const JAPANESE: LangPack = LangPack {
@@ -807,6 +834,11 @@ const JAPANESE: LangPack = LangPack {
     html_compare_yesterday_label: "昨日",
     html_compare_delta_label: "Δ",
     html_compare_no_data: "本日と昨日のいずれも活動が記録されていません。",
+    cost_heading: "コスト (推定)",
+    cost_total_label: "合計",
+    cost_estimate_note: "この金額の {pct}% は MCP 以外のエージェント活動からの推定値です。",
+    cost_columns: ["エージェント", "入力トークン", "出力トークン", "USD"],
+    cost_estimate_marker: "*",
 };
 
 const CHINESE: LangPack = LangPack {
@@ -963,6 +995,11 @@ const CHINESE: LangPack = LangPack {
     html_compare_yesterday_label: "昨日",
     html_compare_delta_label: "Δ",
     html_compare_no_data: "今日和昨日都没有记录到活动。",
+    cost_heading: "费用 (估算)",
+    cost_total_label: "合计",
+    cost_estimate_note: "其中 {pct}% 来自非 MCP 代理的启发式估算。",
+    cost_columns: ["代理", "输入 token", "输出 token", "USD"],
+    cost_estimate_marker: "*",
 };
 
 /// Resolve a language code (or canonical name) to a `LangPack`.

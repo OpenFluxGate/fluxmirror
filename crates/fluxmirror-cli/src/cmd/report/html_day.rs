@@ -18,7 +18,7 @@ use chrono::NaiveDate;
 use fluxmirror_core::report::LangPack;
 
 use super::day::{busiest_hour, DayStats};
-use super::html::{html_escape, replace_all};
+use super::html::{html_escape, render_cost_row, replace_all};
 
 /// Width of the trailing color block in the hour-distribution row. The
 /// renderer always emits 24 cells; cells with zero events stay neutral
@@ -602,6 +602,9 @@ fn push_day_summary_section(out: &mut String, day: &DayStats, lp: &LangPack) {
         )
     };
     out.push_str(&format!("<p>{}</p>\n", html_escape(&body)));
+    if let Some(cost) = day.cost.as_ref() {
+        render_cost_row(out, lp, cost);
+    }
     out.push_str("</section>\n");
 }
 
