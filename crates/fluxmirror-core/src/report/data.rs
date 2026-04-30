@@ -68,6 +68,7 @@ pub fn collect_today(
     range: WindowRange,
     agent_filter: Option<&str>,
 ) -> Result<TodayData, String> {
+    let cost_range = range.clone();
     let raw = aggregate_day_raw(conn, tz, &range, agent_filter)?;
 
     let mut data = TodayData {
@@ -89,6 +90,13 @@ pub fn collect_today(
     data.hours = build_hour_buckets(&raw.hours);
     data.distinct_files = raw.distinct_files.iter().cloned().collect();
 
+    // Cost overlay (Phase 3 M6). Skipped when the report is scoped
+    // to a single agent — the MCP source bucket has no agent column
+    // to filter against, so an agent-filtered cost would be misleading.
+    if agent_filter.is_none() {
+        data.cost = crate::cost::collect_cost(conn, tz, cost_range).ok();
+    }
+
     Ok(data)
 }
 
@@ -101,6 +109,7 @@ pub fn collect_week(
     range: WindowRange,
     agent_filter: Option<&str>,
 ) -> Result<WeekData, String> {
+    let cost_range = range.clone();
     let raw = aggregate_week_raw(conn, tz, &range, agent_filter)?;
 
     let mut data = WeekData {
@@ -133,6 +142,10 @@ pub fn collect_week(
     } else {
         count_mcp_events(conn, range.start_utc, range.end_utc).unwrap_or(0)
     };
+
+    if agent_filter.is_none() {
+        data.cost = crate::cost::collect_cost(conn, tz, cost_range).ok();
+    }
 
     Ok(data)
 }

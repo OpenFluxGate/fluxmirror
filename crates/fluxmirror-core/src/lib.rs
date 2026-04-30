@@ -10,6 +10,7 @@
 //   - config    layered config (defaults < inferred < user file < project < env < CLI)
 
 pub mod config;
+pub mod cost;
 pub mod errors;
 pub mod event;
 pub mod normalize;

@@ -51,6 +51,32 @@ export interface DayRow {
   calls: number
 }
 
+export interface AgentCost {
+  agent: string
+  usd: number
+  tokens_in: number
+  tokens_out: number
+  estimate: boolean
+}
+
+export interface ModelCost {
+  model: string
+  usd: number
+  tokens_in: number
+  tokens_out: number
+  estimate: boolean
+}
+
+export interface CostSummary {
+  from: string
+  to: string
+  total_usd: number
+  by_agent: AgentCost[]
+  by_model: ModelCost[]
+  /** 0.0..1.0 — share of `total_usd` attributed to heuristic estimates. */
+  estimate_share: number
+}
+
 export interface TodayData {
   date: string // YYYY-MM-DD
   tz: string
@@ -66,6 +92,7 @@ export interface TodayData {
   writes_total: number
   reads_total: number
   distinct_files: string[]
+  cost?: CostSummary | null
 }
 
 export interface WeekData {
@@ -84,6 +111,7 @@ export interface WeekData {
   mcp_count: number
   writes_total: number
   reads_total: number
+  cost?: CostSummary | null
 }
 
 export interface NowSnapshot {

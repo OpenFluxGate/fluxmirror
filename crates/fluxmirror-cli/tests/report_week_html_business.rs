@@ -116,6 +116,7 @@ fn business_fixture() -> WeekHtmlStats {
         daily_breakdown: daily,
         highlights,
         insights,
+        cost: None,
     }
 }
 

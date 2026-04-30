@@ -129,6 +129,11 @@ pub struct TodayData {
     /// Distinct file paths touched by either a write or a read with
     /// non-empty detail. Sorted ascending.
     pub distinct_files: Vec<String>,
+    /// Cost overlay (Phase 3 M6). `None` when scoped by agent — the
+    /// cost source for MCP traffic isn't filterable by agent so we
+    /// suppress the figure rather than report a misleading total.
+    #[serde(default)]
+    pub cost: Option<CostSummary>,
 }
 
 /// All aggregates for a 7-day rolling window.
@@ -154,6 +159,9 @@ pub struct WeekData {
     pub mcp_count: u64,
     pub writes_total: u64,
     pub reads_total: u64,
+    /// Cost overlay (Phase 3 M6). `None` when scoped by agent.
+    #[serde(default)]
+    pub cost: Option<CostSummary>,
 }
 
 /// Latest-event snapshot rendered on the studio Home page's "Now"
@@ -366,4 +374,63 @@ pub struct ReplaySnapshot {
     pub agent_minute_mix: Vec<AgentCount>,
     /// Per-tool call counts in the trailing 60 seconds.
     pub tool_minute_mix: Vec<ToolMixEntry>,
+}
+
+/// Aggregate USD-cost view of a window. Emitted by the cost overlay
+/// (Phase 3 M6) on every report surface that carries call totals.
+///
+/// `total_usd` is the sum of every per-agent / per-model bucket. The
+/// figure is best-effort by design — see [`crate::cost`]:
+///
+///   - MCP traffic in the `events` table contributes real tokens (and
+///     real model ids) parsed out of each Anthropic-shaped `usage`
+///     block.
+///   - `agent_events` rows contribute heuristic tokens computed from
+///     `len(detail)`. Their per-row [`AgentCost::estimate`] /
+///     [`ModelCost::estimate`] flag is `true`.
+///
+/// `estimate_share` is the dollar fraction (or token fraction when no
+/// dollars resolve) attributable to the heuristic bucket. UI surfaces
+/// should render an "estimate" footnote when `estimate_share > 0`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CostSummary {
+    /// Inclusive ISO-8601 UTC start of the window. Echoed so the
+    /// frontend can label the figure without recomputing the bounds.
+    pub from: String,
+    /// Exclusive ISO-8601 UTC end of the window.
+    pub to: String,
+    /// Sum of every bucket, rounded to 4 decimal places.
+    pub total_usd: f64,
+    /// Per-agent breakdown sorted by descending USD.
+    pub by_agent: Vec<AgentCost>,
+    /// Per-model breakdown sorted by descending USD. The `unknown`
+    /// model bucket holds estimated tokens whose source agent has no
+    /// default model mapping.
+    pub by_model: Vec<ModelCost>,
+    /// Heuristic-bucket fraction, clamped to `[0.0, 1.0]`.
+    pub estimate_share: f64,
+}
+
+/// One row of [`CostSummary::by_agent`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentCost {
+    pub agent: String,
+    pub usd: f64,
+    pub tokens_in: u64,
+    pub tokens_out: u64,
+    /// `true` when every token in the bucket came from the heuristic
+    /// path (no MCP usage parsed for this agent in the window).
+    pub estimate: bool,
+}
+
+/// One row of [`CostSummary::by_model`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelCost {
+    pub model: String,
+    pub usd: f64,
+    pub tokens_in: u64,
+    pub tokens_out: u64,
+    /// `true` when every token in the bucket came from the heuristic
+    /// path (no MCP usage parsed for this model in the window).
+    pub estimate: bool,
 }

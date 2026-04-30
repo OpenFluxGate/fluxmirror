@@ -13,8 +13,9 @@ pub mod lang;
 pub mod sessions;
 
 pub use dto::{
-    AgentCount, AgentTouchCount, ContextEvent, DayRow, FileTouch, HourBucket, MethodCount,
-    NowSnapshot, PathCount, ProvenanceData, ProvenanceEvent, Session, SessionEvent,
-    SessionLifecycle, ShellEvent, ToolMixEntry, TodayData, WeekData, WindowRange,
+    AgentCost, AgentCount, AgentTouchCount, ContextEvent, CostSummary, DayRow, FileTouch,
+    HourBucket, MethodCount, ModelCost, NowSnapshot, PathCount, ProvenanceData, ProvenanceEvent,
+    Session, SessionEvent, SessionLifecycle, ShellEvent, ToolMixEntry, TodayData, WeekData,
+    WindowRange,
 };
 pub use lang::{pack, LangPack};
