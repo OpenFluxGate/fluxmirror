@@ -1,6 +1,7 @@
 # Phase 3 Plan — fluxmirror
 
-> Branch: `feature/phase3/base` (integration) + `feature/phase3/<milestone>` per slice
+> **Status: shipped** (M1–M9 on `main`; M10 external beta deferred to a separate gate).
+> Branch model used: `feature/phase3/base` (integration) + `feature/phase3/<milestone>` per slice.
 > Goal: take fluxmirror from "I run a daily report" to
 > "**this is the tab I open when I want to think about my AI coding.**"
 > Live state (untracked, machine-local) lives at
@@ -79,18 +80,18 @@ The capture / proxy / CLI binary picks up only `toml`, `regex`,
 
 ## Milestones
 
-| ID | Milestone | Estimate | Branch |
+| ID | Milestone | Status | Commit |
 |---|---|---|---|
-| M1 | Studio crate scaffold + Vite frontend | 5 d | `feature/phase3/studio-scaffold` |
-| M2 | `/today`, `/week`, `/` home | 1.5 wk | `feature/phase3/studio-today` |
-| M3 | `/file/<path>` provenance | 1 wk | `feature/phase3/studio-provenance` |
-| M4 | `/replay/<date>` time-machine | 1.5 wk | `feature/phase3/studio-replay` |
-| M5 | Auto-named sessions (heuristic + opt LLM) | 1 wk + 1 wk opt | `feature/phase3/sessions` |
-| M6 | Cost overlay | 1 wk | `feature/phase3/cost` |
-| M7 | Redaction layer | 1 wk | `feature/phase3/redact` |
-| M8 | `fluxmirror upgrade` self-update | 3 d | `feature/phase3/upgrade` |
-| M9 | Real `.fluxmirror.toml` parser | 2 d | `feature/phase3/toml` |
-| M10 | External beta | 1 wk + buffer | `feature/phase3/beta` |
+| M1 | Studio crate scaffold + Vite frontend | ✅ | `199e904` |
+| M2 | `/today`, `/week`, `/` home | ✅ | `090a99d` |
+| M3 | `/file/<path>` provenance | ✅ | `81f1bd5` |
+| M4 | `/replay/<date>` time-machine | ✅ | `5e35894` |
+| M5 | Auto-named sessions (heuristic; LLM deferred to Phase 4) | ✅ | `7edaf00` |
+| M6 | Cost overlay | ✅ | `0d83368` |
+| M7 | Redaction layer | ✅ | `5f548c8` |
+| M8 | `fluxmirror upgrade` self-update | ✅ | `34aaf52` |
+| M9 | Real `.fluxmirror.toml` parser | ✅ | `2719c5a` |
+| M10 | External beta | ⏸ deferred | — |
 
 Total: 9–10 weeks of focused work (LLM optional adds 1 week).
 
