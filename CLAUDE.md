@@ -84,15 +84,18 @@ time.
 
 ## Tech stack
 
-- **Rust** (stable, edition 2021) — 5-crate workspace
+- **Rust** (stable, edition 2021) — 6-crate workspace
   (`fluxmirror-cli`, `fluxmirror-core`, `fluxmirror-store`,
-  `fluxmirror-proxy`, `fluxmirror-studio` [Phase 3]) producing two
-  binaries: `fluxmirror` (capture / CLI, ~3 MB statically-linked per
-  arch) and `fluxmirror-studio` (web dashboard, ~10 MB embedded
-  bundle). Capture-side deps: `rusqlite` (bundled SQLite),
-  `serde_json`, `clap` (derive), `chrono`, `chrono-tz`, `gethostname`.
-  Studio-side adds: `axum`, `tower-http`, `tokio`, `tracing`,
-  `include_dir`.
+  `fluxmirror-proxy`, `fluxmirror-studio` [Phase 3], `fluxmirror-ai`
+  [Phase 4]) producing two binaries: `fluxmirror` (capture / CLI,
+  ~3 MB statically-linked per arch) and `fluxmirror-studio` (web
+  dashboard, ~10 MB embedded bundle). Capture-side deps: `rusqlite`
+  (bundled SQLite), `serde_json`, `clap` (derive), `chrono`,
+  `chrono-tz`, `gethostname`. Studio-side adds: `axum`, `tower-http`,
+  `tokio`, `tracing`, `include_dir`. The Phase 4 `fluxmirror-ai`
+  crate adds `ureq` (already pulled in by Phase 3 M8 upgrade) +
+  `sha2` for stable cache keys; the capture binary does **not** link
+  this crate, so its dep set is unchanged.
 - **Frontend** (Phase 3, build-time only) — `studio-web/` lives at the
   repo root (sibling to `crates/`). Vite + React 18 + TypeScript +
   Tailwind v4 + react-router 6 + TanStack Query. Built with `pnpm
@@ -116,6 +119,34 @@ No JVM, no Gradle, no Java toolchain. No Python or jq at runtime — they were
 removed when the bash fallback path was retired in favour of the auto-download
 wrapper. Node.js is **build-time only** (frontend bundling); it never runs in
 the user's process.
+
+## Privacy boundary (Phase 4 AI layer)
+
+The `fluxmirror-ai` crate is the only place outbound LLM calls
+happen. Every prompt routes through `redact_outbound`, which layers
+on top of Phase 3 M7's secret-pattern scrub:
+
+What gets sent to providers:
+
+- agent label (`claude-code` / `gemini-cli` / `qwen-code` / `claude-desktop`)
+- canonical tool name (`Edit` / `Bash` / `Read` / …)
+- tool detail truncated to 250 bytes
+- timestamps and aggregate counts
+- file path basenames (`$HOME` and `$USERPROFILE` rewritten to `~`)
+- session start / end + heuristic name
+- git commit subjects (already-public repo data)
+
+What is **never** sent:
+
+- `raw_json` from `agent_events` or `events`
+- full hostname / IP / `$USER`
+- absolute paths under `$HOME`
+- MCP message bodies (the proxy's `events.message_json` column)
+- AWS keys, GitHub PATs, bearer tokens, `.env` paths, kv-secrets,
+  PEM blocks — caught by `fluxmirror_core::redact::scrub`
+
+The capture binary does not link `fluxmirror-ai`. Capture-side state
+(events.db tables, hook output, proxy framer) is untouched by Phase 4.
 
 ## Architecture
 

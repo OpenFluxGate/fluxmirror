@@ -32,7 +32,8 @@ through the wrapper layer.
 | 2 | Usage tracker | 🟡 partial | Tool-call counts, per-agent and per-tool breakdowns shipped via `/fluxmirror:agents` and `/fluxmirror:week`. Estimated API cost lands in Phase 3 M6. |
 | 3 | Weekly digest | ✅ shipped | `/fluxmirror:week --html` produces the shareable HTML card with summary, daily breakdown, highlights, and insights. |
 | 4 | Local web dashboard | 🚧 in flight | Phase 3 ships the `fluxmirror-studio` binary — provenance per file, time-machine replay, auto-named work sessions, cost overlay. Opt-in install. |
-| 5 | Anomaly alerts | 🗺 roadmap | No detection or gating ships in Phase 1 / 2 / 3. Events are captured but not analysed. Phase 4 candidate. |
+| 5 | AI synthesis layer | 🚧 in flight | Phase 4 adds the `fluxmirror-ai` crate — provider abstraction (Anthropic + Ollama-stub), SQLite cache, daily USD budget cap, prompt registry, outbound redaction. Capture binary deps unchanged. |
+| 6 | Anomaly alerts | 🗺 roadmap | No detection or gating ships in Phase 1 / 2 / 3. Events are captured but not analysed. Phase 4 lands heuristic anomaly stories on top of the AI layer. |
 
 Legend: ✅ shipped · 🟡 partial (core function works; one named gap) · 🗺 roadmap (not yet implemented)
 

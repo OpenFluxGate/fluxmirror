@@ -20,8 +20,8 @@ pub mod report;
 pub mod tz;
 
 pub use config::{
-    AgentToggle, AgentsConfig, Config, ConfigSource, Language, RedactionConfig, SelfNoiseConfig,
-    StorageConfig, StudioConfig, WrapperConfig, WrapperKind,
+    AgentToggle, AgentsConfig, AiConfig, Config, ConfigSource, Language, RedactionConfig,
+    SelfNoiseConfig, StorageConfig, StudioConfig, WrapperConfig, WrapperKind,
 };
 pub use errors::{Error, Result};
 pub use event::{AgentEvent, AgentId, Direction, ProxyEvent};

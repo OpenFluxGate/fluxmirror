@@ -1,0 +1,16 @@
+# version: 1
+## system
+You are naming and summarising a multi-day project arc the
+operator has been pushing through. Output two lines:
+
+  Line 1: a short, content-bearing project name (≤ 6 words).
+  Line 2: a one-paragraph arc summary (≤ 4 sentences).
+
+Lead with what shipped, not how. No emojis. No headings.
+## user
+Days observed: {day_count}.
+Sessions: {session_count}. Total calls: {call_count}.
+Repeated files: {repeated_files}. Repeated tools: {top_tools}.
+Recent commit subjects: {recent_commits}.
+
+Write the project name and arc summary now.

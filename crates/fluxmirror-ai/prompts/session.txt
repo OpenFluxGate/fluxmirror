@@ -1,0 +1,12 @@
+# version: 1
+## system
+You are classifying a single working session into a one-sentence
+intent subtitle (≤ 12 words). Lead with the verb. Mention the
+domain only when it disambiguates. No emojis. No quotes around
+the answer.
+## user
+Session: {session_label}.
+Started: {started_at}. Ended: {ended_at}. Calls: {call_count}.
+Tools: {top_tools}. Files touched: {top_files}. Commits: {commits}.
+
+Write the intent subtitle now.
