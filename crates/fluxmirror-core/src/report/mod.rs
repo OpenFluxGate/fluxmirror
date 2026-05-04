@@ -10,12 +10,13 @@
 pub mod data;
 pub mod dto;
 pub mod lang;
+pub mod projects;
 pub mod sessions;
 
 pub use dto::{
     AgentCost, AgentCount, AgentTouchCount, ContextEvent, CostSummary, DayRow, FileTouch,
-    HourBucket, MethodCount, ModelCost, NowSnapshot, PathCount, ProvenanceData, ProvenanceEvent,
-    Session, SessionEvent, SessionLifecycle, ShellEvent, ToolMixEntry, TodayData, WeekData,
-    WindowRange,
+    HourBucket, MethodCount, ModelCost, NowSnapshot, PathCount, Project, ProjectSource,
+    ProjectStatus, ProvenanceData, ProvenanceEvent, Session, SessionEvent, SessionLifecycle,
+    ShellEvent, ToolMixEntry, TodayData, WeekData, WindowRange,
 };
 pub use lang::{pack, LangPack};

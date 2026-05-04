@@ -5,9 +5,17 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 
-import { fetchNow, fetchToday, fetchWeek, getSessions } from '../lib/api'
+import {
+  fetchNow,
+  fetchToday,
+  fetchWeek,
+  getProjects,
+  getSessions,
+  type Project,
+} from '../lib/api'
 import { HeatmapBar } from '../components/HeatmapBar'
 import { StatTile } from '../components/StatTile'
+import { StatusPill } from './Projects'
 import { LifecycleBadge, formatDuration } from './Sessions'
 
 interface Health {
@@ -39,6 +47,11 @@ export function Home() {
     queryKey: ['sessions', homeRange.from, homeRange.to],
     queryFn: () => getSessions(homeRange.from, homeRange.to),
   })
+  const projects = useQuery({
+    queryKey: ['projects', 30],
+    queryFn: () => getProjects(30),
+  })
+  const activeProject = pickActiveProject(projects.data)
 
   return (
     <div className="space-y-8">
@@ -87,6 +100,48 @@ export function Home() {
             </dl>
           )}
         </div>
+      </section>
+
+      <section>
+        <h2 className="text-xs uppercase tracking-wider text-[var(--color-muted)] mb-3">
+          active project
+        </h2>
+        {projects.isPending && (
+          <p className="text-xs text-[var(--color-muted)]">loading…</p>
+        )}
+        {!projects.isPending && !activeProject && (
+          <p className="text-xs text-[var(--color-muted)]">
+            no active project — every cluster is paused, shipped, or
+            abandoned. Open the{' '}
+            <Link to="/projects" className="text-[var(--color-accent)]">
+              projects
+            </Link>{' '}
+            page for the full list.
+          </p>
+        )}
+        {activeProject && (
+          <Link
+            to="/projects"
+            className="block rounded border border-[var(--color-border)] bg-[var(--color-panel)] p-4 hover:bg-[var(--color-bg)]"
+          >
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="font-mono text-base text-[var(--color-text)] break-all">
+                {activeProject.name}
+              </h3>
+              <StatusPill status={activeProject.status} />
+            </div>
+            <p className="mt-2 text-sm text-[var(--color-text)] leading-relaxed">
+              {activeProject.arc}
+            </p>
+            <p className="mt-2 text-[10px] uppercase tracking-wider text-[var(--color-muted)] font-mono">
+              {activeProject.session_ids.length} sessions ·{' '}
+              {activeProject.total_events.toLocaleString()} events
+              {activeProject.dominant_cwd && (
+                <> · <span className="break-all">{activeProject.dominant_cwd}</span></>
+              )}
+            </p>
+          </Link>
+        )}
       </section>
 
       <section>
@@ -213,6 +268,15 @@ export function Home() {
       </section>
     </div>
   )
+}
+
+function pickActiveProject(projects: Project[] | undefined): Project | null {
+  if (!projects || projects.length === 0) return null
+  const active = projects.filter((p) => p.status === 'active')
+  if (active.length === 0) return null
+  // Most-recently-ended active project wins.
+  active.sort((a, b) => (a.end < b.end ? 1 : a.end > b.end ? -1 : 0))
+  return active[0]
 }
 
 function buildHomeRange(days: number): { from: string; to: string } {

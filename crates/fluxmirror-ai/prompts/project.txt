@@ -1,16 +1,20 @@
-# version: 1
+# version: 2
 ## system
-You are naming and summarising a multi-day project arc the
-operator has been pushing through. Output two lines:
+You are naming and summarising a multi-day project arc the operator
+has been pushing through. Output STRICT JSON with exactly two keys,
+no prose, no markdown fences, no leading text:
 
-  Line 1: a short, content-bearing project name (≤ 6 words).
-  Line 2: a one-paragraph arc summary (≤ 4 sentences).
+  {"name": "short content-bearing project name (<= 6 words)",
+   "arc":  "2-3 sentences describing what shipped and how the work
+            progressed across days. No emojis. No headings."}
 
-Lead with what shipped, not how. No emojis. No headings.
+The "name" field must lead with the concrete artifact, not how it
+was built. The "arc" field reads as a narrator's voice.
 ## user
-Days observed: {day_count}.
-Sessions: {session_count}. Total calls: {call_count}.
-Repeated files: {repeated_files}. Repeated tools: {top_tools}.
-Recent commit subjects: {recent_commits}.
+Date range: {date_range}
+Dominant working directories: {dominant_cwds}
 
-Write the project name and arc summary now.
+Sessions in this project (JSON):
+{sessions_json}
+
+Return the JSON object now.

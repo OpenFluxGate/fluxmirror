@@ -224,6 +224,29 @@ export interface ReplaySnapshot {
   tool_minute_mix: ToolMixEntry[]
 }
 
+// Lifecycle phase of a project. Lowercase variant strings match the
+// `serde(rename_all = "lowercase")` annotation on the Rust enum.
+export type ProjectStatus = 'active' | 'paused' | 'shipped' | 'abandoned'
+
+// Provenance of a project's name + arc fields. `llm` means the LLM
+// upgrade ran successfully; `heuristic` means the deterministic
+// fallback was used (provider off, parse error, budget hit, etc.).
+export type ProjectSource = 'llm' | 'heuristic'
+
+export interface Project {
+  id: string
+  name: string
+  arc: string
+  status: ProjectStatus
+  session_ids: string[]
+  start: string // ISO 8601 UTC
+  end: string // ISO 8601 UTC
+  total_events: number
+  total_usd: number
+  dominant_cwd: string | null
+  source: ProjectSource
+}
+
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(path)
   if (!res.ok) {
@@ -273,3 +296,10 @@ export const getReplaySnapshot = (
   getJson<ReplaySnapshot>(
     `/api/replay/${encodeURIComponent(date)}/at?ts=${encodeURIComponent(ts)}`,
   )
+
+export const getProjects = (daysBack?: number): Promise<Project[]> => {
+  if (daysBack && daysBack > 0) {
+    return getJson<Project[]>(`/api/projects?days_back=${daysBack}`)
+  }
+  return getJson<Project[]>('/api/projects')
+}

@@ -4,6 +4,7 @@ import { Layout } from './components/Layout'
 import { File } from './routes/File'
 import { Home } from './routes/Home'
 import { NotFound } from './routes/NotFound'
+import { Projects } from './routes/Projects'
 import { Replay } from './routes/Replay'
 import { SessionDetail } from './routes/Session'
 import { Sessions } from './routes/Sessions'
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="week" element={<Week />} />
             <Route path="sessions" element={<Sessions />} />
             <Route path="session/:id" element={<SessionDetail />} />
+            <Route path="projects" element={<Projects />} />
             <Route path="file/*" element={<File />} />
             <Route path="replay" element={<Replay />} />
             <Route path="replay/:date" element={<Replay />} />

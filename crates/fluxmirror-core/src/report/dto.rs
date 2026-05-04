@@ -441,3 +441,62 @@ pub struct ModelCost {
     /// path (no MCP usage parsed for this model in the window).
     pub estimate: bool,
 }
+
+/// Cross-day project arc clustered from work sessions. Phase 4 M-A4.
+///
+/// A project is one or more sessions sharing a `dominant_cwd` whose
+/// time-gaps are tight enough (≤ 5 days) to belong to the same effort.
+/// The `name` and `arc` paragraph are LLM-synthesised when the
+/// `fluxmirror-ai` provider is reachable, otherwise filled in with a
+/// deterministic heuristic.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Project {
+    /// 8-character lowercase hex digest of `(start, end, dominant_cwd)`.
+    /// Stable across runs given the same inputs.
+    pub id: String,
+    /// LLM-named project title or heuristic fallback (the dominant cwd
+    /// trimmed to its last three path segments).
+    pub name: String,
+    /// 2-3 sentence narrative of what the operator pushed through the
+    /// project. Heuristic fallback substitutes a one-line template.
+    pub arc: String,
+    pub status: ProjectStatus,
+    /// Session ids that belong to this project, in chronological order.
+    pub session_ids: Vec<String>,
+    /// ISO 8601 UTC timestamp of the earliest session's start.
+    pub start: String,
+    /// ISO 8601 UTC timestamp of the latest session's end.
+    pub end: String,
+    pub total_events: i64,
+    /// Sum of session-attributable USD over the window. `0.0` when no
+    /// cost overlay is computed for the underlying sessions.
+    pub total_usd: f64,
+    /// Most-frequent `dominant_cwd` across the cluster's sessions.
+    pub dominant_cwd: Option<String>,
+    pub source: ProjectSource,
+}
+
+/// Lifecycle phase of a [`Project`]. Drives the status pill on the UI.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ProjectStatus {
+    /// Last session ended within the trailing 24 hours.
+    Active,
+    /// Last session ended within the trailing 7 days but not 24 hours.
+    Paused,
+    /// Last session was Shipping AND the cluster window contains at
+    /// least one git tag.
+    Shipped,
+    /// Last session ended more than 7 days ago and never shipped.
+    Abandoned,
+}
+
+/// Provenance of a [`Project::name`] / [`Project::arc`] pair.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ProjectSource {
+    /// LLM-synthesised name/arc via `fluxmirror_ai::synthesise`.
+    Llm,
+    /// Deterministic fallback (provider off, parse error, or budget hit).
+    Heuristic,
+}

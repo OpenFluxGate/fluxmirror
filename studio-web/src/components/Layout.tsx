@@ -5,6 +5,7 @@ const navItems: ReadonlyArray<{ to: string; label: string }> = [
   { to: '/today', label: 'today' },
   { to: '/week', label: 'week' },
   { to: '/sessions', label: 'sessions' },
+  { to: '/projects', label: 'projects' },
   { to: '/files', label: 'files' },
   { to: '/replay', label: 'replay' },
   { to: '/settings', label: 'settings' },
