@@ -6,8 +6,9 @@
 
 import { useQuery } from '@tanstack/react-query'
 
-import { fetchToday, type TodayData } from '../lib/api'
+import { fetchToday, getAnomalies, type TodayData } from '../lib/api'
 import { AgentBar } from '../components/AgentBar'
+import { AnomalyList } from '../components/AnomalyList'
 import {
   CostBlock,
   formatCostUsd,
@@ -20,6 +21,10 @@ import { ToolMix } from '../components/ToolMix'
 
 export function Today() {
   const today = useQuery({ queryKey: ['today'], queryFn: fetchToday })
+  const anomalies = useQuery({
+    queryKey: ['anomalies', 'today'],
+    queryFn: () => getAnomalies('today'),
+  })
 
   if (today.isPending) {
     return <p className="text-sm text-[var(--color-muted)]">loading…</p>
@@ -94,6 +99,15 @@ export function Today() {
             cost breakdown
           </h2>
           <CostBlock cost={data.cost} />
+        </section>
+      )}
+
+      {anomalies.data && anomalies.data.length > 0 && (
+        <section id="notable">
+          <h2 className="text-xs uppercase tracking-wider text-[var(--color-muted)] mb-3">
+            notable
+          </h2>
+          <AnomalyList items={anomalies.data} />
         </section>
       )}
 

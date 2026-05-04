@@ -16,6 +16,7 @@ use axum::{
 
 use crate::AppState;
 
+pub mod anomalies;
 pub mod file;
 pub mod now;
 pub mod projects;
@@ -35,6 +36,7 @@ pub fn router() -> Router<AppState> {
         .merge(replay::router())
         .merge(sessions::router())
         .merge(projects::router())
+        .merge(anomalies::router())
 }
 
 /// Canonical IANA tz used by the studio. The capture binary writes

@@ -333,6 +333,7 @@ mod tests {
             }],
             lifecycle,
             name: "synthetic".into(),
+            intent: None,
             events: vec![],
         }
     }
