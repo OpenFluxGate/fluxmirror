@@ -173,7 +173,41 @@ pub struct RedactionConfig {
     pub patterns: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// AI service configuration. Consumed by the `fluxmirror-ai` crate.
+/// `provider = "off"` short-circuits every synthesise() call so callers
+/// can take a heuristic path with zero overhead.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct AiConfig {
+    /// `"anthropic"` | `"ollama"` | `"off"`.
+    pub provider: String,
+    /// Default model for daily / session / anomaly prompts.
+    pub default_model: String,
+    /// Heavier model for project-arc prompts.
+    pub project_model: String,
+    /// USD ceiling per local-day. Atomic file at `~/.fluxmirror/ai-budget-<YYYY-MM-DD>.txt`.
+    pub daily_budget_usd: f64,
+    /// `ai_cache` row TTL.
+    pub cache_ttl_days: u32,
+    /// Per-prompt user-message cap, in chars (not bytes). Truncates with
+    /// a sentinel when exceeded.
+    pub max_user_chars: usize,
+}
+
+impl Default for AiConfig {
+    fn default() -> Self {
+        Self {
+            provider: "anthropic".into(),
+            default_model: "claude-haiku-4-5-20251001".into(),
+            project_model: "claude-sonnet-4-6".into(),
+            daily_budget_usd: 1.0,
+            cache_ttl_days: 7,
+            max_user_chars: 8192,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Config {
     pub schema_version: u32,
@@ -185,6 +219,7 @@ pub struct Config {
     pub wrapper: WrapperConfig,
     pub redaction: RedactionConfig,
     pub studio: StudioConfig,
+    pub ai: AiConfig,
 }
 
 impl Default for Config {
@@ -199,6 +234,7 @@ impl Default for Config {
             wrapper: WrapperConfig::default(),
             redaction: RedactionConfig::default(),
             studio: StudioConfig::default(),
+            ai: AiConfig::default(),
         }
     }
 }
@@ -305,6 +341,7 @@ struct ProjectToml {
     db_path: Option<PathBuf>,
     redaction: Option<RedactionToml>,
     studio: Option<StudioToml>,
+    ai: Option<AiToml>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -319,6 +356,17 @@ struct StudioToml {
     port: Option<u16>,
     host: Option<String>,
     enable_llm_naming: Option<bool>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct AiToml {
+    provider: Option<String>,
+    default_model: Option<String>,
+    project_model: Option<String>,
+    daily_budget_usd: Option<f64>,
+    cache_ttl_days: Option<u32>,
+    max_user_chars: Option<usize>,
 }
 
 impl ProjectToml {
@@ -346,6 +394,26 @@ impl ProjectToml {
             }
             if let Some(flag) = studio.enable_llm_naming {
                 cfg.studio.enable_llm_naming = flag;
+            }
+        }
+        if let Some(ai) = self.ai {
+            if let Some(provider) = ai.provider {
+                cfg.ai.provider = provider;
+            }
+            if let Some(model) = ai.default_model {
+                cfg.ai.default_model = model;
+            }
+            if let Some(model) = ai.project_model {
+                cfg.ai.project_model = model;
+            }
+            if let Some(usd) = ai.daily_budget_usd {
+                cfg.ai.daily_budget_usd = usd;
+            }
+            if let Some(ttl) = ai.cache_ttl_days {
+                cfg.ai.cache_ttl_days = ttl;
+            }
+            if let Some(cap) = ai.max_user_chars {
+                cfg.ai.max_user_chars = cap;
             }
         }
     }

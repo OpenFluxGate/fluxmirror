@@ -1,0 +1,13 @@
+# version: 1
+## system
+You are explaining one detected anomaly in two short sentences.
+First sentence: what changed. Second sentence: a likely cause
+the operator can confirm or rule out in one glance. No
+speculation past that. No emojis. No questions back to the user.
+## user
+Anomaly: {anomaly_kind}.
+Observed: {observed}. Baseline: {baseline}.
+Window: {anomaly_window}. Affected agent: {agent}.
+Recent context: {recent_context}.
+
+Write the two-sentence explanation now.

@@ -56,6 +56,20 @@ impl SqliteStore {
         store.migrate()?;
         Ok(store)
     }
+
+    /// Run `f` with the underlying connection locked. Used by Phase 4
+    /// callers (the AI cache lookup / insert path) that need direct
+    /// query access alongside the trait-based event-write path.
+    pub fn with_conn<F, T, E>(&self, f: F) -> std::result::Result<T, E>
+    where
+        F: FnOnce(&Connection) -> std::result::Result<T, E>,
+    {
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        f(&conn)
+    }
 }
 
 impl EventStore for SqliteStore {
@@ -125,6 +139,7 @@ impl EventStore for SqliteStore {
             create_schema_meta(&tx)?;
             ensure_agent_events_schema(&tx)?;
             ensure_events_schema(&tx)?;
+            ensure_ai_cache_schema(&tx)?;
             insert_schema_version(&tx, SCHEMA_VERSION)?;
         } else {
             let current: u32 = tx
@@ -141,9 +156,11 @@ impl EventStore for SqliteStore {
                 // companion tables (paranoid but cheap).
                 ensure_agent_events_schema(&tx)?;
                 ensure_events_schema(&tx)?;
+                ensure_ai_cache_schema(&tx)?;
             } else {
                 ensure_agent_events_schema(&tx)?;
                 ensure_events_schema(&tx)?;
+                ensure_ai_cache_schema(&tx)?;
                 insert_schema_version(&tx, SCHEMA_VERSION)?;
             }
         }
@@ -225,6 +242,27 @@ fn ensure_agent_events_schema(tx: &rusqlite::Transaction<'_>) -> Result<()> {
     tx.execute_batch(
         "CREATE INDEX IF NOT EXISTS idx_agent_events_ts    ON agent_events(ts);
          CREATE INDEX IF NOT EXISTS idx_agent_events_agent ON agent_events(agent);",
+    )
+    .map_err(map_rusqlite)?;
+    Ok(())
+}
+
+/// AI-side response cache. Phase 4 M-A1: every `synthesise()` call
+/// hashes its (model, system, redacted-user, prompt-version) tuple
+/// and looks the digest up here before talking to a provider.
+/// `created_at` is epoch seconds; the consumer applies a configurable
+/// TTL on read so we don't sweep here.
+fn ensure_ai_cache_schema(tx: &rusqlite::Transaction<'_>) -> Result<()> {
+    tx.execute_batch(
+        "CREATE TABLE IF NOT EXISTS ai_cache (
+           key        TEXT PRIMARY KEY,
+           response   TEXT NOT NULL,
+           created_at INTEGER NOT NULL,
+           cost_usd   REAL NOT NULL,
+           model      TEXT NOT NULL,
+           provider   TEXT NOT NULL
+         );
+         CREATE INDEX IF NOT EXISTS idx_ai_cache_created_at ON ai_cache(created_at);",
     )
     .map_err(map_rusqlite)?;
     Ok(())
