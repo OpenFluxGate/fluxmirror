@@ -18,6 +18,7 @@ use crate::AppState;
 
 pub mod file;
 pub mod now;
+pub mod projects;
 pub mod replay;
 pub mod sessions;
 pub mod today;
@@ -33,6 +34,7 @@ pub fn router() -> Router<AppState> {
         .merge(file::router())
         .merge(replay::router())
         .merge(sessions::router())
+        .merge(projects::router())
 }
 
 /// Canonical IANA tz used by the studio. The capture binary writes
