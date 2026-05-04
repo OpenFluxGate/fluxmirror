@@ -178,6 +178,11 @@ export function Home() {
                   </Link>
                   <LifecycleBadge lifecycle={s.lifecycle} />
                 </div>
+                {s.intent && (
+                  <p className="mt-0.5 text-xs italic text-[var(--color-muted)]">
+                    {s.intent}
+                  </p>
+                )}
                 <p className="mt-1 text-xs text-[var(--color-muted)] font-mono tabular-nums">
                   {new Date(s.start).toLocaleString()} ·{' '}
                   {formatDuration(s.start, s.end)} ·{' '}

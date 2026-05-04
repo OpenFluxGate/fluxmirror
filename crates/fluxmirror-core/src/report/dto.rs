@@ -290,6 +290,13 @@ pub struct Session {
     /// Heuristic name of the form `<Verb>: <Object> (<Tail>)`. Same
     /// inputs always produce the same name.
     pub name: String,
+    /// LLM-classified one-sentence intent subtitle (Phase 4 M-A3).
+    /// Renders italicised under the heuristic [`Self::name`] in the
+    /// studio. `None` whenever the AI provider is `"off"` or any leg
+    /// of the synthesis pipeline (budget / cache / network) declines —
+    /// the heuristic name is always present so the UI never goes blank.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub intent: Option<String>,
     /// Per-event timeline. Empty in the list endpoint, populated in
     /// the detail endpoint. `serde` always emits the field so the
     /// TypeScript shape is invariant across endpoints.

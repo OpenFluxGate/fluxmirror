@@ -128,6 +128,11 @@ function SessionRow({ session }: { session: Session }) {
         >
           {session.name}
         </Link>
+        {session.intent && (
+          <p className="mt-0.5 text-xs italic text-[var(--color-muted)]">
+            {session.intent}
+          </p>
+        )}
       </td>
       <td className="px-3 py-2 font-mono tabular-nums text-[var(--color-muted)]">
         {formatLocalTimeRange(session.start, session.end)}

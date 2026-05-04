@@ -135,7 +135,16 @@ async fn list_handler(
         sessions::collect_sessions(&conn, &tz, range)
     };
     match result {
-        Ok(list) => Json(list).into_response(),
+        Ok(mut list) => {
+            // Phase 4 M-A3 — overlay LLM intent subtitles. No-op when
+            // `provider="off"` or no writable store is wired up.
+            fluxmirror_ai::synthesise_session_intents(
+                state.ai_store.as_deref(),
+                state.config.as_ref(),
+                &mut list,
+            );
+            Json(list).into_response()
+        }
         Err(e) => error_response(StatusCode::INTERNAL_SERVER_ERROR, e),
     }
 }
@@ -160,7 +169,17 @@ async fn detail_handler(
         sessions::collect_session_detail(&conn, &id)
     };
     match result {
-        Ok(Some(session)) => Json(session).into_response(),
+        Ok(Some(session)) => {
+            // Phase 4 M-A3 — overlay the same intent decoration as the
+            // list endpoint so the detail header carries the subtitle.
+            let mut single = vec![session];
+            fluxmirror_ai::synthesise_session_intents(
+                state.ai_store.as_deref(),
+                state.config.as_ref(),
+                &mut single,
+            );
+            Json(single.remove(0)).into_response()
+        }
         Ok(None) => error_response(
             StatusCode::NOT_FOUND,
             format!("session not found: {id}"),

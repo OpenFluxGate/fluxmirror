@@ -187,6 +187,12 @@ export interface Session {
   tool_mix: ToolMixEntry[]
   lifecycle: SessionLifecycle
   name: string
+  /**
+   * LLM-classified one-sentence subtitle (Phase 4 M-A3). Optional —
+   * older snapshots and `provider="off"` deployments omit the key
+   * entirely. Render below `name` when present.
+   */
+  intent?: string
   // Empty for the list endpoint; populated for the detail endpoint.
   events: SessionEvent[]
 }

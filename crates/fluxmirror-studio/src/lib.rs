@@ -21,15 +21,55 @@ use axum::{
 };
 use rusqlite::Connection;
 
+use fluxmirror_core::config::Config;
+use fluxmirror_store::SqliteStore;
+
 /// Per-request handler context. Owns a single read-only SQLite handle
 /// guarded by a mutex — the studio is single-user and the dashboard
 /// fetches are short, so contention is a non-issue and the simpler
 /// `Mutex<Connection>` shape lets us avoid pulling in a connection
 /// pool crate.
+///
+/// `ai` is `None` whenever AI synthesis isn't usable from this process
+/// (provider="off" or the writable store couldn't be opened). Handlers
+/// must treat it as best-effort — every consumer falls back to the
+/// heuristic surface when it's missing.
 #[derive(Clone)]
 pub struct AppState {
     pub db: Arc<Mutex<Connection>>,
     pub db_path: PathBuf,
+    /// Loaded configuration. Defaults to [`Config::default`] when not
+    /// supplied (the test fixtures take this path).
+    #[doc(hidden)]
+    pub config: Arc<Config>,
+    /// Writable [`SqliteStore`] handle for the AI cache + budget layer.
+    /// Distinct from [`Self::db`] (which is opened read-only) because
+    /// the cache writes new rows on each LLM round-trip.
+    pub ai_store: Option<Arc<SqliteStore>>,
+}
+
+impl AppState {
+    /// Convenience constructor that fills `config` with defaults and
+    /// leaves the AI handle empty. Used by integration tests so they
+    /// stay terse; production code in `main.rs` builds the struct
+    /// directly with a real config + store.
+    pub fn new(db: Arc<Mutex<Connection>>, db_path: PathBuf) -> Self {
+        Self {
+            db,
+            db_path,
+            config: Arc::new(default_off_config()),
+            ai_store: None,
+        }
+    }
+}
+
+/// Default config with AI provider forced off — keeps tests deterministic
+/// (no env / network leakage) while still giving handlers a real `Config`
+/// to read for non-AI fields.
+fn default_off_config() -> Config {
+    let mut cfg = Config::default();
+    cfg.ai.provider = "off".into();
+    cfg
 }
 
 /// Build the full axum router. Mirrors the binary entrypoint exactly

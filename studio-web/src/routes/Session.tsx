@@ -64,6 +64,11 @@ export function SessionDetail() {
         <h1 className="font-mono text-base text-[var(--color-text)] break-all">
           {data.name}
         </h1>
+        {data.intent && (
+          <p className="text-sm italic text-[var(--color-muted)]">
+            {data.intent}
+          </p>
+        )}
         <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--color-muted)]">
           <LifecycleBadge lifecycle={data.lifecycle} />
           <span>

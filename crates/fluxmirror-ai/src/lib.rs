@@ -21,6 +21,7 @@ pub mod cache;
 pub mod prompts;
 pub mod provider;
 pub mod redact_outbound;
+pub mod session_intent;
 pub mod types;
 
 use serde_json::Value;
@@ -32,6 +33,7 @@ use fluxmirror_store::SqliteStore;
 pub use budget::Budget;
 pub use provider::{AnthropicProvider, OllamaProvider, Provider};
 pub use redact_outbound::redact_outbound;
+pub use session_intent::synthesise_session_intents;
 pub use types::{AiError, LlmRequest, LlmResponse};
 
 /// Per-call options for `synthesise()`. Defaults are pulled from the
