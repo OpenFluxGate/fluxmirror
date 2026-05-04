@@ -305,6 +305,7 @@ fn build_session(cluster: &[RawEvent], include_events: bool) -> Session {
         tool_mix,
         lifecycle,
         name: String::new(),
+        intent: None,
         events: events_dto,
     };
     session.name = generate_name(&session, &stats);
@@ -968,6 +969,7 @@ mod tests {
             tool_mix: vec![],
             lifecycle: SessionLifecycle::Building,
             name: String::new(),
+            intent: None,
             events: vec![],
         };
         // 1 cwd segment ("tmp") — fall back to top file's parent

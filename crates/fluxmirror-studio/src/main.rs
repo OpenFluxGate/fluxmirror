@@ -74,17 +74,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )
     .map_err(|e| format!("failed to open SQLite at {}: {e}", db_path.display()))?;
 
+    // Load config once at boot. Drives both the redaction layer below
+    // and the optional AI surface above. Falls back to defaults if the
+    // file is missing — the AI surface short-circuits on provider="off".
+    let cfg = fluxmirror_core::Config::load().unwrap_or_default();
+
+    // Open a writable store handle for the AI cache + budget layer when
+    // a real provider is wired up. Read-only `db` above is kept distinct
+    // so dashboard reads don't contend with AI cache writes.
+    let ai_store = if cfg.ai.provider != "off" {
+        match fluxmirror_store::SqliteStore::open(&db_path) {
+            Ok(s) => Some(Arc::new(s)),
+            Err(e) => {
+                tracing::warn!(
+                    "AI cache store unavailable ({e}); session intents will be skipped"
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     let state = AppState {
         db: Arc::new(Mutex::new(db)),
         db_path: db_path.clone(),
+        config: Arc::new(cfg.clone()),
+        ai_store,
     };
 
     // Load redaction rules once at boot. The capture path never goes
     // through this binary; the layer below scrubs only outbound bodies
     // whose Content-Type tags them as text-shaped (HTML / JSON / plain
     // text), leaving CSS / JS / image bytes untouched.
-    let redact_cfg = fluxmirror_core::Config::load().unwrap_or_default();
-    let redact_rules = Arc::new(fluxmirror_core::redact::from_config(&redact_cfg));
+    let redact_rules = Arc::new(fluxmirror_core::redact::from_config(&cfg));
 
     let app = build_router(state)
         .layer(axum::middleware::from_fn_with_state(

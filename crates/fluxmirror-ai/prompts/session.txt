@@ -1,12 +1,14 @@
-# version: 1
+# version: 2
 ## system
 You are classifying a single working session into a one-sentence
-intent subtitle (≤ 12 words). Lead with the verb. Mention the
-domain only when it disambiguates. No emojis. No quotes around
-the answer.
+intent subtitle (≤ 12 words). Lead with a verb. Mention the domain
+only when it disambiguates. No emojis. No quotes around the answer.
+No trailing period if a single clause already reads as a sentence.
 ## user
-Session: {session_label}.
-Started: {started_at}. Ended: {ended_at}. Calls: {call_count}.
-Tools: {top_tools}. Files touched: {top_files}. Commits: {commits}.
+Heuristic name: {name}
+Lifecycle: {lifecycle}
+Event count: {event_count}
+Tool mix (JSON): {tool_mix_json}
+Top files (JSON): {top_files_json}
 
 Write the intent subtitle now.

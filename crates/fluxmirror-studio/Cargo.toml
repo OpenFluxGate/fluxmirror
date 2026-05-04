@@ -16,6 +16,7 @@ path = "src/main.rs"
 [dependencies]
 fluxmirror-core  = { path = "../fluxmirror-core" }
 fluxmirror-store = { path = "../fluxmirror-store" }
+fluxmirror-ai    = { path = "../fluxmirror-ai" }
 
 rusqlite         = { workspace = true }
 serde            = { version = "1", features = ["derive"] }
