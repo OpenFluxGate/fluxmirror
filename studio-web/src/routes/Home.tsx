@@ -9,14 +9,25 @@ import {
   fetchNow,
   fetchToday,
   fetchWeek,
+  getAnomalies,
   getProjects,
   getSessions,
+  type AnomalyKind,
+  type AnomalyStory,
   type Project,
 } from '../lib/api'
 import { HeatmapBar } from '../components/HeatmapBar'
 import { StatTile } from '../components/StatTile'
 import { StatusPill } from './Projects'
 import { LifecycleBadge, formatDuration } from './Sessions'
+
+const NOTABLE_ICON: Record<AnomalyKind, string> = {
+  file_edit_spike: '⚡',
+  tool_mix_departure: '🔀',
+  new_agent: '👤',
+  new_mcp_method: '🔌',
+  cost_per_call_rise: '💸',
+}
 
 interface Health {
   status: string
@@ -51,6 +62,11 @@ export function Home() {
     queryKey: ['projects', 30],
     queryFn: () => getProjects(30),
   })
+  const anomalies = useQuery({
+    queryKey: ['anomalies', 'today'],
+    queryFn: () => getAnomalies('today'),
+  })
+  const topAnomaly = pickTopAnomaly(anomalies.data)
   const activeProject = pickActiveProject(projects.data)
 
   return (
@@ -101,6 +117,39 @@ export function Home() {
           )}
         </div>
       </section>
+
+      {topAnomaly && (
+        <section>
+          <h2 className="text-xs uppercase tracking-wider text-[var(--color-muted)] mb-3">
+            notable
+          </h2>
+          <Link
+            to="/today#notable"
+            className="block rounded border border-[var(--color-border)] bg-[var(--color-panel)] p-4 hover:bg-[var(--color-bg)]"
+          >
+            <div className="flex items-baseline gap-2">
+              <span aria-hidden="true">{NOTABLE_ICON[topAnomaly.kind]}</span>
+              <span className="text-[10px] uppercase tracking-wider text-[var(--color-muted)] font-mono">
+                {topAnomaly.kind.replace(/_/g, ' ')}
+              </span>
+              {topAnomaly.source === 'heuristic' && (
+                <span
+                  className="rounded bg-[var(--color-bg)] px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-[var(--color-muted)] font-mono"
+                  title="Story generated from a deterministic template."
+                >
+                  estimate
+                </span>
+              )}
+            </div>
+            <p className="mt-1.5 text-sm text-[var(--color-text)] leading-relaxed">
+              {topAnomaly.story}
+            </p>
+            <p className="mt-2 text-[10px] uppercase tracking-wider text-[var(--color-accent)] font-mono">
+              see all →
+            </p>
+          </Link>
+        </section>
+      )}
 
       <section>
         <h2 className="text-xs uppercase tracking-wider text-[var(--color-muted)] mb-3">
@@ -268,6 +317,11 @@ export function Home() {
       </section>
     </div>
   )
+}
+
+function pickTopAnomaly(items: AnomalyStory[] | undefined): AnomalyStory | null {
+  if (!items || items.length === 0) return null
+  return items[0]
 }
 
 function pickActiveProject(projects: Project[] | undefined): Project | null {

@@ -303,3 +303,31 @@ export const getProjects = (daysBack?: number): Promise<Project[]> => {
   }
   return getJson<Project[]>('/api/projects')
 }
+
+// Categorical bucket for an anomaly. Snake-case strings match
+// `serde(rename_all = "snake_case")` on the Rust enum.
+export type AnomalyKind =
+  | 'file_edit_spike'
+  | 'tool_mix_departure'
+  | 'new_agent'
+  | 'new_mcp_method'
+  | 'cost_per_call_rise'
+
+// Provenance of an `AnomalyStory.story` string.
+export type AnomalySource = 'llm' | 'heuristic'
+
+export interface AnomalyStory {
+  kind: AnomalyKind
+  story: string
+  observed: number
+  baseline: number
+  evidence: string[]
+  source: AnomalySource
+}
+
+export type AnomalyWindow = 'today' | 'week'
+
+export const getAnomalies = (
+  window: AnomalyWindow = 'today',
+): Promise<AnomalyStory[]> =>
+  getJson<AnomalyStory[]>(`/api/anomalies?window=${encodeURIComponent(window)}`)

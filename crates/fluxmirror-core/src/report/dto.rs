@@ -476,6 +476,58 @@ pub struct Project {
     pub source: ProjectSource,
 }
 
+/// One LLM- (or heuristic-) decorated anomaly detection. Phase 4 M-A6.
+///
+/// Heuristic detectors in [`crate::report::anomaly`] produce an
+/// `AnomalyDetection` with the bare metrics; the studio's API layer
+/// then upgrades each detection into an `AnomalyStory` with a one- or
+/// two-sentence narrative either via `fluxmirror_ai::synthesise` or a
+/// deterministic template fallback.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnomalyStory {
+    pub kind: AnomalyKind,
+    /// One-sentence narrative explaining the detection. Empty strings
+    /// are never emitted — every detection always has at least the
+    /// heuristic template populated.
+    pub story: String,
+    /// Window value that triggered the rule (e.g. edits-today,
+    /// cost-per-call USD). Heuristic-friendly `f64` so the same shape
+    /// covers counts and dollar amounts.
+    pub observed: f64,
+    /// Rolling baseline the detector compared `observed` against.
+    pub baseline: f64,
+    /// Up to 5 supporting fact strings (e.g. `"Cargo.toml +14 edits"`).
+    pub evidence: Vec<String>,
+    pub source: AnomalySource,
+}
+
+/// Categorical bucket for an [`AnomalyStory`]. Drives the kind icon on
+/// the UI and the prompt branch on the LLM side.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AnomalyKind {
+    /// One file's edit count blew past its rolling baseline.
+    FileEditSpike,
+    /// Cosine distance between window's tool mix and rolling baseline.
+    ToolMixDeparture,
+    /// Agent name not seen in the trailing 30 days before the window.
+    NewAgent,
+    /// MCP `events.method` not seen in the trailing 30 days before the window.
+    NewMcpMethod,
+    /// Window's avg cost-per-call > 2× rolling baseline.
+    CostPerCallRise,
+}
+
+/// Provenance of an [`AnomalyStory::story`] string.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum AnomalySource {
+    /// LLM-synthesised via `fluxmirror_ai::synthesise`.
+    Llm,
+    /// Deterministic template fallback (provider off, error, budget hit).
+    Heuristic,
+}
+
 /// Lifecycle phase of a [`Project`]. Drives the status pill on the UI.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]

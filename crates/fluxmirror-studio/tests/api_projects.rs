@@ -67,10 +67,7 @@ fn projects_fixture() -> (TempDir, AppState) {
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
     .unwrap();
-    let state = AppState {
-        db: Arc::new(Mutex::new(ro)),
-        db_path: path,
-    };
+    let state = AppState::new(Arc::new(Mutex::new(ro)), path);
     (dir, state)
 }
 

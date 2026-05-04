@@ -146,6 +146,7 @@ fn jaccard_overlap_merges_across_cwds() {
         tool_mix: vec![ToolMixEntry { tool: "Edit".into(), count: 12 }],
         lifecycle: SessionLifecycle::Building,
         name: "synthetic".into(),
+        intent: None,
         events: vec![],
     };
     let b = Session {
@@ -159,6 +160,7 @@ fn jaccard_overlap_merges_across_cwds() {
         tool_mix: vec![ToolMixEntry { tool: "Edit".into(), count: 12 }],
         lifecycle: SessionLifecycle::Building,
         name: "synthetic".into(),
+        intent: None,
         events: vec![],
     };
     let projects = cluster_sessions_into_projects(&[a, b], now);
@@ -185,6 +187,7 @@ fn status_classifier_branches() {
         tool_mix: vec![],
         lifecycle: SessionLifecycle::Building,
         name: "x".into(),
+        intent: None,
         events: vec![],
     };
     let projects = cluster_sessions_into_projects(&[active], now);
@@ -202,6 +205,7 @@ fn status_classifier_branches() {
         tool_mix: vec![],
         lifecycle: SessionLifecycle::Building,
         name: "x".into(),
+        intent: None,
         events: vec![],
     };
     let projects = cluster_sessions_into_projects(&[paused], now);
@@ -219,6 +223,7 @@ fn status_classifier_branches() {
         tool_mix: vec![],
         lifecycle: SessionLifecycle::Shipping,
         name: "x".into(),
+        intent: None,
         events: vec![],
     };
     let projects = cluster_sessions_into_projects(&[shipped], now);
@@ -236,6 +241,7 @@ fn status_classifier_branches() {
         tool_mix: vec![],
         lifecycle: SessionLifecycle::Idle,
         name: "x".into(),
+        intent: None,
         events: vec![],
     };
     let projects = cluster_sessions_into_projects(&[abandoned], now);

@@ -16,6 +16,7 @@
 // added here is therefore confined to the on-demand AI path; the hook
 // payload remains the same shape and size as before.
 
+pub mod anomaly_story;
 pub mod budget;
 pub mod cache;
 pub mod prompts;
@@ -30,6 +31,7 @@ use fluxmirror_core::config::Config;
 use fluxmirror_core::redact::from_config;
 use fluxmirror_store::SqliteStore;
 
+pub use anomaly_story::synthesise_anomaly;
 pub use budget::Budget;
 pub use provider::{AnthropicProvider, OllamaProvider, Provider};
 pub use redact_outbound::redact_outbound;

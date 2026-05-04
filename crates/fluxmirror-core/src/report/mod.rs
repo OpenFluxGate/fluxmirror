@@ -7,6 +7,7 @@
 // produce them — the CLI text/HTML reports and the studio JSON API
 // both go through `data`, so the SQL queries are not duplicated.
 
+pub mod anomaly;
 pub mod data;
 pub mod dto;
 pub mod lang;
@@ -14,9 +15,9 @@ pub mod projects;
 pub mod sessions;
 
 pub use dto::{
-    AgentCost, AgentCount, AgentTouchCount, ContextEvent, CostSummary, DayRow, FileTouch,
-    HourBucket, MethodCount, ModelCost, NowSnapshot, PathCount, Project, ProjectSource,
-    ProjectStatus, ProvenanceData, ProvenanceEvent, Session, SessionEvent, SessionLifecycle,
-    ShellEvent, ToolMixEntry, TodayData, WeekData, WindowRange,
+    AgentCost, AgentCount, AgentTouchCount, AnomalyKind, AnomalySource, AnomalyStory,
+    ContextEvent, CostSummary, DayRow, FileTouch, HourBucket, MethodCount, ModelCost, NowSnapshot,
+    PathCount, Project, ProjectSource, ProjectStatus, ProvenanceData, ProvenanceEvent, Session,
+    SessionEvent, SessionLifecycle, ShellEvent, ToolMixEntry, TodayData, WeekData, WindowRange,
 };
 pub use lang::{pack, LangPack};
