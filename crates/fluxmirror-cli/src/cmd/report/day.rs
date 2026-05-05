@@ -132,7 +132,7 @@ pub(crate) fn collect_day(
 
 /// Adapt the canonical DTO to the renderer-friendly map-based
 /// [`DayStats`]. Pure repacking — no extra IO.
-fn today_data_to_day_stats(data: core_dto::TodayData) -> DayStats {
+pub(crate) fn today_data_to_day_stats(data: core_dto::TodayData) -> DayStats {
     let mut day = DayStats::default();
     day.total_events = data.total_events;
     day.writes_total = data.writes_total;

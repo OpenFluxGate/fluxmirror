@@ -197,6 +197,30 @@ export function Home() {
         <h2 className="text-xs uppercase tracking-wider text-[var(--color-muted)] mb-3">
           today
         </h2>
+        {today.data?.narrative?.paragraph && (
+          <Link
+            to="/today"
+            aria-label="open today narrative"
+            className="block rounded border border-[var(--color-border)] bg-[var(--color-panel)] p-4 hover:bg-[var(--color-bg)] mb-3"
+          >
+            <div className="flex items-baseline gap-2">
+              <span className="text-[10px] uppercase tracking-wider text-[var(--color-muted)] font-mono">
+                today, in a paragraph
+              </span>
+              {today.data.narrative.source === 'heuristic' && (
+                <span
+                  className="rounded bg-[var(--color-bg)] px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-[var(--color-muted)] font-mono"
+                  title="Paragraph generated from a deterministic template."
+                >
+                  estimate
+                </span>
+              )}
+            </div>
+            <p className="mt-2 text-sm text-[var(--color-text)] leading-relaxed">
+              {today.data.narrative.paragraph}
+            </p>
+          </Link>
+        )}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <StatTile
             label="total calls"

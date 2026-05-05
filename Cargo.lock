@@ -396,6 +396,7 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "clap",
+ "fluxmirror-ai",
  "fluxmirror-core",
  "fluxmirror-proxy",
  "fluxmirror-store",
