@@ -77,7 +77,18 @@ async fn handler(State(state): State<AppState>) -> Response {
         data::collect_today(&conn, &tz, range, None)
     };
     match data_result {
-        Ok(d) => Json(d).into_response(),
+        Ok(mut d) => {
+            // Phase 4 M-A2 — overlay the daily narrative paragraph.
+            // Decoration is best-effort; provider="off" / missing
+            // store / budget hits all fall back to the heuristic so
+            // this leg never fails the request.
+            d.narrative = fluxmirror_ai::synthesise_daily(
+                state.ai_store.as_deref(),
+                state.config.as_ref(),
+                &d,
+            );
+            Json(d).into_response()
+        }
         Err(e) => error_response(StatusCode::INTERNAL_SERVER_ERROR, e),
     }
 }

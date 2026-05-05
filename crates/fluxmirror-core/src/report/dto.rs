@@ -134,6 +134,61 @@ pub struct TodayData {
     /// suppress the figure rather than report a misleading total.
     #[serde(default)]
     pub cost: Option<CostSummary>,
+    /// LLM-written paragraph describing what got done today (Phase 4
+    /// M-A2). Populated by callers that opt into the AI surface; the
+    /// raw `collect_today` aggregator leaves the default in place
+    /// (empty paragraph, `Heuristic` source) so the field is always
+    /// present in the JSON shape regardless of provider.
+    #[serde(default)]
+    pub narrative: DailyNarrative,
+}
+
+/// LLM- (or template-) written paragraph that introduces the today
+/// surface. Phase 4 M-A2.
+///
+/// Always present on [`TodayData`] so the JSON shape stays invariant.
+/// `source` records whether the paragraph came from the AI provider or
+/// the deterministic fallback; `paragraph` is the empty string on a
+/// fresh `Default::default()` (no caller has populated it yet).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyNarrative {
+    pub paragraph: String,
+    pub source: NarrativeSource,
+    /// Model id that produced the paragraph. `None` for heuristic.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    /// USD spend booked against the daily budget for this paragraph.
+    /// `0.0` for heuristic, cached LLM calls, and degenerate / empty
+    /// windows.
+    #[serde(default)]
+    pub cost_usd: f64,
+    /// `true` when the AI cache served this paragraph without a fresh
+    /// provider round-trip. Always `false` for heuristic.
+    #[serde(default)]
+    pub cache_hit: bool,
+}
+
+impl Default for DailyNarrative {
+    fn default() -> Self {
+        Self {
+            paragraph: String::new(),
+            source: NarrativeSource::Heuristic,
+            model: None,
+            cost_usd: 0.0,
+            cache_hit: false,
+        }
+    }
+}
+
+/// Provenance of a [`DailyNarrative::paragraph`] string.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum NarrativeSource {
+    /// LLM-synthesised via `fluxmirror_ai::synthesise`.
+    Llm,
+    /// Deterministic template fallback (provider off, error, budget hit,
+    /// or empty window).
+    Heuristic,
 }
 
 /// All aggregates for a 7-day rolling window.

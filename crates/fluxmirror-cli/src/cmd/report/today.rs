@@ -19,9 +19,13 @@ use std::process::ExitCode;
 
 use crate::cmd::util::{err_exit2, open_db_readonly, parse_tz, scrub_for_output};
 use crate::cmd::window::today_range;
+use fluxmirror_core::report::data as core_data;
+use fluxmirror_core::report::dto::{DailyNarrative, NarrativeSource, TodayData, WindowRange};
 use fluxmirror_core::report::pack;
+use fluxmirror_core::Config;
+use fluxmirror_store::SqliteStore;
 
-use super::day::{collect_day, render_human, DayLabel};
+use super::day::{render_human, today_data_to_day_stats, DayLabel};
 use super::html_day::{render_day_card, DayCardKind};
 use super::html_io::{emit_html, generated_footer};
 use super::ReportFormat;
@@ -68,12 +72,25 @@ pub fn run(args: TodayArgs) -> ExitCode {
         Err(e) => return err_exit2(format!("fluxmirror today: {e}")),
     };
 
-    let day = match collect_day(&conn, tz, start_utc, end_utc, None) {
+    let range = WindowRange {
+        start_utc,
+        end_utc,
+        anchor_date: target_date,
+        tz: tz.name().to_string(),
+    };
+    let mut today_data: TodayData = match core_data::collect_today(&conn, &tz, range, None) {
         Ok(d) => d,
         Err(e) => return err_exit2(format!("fluxmirror today: {e}")),
     };
 
+    // Phase 4 M-A2 — overlay the daily narrative paragraph. The synthesis
+    // wrapper is best-effort: provider="off", missing API key, budget hit,
+    // or transient network error all fall back to the heuristic so this
+    // path never blocks the report.
+    today_data.narrative = compute_narrative(&args.db, &today_data);
+
     let lp = pack(&args.lang);
+    let day = today_data_to_day_stats(today_data.clone());
 
     if matches!(args.format, ReportFormat::Html) {
         let html = render_day_card(
@@ -83,11 +100,51 @@ pub fn run(args: TodayArgs) -> ExitCode {
             DayCardKind::Today,
             lp,
             &generated_footer(),
+            Some(&today_data.narrative),
         );
         return emit_html("today", html, args.out.as_deref());
     }
 
-    let report = render_human(lp, &args.tz, target_date, &day, DayLabel::Today);
+    let body = render_human(lp, &args.tz, target_date, &day, DayLabel::Today);
+    let report = prepend_narrative(&body, &today_data.narrative);
     print!("{}", scrub_for_output(&report));
     ExitCode::SUCCESS
+}
+
+/// Build the daily narrative for this CLI invocation. Matches the
+/// studio's wiring exactly so the same DB + config produces the same
+/// paragraph (cache hit on the second surface).
+fn compute_narrative(db_path: &PathBuf, today: &TodayData) -> DailyNarrative {
+    let cfg = Config::load().unwrap_or_default();
+    let store = if cfg.ai.provider == "off" {
+        None
+    } else {
+        SqliteStore::open(db_path).ok()
+    };
+    fluxmirror_ai::synthesise_daily(store.as_ref(), &cfg, today)
+}
+
+/// Prepend the `## Narrative` section to a rendered today/yesterday
+/// markdown body. The narrative section is positioned above the title's
+/// existing content but below the leading `# Today's Work …` heading
+/// so the heading still leads the document.
+fn prepend_narrative(body: &str, narrative: &DailyNarrative) -> String {
+    if narrative.paragraph.is_empty() {
+        return body.to_string();
+    }
+    let footnote = if matches!(narrative.source, NarrativeSource::Heuristic) {
+        "\n\n_(estimate)_"
+    } else {
+        ""
+    };
+    let block = format!("## Narrative\n\n{}{}\n\n", narrative.paragraph, footnote);
+
+    // Insert after the leading `# ...` title line if present, otherwise
+    // prepend.
+    if let Some(first_break) = body.find("\n\n") {
+        let (title, rest) = body.split_at(first_break + 2);
+        format!("{title}{block}{rest}")
+    } else {
+        format!("{block}{body}")
+    }
 }

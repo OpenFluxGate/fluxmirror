@@ -77,6 +77,21 @@ export interface CostSummary {
   estimate_share: number
 }
 
+// Provenance of a daily narrative paragraph. Matches
+// `serde(rename_all = "lowercase")` on the Rust enum.
+export type NarrativeSource = 'llm' | 'heuristic'
+
+export interface DailyNarrative {
+  paragraph: string
+  source: NarrativeSource
+  /** Model id that produced the paragraph. Absent for heuristic. */
+  model?: string | null
+  /** Booked USD spend. 0.0 for heuristic + cached LLM responses. */
+  cost_usd: number
+  /** True when the AI cache served this paragraph. */
+  cache_hit: boolean
+}
+
 export interface TodayData {
   date: string // YYYY-MM-DD
   tz: string
@@ -93,6 +108,13 @@ export interface TodayData {
   reads_total: number
   distinct_files: string[]
   cost?: CostSummary | null
+  /**
+   * Phase 4 M-A2 daily narrative. Always present; `source = 'heuristic'`
+   * with an empty `paragraph` is the on-the-wire shape for older studio
+   * builds. Render the paragraph at the top of the page when non-empty
+   * and surface a small "estimate" pill when `source === 'heuristic'`.
+   */
+  narrative: DailyNarrative
 }
 
 export interface WeekData {

@@ -68,6 +68,7 @@ pub fn run(args: YesterdayArgs) -> ExitCode {
             DayCardKind::Yesterday,
             lp,
             &generated_footer(),
+            None,
         );
         return emit_html("yesterday", html, args.out.as_deref());
     }

@@ -227,6 +227,230 @@ pub fn collect_now(conn: &Connection) -> Result<Option<NowSnapshot>, String> {
     }))
 }
 
+/// Build the JSON context object that the `daily` prompt template
+/// consumes. Phase 4 M-A2.
+///
+/// The keys here are the union of every `{placeholder}` that ships in
+/// `crates/fluxmirror-ai/prompts/daily.txt` plus a handful of richer
+/// fields the heuristic / future prompt revisions can also key off
+/// (per-agent counts, top files, lifecycle hint, shell signature
+/// buckets). Missing-key handling in the prompt renderer is forgiving:
+/// extra keys are ignored and unknown placeholders render literally.
+///
+/// Pure on its inputs — no SQL, no clock — so unit tests can build a
+/// fixture `TodayData` and assert exact-string output.
+pub fn build_daily_summary_input(today: &TodayData) -> serde_json::Value {
+    use serde_json::json;
+
+    let agent_total = today.total_events;
+    let session_count: usize = today
+        .agents
+        .iter()
+        .map(|a| a.sessions.len())
+        .sum();
+
+    let top_tool = today
+        .tool_mix
+        .first()
+        .map(|t| t.tool.clone())
+        .unwrap_or_else(|| "-".to_string());
+
+    let edit_to_read_ratio = if today.reads_total == 0 {
+        if today.writes_total == 0 {
+            "0.00".to_string()
+        } else {
+            // No reads → ratio is undefined; surface a sentinel the
+            // prompt can recognise instead of dividing by zero.
+            "n/a".to_string()
+        }
+    } else {
+        format!(
+            "{:.2}",
+            today.writes_total as f64 / today.reads_total as f64
+        )
+    };
+
+    let primary_languages = primary_languages_from_files(&today.distinct_files);
+    let summary_window = format!("{} ({})", today.date, today.tz);
+
+    // Lifecycle hint — coarse pattern derived from the day's totals,
+    // mirrors the daily-row classifier in `week_summary.rs` so the same
+    // vocabulary travels across reports. Heuristic-only; the LLM is
+    // allowed to disagree.
+    let lifecycle_hint = lifecycle_hint(today);
+
+    // Top files: prefix with the tool so the prompt has enough signal
+    // to mention "Edit-heavy on lib.rs" without re-aggregating.
+    let top_files: Vec<serde_json::Value> = today
+        .files_edited
+        .iter()
+        .take(5)
+        .map(|f| {
+            json!({
+                "path": f.path,
+                "tool": f.tool,
+                "count": f.count,
+            })
+        })
+        .collect();
+
+    // Per-agent counts: small payload (≤ a handful of agents in
+    // practice). Sessions and active-days arrays are dropped — the
+    // prompt only cares about the call totals plus the dominant tool.
+    let agents_json: Vec<serde_json::Value> = today
+        .agents
+        .iter()
+        .map(|a| {
+            json!({
+                "agent": a.agent,
+                "calls": a.calls,
+                "top_tool": a.top_tool,
+            })
+        })
+        .collect();
+
+    // Shell signature buckets: collapse identical commands to keep the
+    // payload small. Caps at 5 buckets, sorted desc by count then by
+    // command alphabetically for determinism.
+    let shell_buckets = shell_signature_buckets(&today.shells);
+
+    json!({
+        // Required by the existing daily.txt template.
+        "agent_total": agent_total,
+        "session_count": session_count,
+        "top_tool": top_tool,
+        "edit_to_read_ratio": edit_to_read_ratio,
+        "primary_languages": primary_languages,
+        "summary_window": summary_window,
+        // Extra keys for richer prompt revisions / the heuristic path.
+        "date": today.date.format("%Y-%m-%d").to_string(),
+        "tz": today.tz,
+        "writes_total": today.writes_total,
+        "reads_total": today.reads_total,
+        "distinct_file_count": today.distinct_files.len(),
+        "lifecycle_hint": lifecycle_hint,
+        "top_files_json": top_files,
+        "agents_json": agents_json,
+        "shell_signatures_json": shell_buckets,
+    })
+}
+
+/// Coarse lifecycle hint for the day — feeds the LLM context and the
+/// heuristic fallback. Stable strings: callers may tee these into a
+/// switch.
+fn lifecycle_hint(today: &TodayData) -> &'static str {
+    if today.total_events == 0 {
+        return "idle";
+    }
+    if today.total_events < 50 {
+        return "light";
+    }
+    let writes = today.writes_total;
+    let reads = today.reads_total;
+    let shells = today.shells.len() as u64;
+    if reads > writes.saturating_mul(2) && shells > 0 {
+        return "investigating";
+    }
+    if writes > reads {
+        return "building";
+    }
+    if reads > writes {
+        return "polishing";
+    }
+    "balanced"
+}
+
+/// Approximate the day's "primary languages" from file extensions on
+/// the distinct-files list. Returns at most three labels joined with
+/// `", "`. Empty input → `"-"` so the prompt has a safe placeholder
+/// instead of a literal empty string.
+fn primary_languages_from_files(paths: &[String]) -> String {
+    if paths.is_empty() {
+        return "-".to_string();
+    }
+    let mut counts: BTreeMap<&'static str, u64> = BTreeMap::new();
+    for p in paths {
+        if let Some(label) = ext_to_language(p) {
+            *counts.entry(label).or_default() += 1;
+        }
+    }
+    if counts.is_empty() {
+        return "-".to_string();
+    }
+    let mut sorted: Vec<(&'static str, u64)> = counts.into_iter().collect();
+    sorted.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(b.0)));
+    sorted
+        .iter()
+        .take(3)
+        .map(|(k, _)| *k)
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Map a file extension to a coarse language label. Returns `None` for
+/// extensions we don't classify so they don't pollute the count.
+fn ext_to_language(path: &str) -> Option<&'static str> {
+    let ext = path.rsplit_once('.').map(|(_, e)| e.to_ascii_lowercase())?;
+    match ext.as_str() {
+        "rs" => Some("Rust"),
+        "ts" | "tsx" => Some("TypeScript"),
+        "js" | "jsx" | "mjs" | "cjs" => Some("JavaScript"),
+        "py" => Some("Python"),
+        "go" => Some("Go"),
+        "java" => Some("Java"),
+        "kt" | "kts" => Some("Kotlin"),
+        "swift" => Some("Swift"),
+        "rb" => Some("Ruby"),
+        "c" | "h" => Some("C"),
+        "cpp" | "cc" | "hpp" | "hh" | "cxx" => Some("C++"),
+        "cs" => Some("C#"),
+        "md" => Some("Markdown"),
+        "toml" => Some("TOML"),
+        "yaml" | "yml" => Some("YAML"),
+        "json" => Some("JSON"),
+        "sql" => Some("SQL"),
+        "sh" | "bash" | "zsh" => Some("Shell"),
+        "html" | "htm" => Some("HTML"),
+        "css" | "scss" | "sass" | "less" => Some("CSS"),
+        "vue" | "svelte" => Some("Frontend"),
+        _ => None,
+    }
+}
+
+/// Bucket shell events by their first command token (e.g. `cargo`,
+/// `git`, `npm`). Returns up to five buckets sorted desc by count then
+/// by token alphabetically.
+fn shell_signature_buckets(shells: &[ShellEvent]) -> serde_json::Value {
+    use serde_json::json;
+    if shells.is_empty() {
+        return json!([]);
+    }
+    let mut counts: BTreeMap<String, u64> = BTreeMap::new();
+    for s in shells {
+        let token = first_token(&s.detail);
+        if token.is_empty() {
+            continue;
+        }
+        *counts.entry(token).or_default() += 1;
+    }
+    let mut sorted: Vec<(String, u64)> = counts.into_iter().collect();
+    sorted.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    sorted
+        .into_iter()
+        .take(5)
+        .map(|(token, count)| json!({ "token": token, "count": count }))
+        .collect::<Vec<_>>()
+        .into()
+}
+
+fn first_token(s: &str) -> String {
+    s.split_whitespace()
+        .next()
+        .unwrap_or("")
+        .trim_matches(|c: char| !c.is_alphanumeric() && c != '-' && c != '_' && c != '.')
+        .to_string()
+}
+
 /// Width of the before/after context window around a file touch.
 const PROVENANCE_WINDOW_MINUTES: i64 = 5;
 

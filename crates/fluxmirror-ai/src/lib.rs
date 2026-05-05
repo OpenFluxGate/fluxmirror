@@ -19,6 +19,7 @@
 pub mod anomaly_story;
 pub mod budget;
 pub mod cache;
+pub mod daily_narrative;
 pub mod prompts;
 pub mod provider;
 pub mod redact_outbound;
@@ -33,6 +34,7 @@ use fluxmirror_store::SqliteStore;
 
 pub use anomaly_story::synthesise_anomaly;
 pub use budget::Budget;
+pub use daily_narrative::synthesise_daily;
 pub use provider::{AnthropicProvider, OllamaProvider, Provider};
 pub use redact_outbound::redact_outbound;
 pub use session_intent::synthesise_session_intents;
