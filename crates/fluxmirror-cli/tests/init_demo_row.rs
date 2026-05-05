@@ -45,6 +45,9 @@ fn non_interactive_default_inserts_exactly_one_demo_row() {
     let output = fluxmirror_bin()
         .env("HOME", home.path())
         .env_remove("USERPROFILE")
+        .env_remove("XDG_CONFIG_HOME")
+        .env_remove("XDG_DATA_HOME")
+        .env_remove("XDG_CACHE_HOME")
         .env("FLUXMIRROR_DB", &db)
         .args([
             "init",
@@ -79,6 +82,9 @@ fn second_init_is_idempotent() {
         let output = fluxmirror_bin()
             .env("HOME", home.path())
             .env_remove("USERPROFILE")
+            .env_remove("XDG_CONFIG_HOME")
+            .env_remove("XDG_DATA_HOME")
+            .env_remove("XDG_CACHE_HOME")
             .env("FLUXMIRROR_DB", &db)
             .args([
                 "init",
@@ -110,6 +116,9 @@ fn no_demo_row_opts_out() {
     let output = fluxmirror_bin()
         .env("HOME", home.path())
         .env_remove("USERPROFILE")
+        .env_remove("XDG_CONFIG_HOME")
+        .env_remove("XDG_DATA_HOME")
+        .env_remove("XDG_CACHE_HOME")
         .env("FLUXMIRROR_DB", &db)
         .args([
             "init",
